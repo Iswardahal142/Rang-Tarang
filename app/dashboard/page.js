@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import AuthWrapper from '../../components/AuthWrapper';
-import BottomNav from '../../components/BottomNav';
+
 import { ToastProvider, useToast } from '../../components/Toast';
 
 function formatViews(n) {
@@ -325,7 +325,7 @@ function DashboardPage({ user }) {
           </div>
         </>}
       </div>
-      <BottomNav userInitial={initial} />
+      </>
     </div>
   );
 }
