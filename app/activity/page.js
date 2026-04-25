@@ -138,7 +138,6 @@ function ActivityPage({ user }) {
           </div>
         ))}
       </div>
-      </>
     </div>
   );
 }
