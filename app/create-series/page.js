@@ -259,14 +259,7 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
           return hasUnuploaded ? (
             <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{ background: '#333', border: 'none', color: '#666', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6 }}>+ Nayi</button>
           ) : (
-            {(() => {
-          const hasUnuploaded = seriesList.some(s => checkUploaded(s) === false);
-          return hasUnuploaded ? (
-            <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{ background: '#333', border: 'none', color: '#666', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6 }}>+ Nayi</button>
-          ) : (
             <button onClick={openChoose} style={{ background: '#cc88ff', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Nayi</button>
-          );
-        })()}
           );
         })()}
       </div>
