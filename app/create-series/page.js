@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import AuthWrapper from '../../components/AuthWrapper';
-import BottomNav from '../../components/BottomNav';
+
 import { ToastProvider, useToast } from '../../components/Toast';
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
@@ -241,7 +241,7 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
             );
           })}
         </div>
-        <BottomNav userInitial={initial} />
+        </>
       </div>
     );
   }
@@ -384,7 +384,7 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
           );
         })}
       </div>
-      <BottomNav userInitial={initial} />
+      </>
     </div>
   );
 }
