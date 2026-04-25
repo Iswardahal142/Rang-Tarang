@@ -1,6 +1,5 @@
-// 📁 LOCATION: package.json
 {
-  "name": "kaali-raat",
+  "name": "rang-tarang",
   "version": "1.0.0",
   "private": true,
   "scripts": {
