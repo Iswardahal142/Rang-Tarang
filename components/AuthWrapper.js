@@ -46,15 +46,47 @@ export default function AuthWrapper({ children }) {
   // ── Loading ───────────────────────────────────
   if (status === 'loading') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#080008', gap: 12 }}>
-        <img src={LOGO} alt="RangTarang" style={{ width: 80, height: 80, borderRadius: '50%', border: '3px solid #ff6644' }} />
-        <span style={{ fontWeight: 800, fontSize: 20, background: 'linear-gradient(135deg,#ff6644,#cc88ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>रंग तरंग</span>
-        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          {[0, 0.2, 0.4].map((d, i) => (
-            <span key={i} style={{ width: 6, height: 6, background: '#ff6644', borderRadius: '50%', animation: 'dotPulse 1.2s ease-in-out infinite', animationDelay: `${d}s` }} />
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'#080008', gap:16 }}>
+        <style>{`
+          @keyframes s1 { 0%,15%,85%,100%{width:0} 30%,70%{width:60px} }
+          @keyframes s2 { 0%,30%,100%{width:0} 45%,85%{width:44px} }
+          @keyframes s3 { 0%,45%{width:0} 60%,100%{width:70px} }
+          @keyframes s4 { 0%,60%,100%{width:0} 75%,95%{width:34px} }
+          @keyframes brushX { 0%{left:52px} 25%{left:38px} 50%{left:62px} 75%{left:26px} 100%{left:52px} }
+          @keyframes brushY { 0%{top:10px} 25%{top:28px} 50%{top:46px} 75%{top:64px} 100%{top:10px} }
+          @keyframes dotPulse { 0%,80%,100%{opacity:.2;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
+        `}</style>
+
+        <div style={{ position:'relative', width:110, height:114 }}>
+          {/* Canvas SVG */}
+          <svg width="110" height="114" viewBox="0 0 110 114">
+            <line x1="15" y1="88" x2="4" y2="113" stroke="#6b4c2a" strokeWidth="3" strokeLinecap="round"/>
+            <line x1="95" y1="88" x2="106" y2="113" stroke="#6b4c2a" strokeWidth="3" strokeLinecap="round"/>
+            <line x1="55" y1="88" x2="55" y2="113" stroke="#6b4c2a" strokeWidth="2.5" strokeLinecap="round"/>
+            <rect x="8" y="5" width="94" height="83" rx="4" fill="#f5f0e8" stroke="#6b4c2a" strokeWidth="3"/>
+            <rect x="16" y="17" height="12" rx="4" fill="#ff6644" style={{width:0, animation:'s1 3.2s ease-in-out infinite'}}/>
+            <rect x="16" y="34" height="12" rx="4" fill="#cc55ff" style={{width:0, animation:'s2 3.2s ease-in-out infinite'}}/>
+            <rect x="16" y="51" height="12" rx="4" fill="#ff3388" style={{width:0, animation:'s3 3.2s ease-in-out infinite'}}/>
+            <rect x="16" y="68" height="10" rx="4" fill="#33aaff" style={{width:0, animation:'s4 3.2s ease-in-out infinite'}}/>
+          </svg>
+          {/* Brush */}
+          <div style={{ position:'absolute', animation:'brushX 3.2s ease-in-out infinite, brushY 3.2s ease-in-out infinite', pointerEvents:'none' }}>
+            <svg width="18" height="36" viewBox="0 0 18 36">
+              <rect x="7" y="0" width="4" height="22" rx="2" fill="#d4a96a"/>
+              <rect x="6" y="21" width="6" height="4" rx="1" fill="#999"/>
+              <ellipse cx="9" cy="30" rx="5" ry="6" fill="#ff6644"/>
+            </svg>
+          </div>
+        </div>
+
+        <span style={{ fontWeight:800, fontSize:22, background:'linear-gradient(135deg,#ff6644,#cc88ff)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+          रंग तरंग
+        </span>
+        <div style={{ display:'flex', gap:6 }}>
+          {[0,0.2,0.4].map((d,i) => (
+            <span key={i} style={{ width:6, height:6, background:'#ff6644', borderRadius:'50%', display:'inline-block', animation:'dotPulse 1.2s ease-in-out infinite', animationDelay:`${d}s` }}/>
           ))}
         </div>
-        <style>{`@keyframes dotPulse { 0%,80%,100%{opacity:.2;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }`}</style>
       </div>
     );
   }
