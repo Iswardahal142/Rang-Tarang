@@ -1,18 +1,19 @@
 // 📁 LOCATION: app/layout.js
 import './globals.css';
+import AppShell from '../components/AppShell';
 
 export const metadata = {
-  title:       'Rang Tarang',
-  description: 'AI-powered Hindi horror story generator',
+  title:       'रंग तरंग Studio',
+  description: 'RangTarang Kids YouTube Channel Studio',
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="hi">
       <body>
-        {children}
-        <script src="//cdn.jsdelivr.net/npm/eruda" />
-        <script dangerouslySetInnerHTML={{ __html: 'eruda.init()' }} />
+        <AppShell>
+          {children}
+        </AppShell>
       </body>
     </html>
   );
