@@ -23,69 +23,65 @@ function timeAgo(iso) {
   if (d < 365) return `${Math.floor(d / 30)} mahine pehle`;
   return `${Math.floor(d / 365)} saal pehle`;
 }
+function fmtDur(sec) {
+  if (!sec) return '';
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
 
-function YoutubeProfile({ ytData }) {
+// ── Channel Profile ───────────────────────────────────────
+function ChannelProfile({ ytData }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  function copyChannelLink() {
-    const url = `https://www.youtube.com/channel/${ytData?.channelId || ''}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  function copyLink() {
+    navigator.clipboard.writeText(`https://www.youtube.com/channel/${ytData?.channelId || ''}`).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
     });
   }
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)} style={{
-        background: '#1a0000', border: '1px solid #440000',
-        borderRadius: 10, padding: '7px 10px', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', gap: 5,
+        background: 'none', border: '1px solid #2a2a2a', borderRadius: '50%',
+        padding: 0, cursor: 'pointer', width: 34, height: 34, overflow: 'hidden',
       }}>
-        <svg width="22" height="15" viewBox="0 0 22 15">
-          <rect width="22" height="15" rx="4" fill="#FF0000"/>
-          <polygon points="9,3.5 9,11.5 16,7.5" fill="white"/>
-        </svg>
-        <span style={{ fontSize: 10, color: '#888' }}>▾</span>
+        {ytData?.channelThumb
+          ? <img src={ytData.channelThumb} alt="" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: '50%' }} />
+          : <div style={{ width: 34, height: 34, background: '#1a0000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📺</div>
+        }
       </button>
-
       {open && (
         <div style={{
-          position: 'absolute', top: 46, right: 0, zIndex: 999,
-          background: '#140000', border: '1px solid #440000',
-          borderRadius: 16, padding: 16, minWidth: 230,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
+          position: 'absolute', top: 42, right: 0, zIndex: 999,
+          background: '#0f0f0f', border: '1px solid #2a2a2a',
+          borderRadius: 16, padding: 16, minWidth: 240,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.7)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             {ytData?.channelThumb
-              ? <img src={ytData.channelThumb} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid #ff4400' }} />
-              : <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#330000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📺</div>
+              ? <img src={ytData.channelThumb} alt="" style={{ width: 46, height: 46, borderRadius: '50%', border: '2px solid #ff4400' }} />
+              : <div style={{ width: 46, height: 46, borderRadius: '50%', background: '#1a0000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>📺</div>
             }
             <div>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginBottom: 3 }}>{ytData?.channelName || 'Channel'}</div>
-              <div style={{ fontSize: 11, color: '#ff6644', fontWeight: 700 }}>
-                👥 {formatViews(parseInt(ytData?.subscriberCount || 0))} subscribers
-              </div>
+              <div style={{ fontSize: 11, color: '#ff6644', fontWeight: 700 }}>👥 {formatViews(parseInt(ytData?.subscriberCount || 0))} subscribers</div>
             </div>
           </div>
-          <button onClick={copyChannelLink} style={{
-            width: '100%', background: copied ? '#1a3a1a' : '#2a0000',
-            border: `1px solid ${copied ? '#44bb66' : '#550000'}`,
-            color: copied ? '#44bb66' : '#ff8866',
+          <button onClick={copyLink} style={{
+            width: '100%', background: copied ? '#1a3a1a' : '#1a1a1a',
+            border: `1px solid ${copied ? '#44bb66' : '#333'}`,
+            color: copied ? '#44bb66' : '#aaa',
             borderRadius: 10, padding: '10px 14px',
             fontSize: 12, fontWeight: 700, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            transition: 'all 0.2s',
           }}>
             {copied ? '✅ Copied!' : '📋 Channel Link Copy Karo'}
           </button>
@@ -95,46 +91,76 @@ function YoutubeProfile({ ytData }) {
   );
 }
 
-function VideoCard({ video, rank, isTop }) {
-  const views = video.viewCount || 0;
-  const likes = video.likeCount || 0;
-  const ctr = views > 0 ? ((likes / views) * 100).toFixed(1) : '0';
+// ── Top Banner Video ──────────────────────────────────────
+function TopVideoBanner({ video }) {
   return (
     <a href={`https://youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noopener noreferrer"
-      style={{
-        display: 'block', textDecoration: 'none',
-        background: isTop ? 'linear-gradient(135deg,#0a0000,#1a0500)' : '#0f0f0f',
-        border: `1px solid ${isTop ? '#ff4400' : '#1e1e1e'}`,
-        borderRadius: 12, overflow: 'hidden', position: 'relative',
-      }}>
-      {rank && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, background: isTop ? '#ff4400' : '#333', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20 }}>#{rank}</div>}
-      {isTop && <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, background: '#ff4400', color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 20 }}>🔥 TOP</div>}
-      <div style={{ position: 'relative', paddingTop: '56.25%', background: '#111' }}>
+      style={{ display: 'block', textDecoration: 'none', borderRadius: 16, overflow: 'hidden', position: 'relative', background: '#0a0000' }}>
+      {/* Thumbnail */}
+      <div style={{ position: 'relative', paddingTop: '56.25%' }}>
         {video.thumbnail
           ? <img src={video.thumbnail} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>▶</div>
+          : <div style={{ position: 'absolute', inset: 0, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>▶</div>
         }
-      </div>
-      <div style={{ padding: '10px 12px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#eee', lineHeight: 1.4, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: "'Noto Sans Devanagari', sans-serif" }}>{video.title}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#ff6644', fontWeight: 700 }}>👁 {formatViews(views)}</span>
-          <span style={{ fontSize: 10, color: '#444' }}>·</span>
-          <span style={{ fontSize: 10, color: '#555' }}>{timeAgo(video.publishedAt)}</span>
-          <span style={{ fontSize: 10, color: '#444' }}>·</span>
-          <span style={{ fontSize: 10, color: '#666' }}>👍 {formatViews(likes)} ({ctr}%)</span>
+        {/* Gradient overlay */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 50%)' }} />
+        {/* TOP badge */}
+        <div style={{ position: 'absolute', top: 10, left: 10, background: '#ff4400', color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>🔥 BEST VIDEO</div>
+        {/* Duration */}
+        {video.durationSec > 0 && (
+          <div style={{ position: 'absolute', bottom: 60, right: 10, background: 'rgba(0,0,0,0.85)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 4 }}>
+            {video.isShort ? '⚡ Short' : fmtDur(video.durationSec)}
+          </div>
+        )}
+        {/* Title + stats overlay */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 14px' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.4, marginBottom: 6, fontFamily: "'Noto Sans Devanagari',sans-serif" }}>{video.title}</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <span style={{ fontSize: 12, color: '#ff6644', fontWeight: 700 }}>👁 {formatViews(video.viewCount)}</span>
+            <span style={{ fontSize: 12, color: '#aaa' }}>👍 {formatViews(video.likeCount)}</span>
+            <span style={{ fontSize: 12, color: '#666' }}>{timeAgo(video.publishedAt)}</span>
+          </div>
         </div>
       </div>
     </a>
   );
 }
 
+// ── Small Video Card ──────────────────────────────────────
+function SmallCard({ video, rank }) {
+  return (
+    <a href={`https://youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noopener noreferrer"
+      style={{ display: 'flex', gap: 10, textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid #1a1a1a' }}>
+      {/* Thumbnail */}
+      <div style={{ position: 'relative', width: 110, height: 62, flexShrink: 0, borderRadius: 8, overflow: 'hidden', background: '#111' }}>
+        {video.thumbnail
+          ? <img src={video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>▶</div>
+        }
+        {video.isShort && (
+          <div style={{ position: 'absolute', bottom: 3, right: 3, background: 'rgba(0,0,0,0.85)', color: '#ff4400', fontSize: 8, fontWeight: 800, padding: '1px 5px', borderRadius: 3 }}>⚡ SHORT</div>
+        )}
+        {!video.isShort && video.durationSec > 0 && (
+          <div style={{ position: 'absolute', bottom: 3, right: 3, background: 'rgba(0,0,0,0.85)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3 }}>{fmtDur(video.durationSec)}</div>
+        )}
+      </div>
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#ddd', lineHeight: 1.4, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: "'Noto Sans Devanagari',sans-serif" }}>{video.title}</div>
+        <div style={{ fontSize: 10, color: '#ff6644', fontWeight: 700 }}>👁 {formatViews(video.viewCount)}</div>
+        <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>{timeAgo(video.publishedAt)}</div>
+      </div>
+    </a>
+  );
+}
+
+// ── Main Dashboard ────────────────────────────────────────
 function DashboardPage({ user }) {
-  const [ytData, setYtData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('views');
+  const [ytData, setYtData]     = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [filter, setFilter]     = useState('all');
+  const [sortBy, setSortBy]     = useState('views');
   const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
 
   useEffect(() => { fetchYT(); }, []);
@@ -151,12 +177,14 @@ function DashboardPage({ user }) {
   }
 
   const videos = ytData?.videos || [];
+
   const filtered = videos.filter(v => {
     if (filter === 'all') return true;
-    const title = (v.title || '').toLowerCase();
-    const isShort = title.includes('short') || (v.duration && v.duration <= 60);
-    return filter === 'short' ? isShort : !isShort;
+    if (filter === 'short') return v.isShort === true;
+    if (filter === 'long') return v.isShort === false;
+    return true;
   });
+
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === 'views') return (b.viewCount || 0) - (a.viewCount || 0);
     if (sortBy === 'likes') return (b.likeCount || 0) - (a.likeCount || 0);
@@ -166,9 +194,11 @@ function DashboardPage({ user }) {
   const totalViews = videos.reduce((a, v) => a + (v.viewCount || 0), 0);
   const totalLikes = videos.reduce((a, v) => a + (v.likeCount || 0), 0);
   const avgViews = videos.length ? Math.round(totalViews / videos.length) : 0;
+  const topVideo = [...videos].sort((a,b) => (b.viewCount||0)-(a.viewCount||0))[0];
 
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
+      {/* TOP BAR */}
       <div className="mini-topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18 }}>🌈</span>
@@ -176,15 +206,18 @@ function DashboardPage({ user }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={fetchYT} style={{ background: 'none', border: '1px solid #333', color: '#666', borderRadius: 8, padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>🔄</button>
-          {ytData && <YoutubeProfile ytData={ytData} />}
+          {ytData && <ChannelProfile ytData={ytData} />}
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
         {loading && <div style={{ textAlign: 'center', padding: 40, color: '#555' }}><div className="spinner" style={{ margin: '0 auto 12px', borderTopColor: '#ff4400' }} /><div style={{ fontSize: 12 }}>Loading...</div></div>}
         {error && <div style={{ background: '#1a0000', border: '1px solid #440000', borderRadius: 12, padding: 16, fontSize: 12, color: '#ff6666' }}>⚠️ {error}</div>}
 
         {!loading && !error && ytData && <>
+
+          {/* STATS */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             {[
               { label: 'Total Views', value: formatViews(totalViews), icon: '👁', color: '#ff6644' },
@@ -199,15 +232,21 @@ function DashboardPage({ user }) {
             ))}
           </div>
 
-          {sorted[0] && <div>
-            <div style={{ fontSize: 10, color: '#ff4400', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>🔥 Best Performing</div>
-            <VideoCard video={sorted[0]} rank={1} isTop={true} />
-          </div>}
+          {/* TOP VIDEO BANNER */}
+          {topVideo && <>
+            <div style={{ fontSize: 10, color: '#ff4400', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>🔥 Best Performing</div>
+            <TopVideoBanner video={topVideo} />
+          </>}
 
+          {/* FILTER + SORT */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: 6, flex: 1 }}>
               {[{ key: 'all', label: '🎬 All' }, { key: 'short', label: '⚡ Shorts' }, { key: 'long', label: '📹 Long' }].map(f => (
-                <button key={f.key} onClick={() => setFilter(f.key)} style={{ flex: 1, padding: '8px 4px', borderRadius: 20, border: 'none', cursor: 'pointer', background: filter === f.key ? '#ff4400' : '#1a1a1a', color: filter === f.key ? '#fff' : '#666', fontSize: 11, fontWeight: 700 }}>{f.label}</button>
+                <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                  flex: 1, padding: '8px 4px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                  background: filter === f.key ? '#ff4400' : '#1a1a1a',
+                  color: filter === f.key ? '#fff' : '#666', fontSize: 11, fontWeight: 700,
+                }}>{f.label}</button>
               ))}
             </div>
             <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ background: '#1a1a1a', border: '1px solid #333', color: '#888', borderRadius: 20, padding: '8px 10px', fontSize: 11, outline: 'none' }}>
@@ -217,29 +256,13 @@ function DashboardPage({ user }) {
             </select>
           </div>
 
-          <div style={{ background: '#0a0a0f', border: '1px solid #1a1a2e', borderRadius: 14, padding: 14 }}>
-            <div style={{ fontSize: 10, color: '#4488ff', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 12 }}>📊 Top 5 Analysis</div>
-            {sorted.slice(0, 5).map((v, i) => {
-              const pct = Math.round((v.viewCount / (sorted[0]?.viewCount || 1)) * 100);
-              return <div key={v.videoId} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: '#555', width: 14 }}>#{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: 11, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'Noto Sans Devanagari',sans-serif" }}>{v.title}</span>
-                  <span style={{ fontSize: 11, color: '#ff6644', fontWeight: 700 }}>{formatViews(v.viewCount)}</span>
-                </div>
-                <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: pct + '%', background: i === 0 ? '#ff4400' : '#333', borderRadius: 4 }} />
-                </div>
-              </div>;
-            })}
-          </div>
-
-          <div>
-            <div style={{ fontSize: 10, color: '#888', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>📹 All Videos ({sorted.length})</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {sorted.map((v, i) => <VideoCard key={v.videoId} video={v} rank={i + 1} isTop={i === 0} />)}
-              {!sorted.length && <div style={{ textAlign: 'center', padding: 24, color: '#444', fontSize: 12 }}>Koi video nahi mili.</div>}
+          {/* VIDEO LIST */}
+          <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 14, padding: '4px 14px' }}>
+            <div style={{ fontSize: 10, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, padding: '10px 0 4px' }}>
+              📹 {sorted.length} Videos
             </div>
+            {sorted.map((v, i) => <SmallCard key={v.videoId} video={v} rank={i + 1} />)}
+            {!sorted.length && <div style={{ textAlign: 'center', padding: 20, color: '#444', fontSize: 12 }}>Koi video nahi mili.</div>}
           </div>
         </>}
       </div>
