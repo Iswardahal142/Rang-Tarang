@@ -241,7 +241,6 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
             );
           })}
         </div>
-        </>
       </div>
     );
   }
@@ -384,7 +383,6 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
           );
         })}
       </div>
-      </>
     </div>
   );
 }
