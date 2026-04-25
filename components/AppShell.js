@@ -114,7 +114,6 @@ export default function AppShell({ children }) {
 
         {/* Center — Logo + Name */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <img src={LOGO} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #ff6644', objectFit: 'cover' }} />
           <span style={{ fontWeight: 800, fontSize: 15, background: 'linear-gradient(135deg,#ff6644,#cc88ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             रंग तरंग
           </span>
