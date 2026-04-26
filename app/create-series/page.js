@@ -48,17 +48,18 @@ function getSeriesType(seriesName) {
   return 'general';
 }
 
-function getQuestionText(type, forImage = false) {
+function getQuestionText(type) {
+  // Returns clean base question — prefix (तो बताओ/अब बताओ) added separately in video prompt
   switch(type) {
-    case 'number':    return forImage ? 'यह कौनसा नंबर है?' : 'तो बताओ.. यह कौनसा नंबर है?';
-    case 'counting':  return forImage ? 'यह कितने हैं?' : 'तो बताओ.. यह कितने हैं?';
-    case 'color':     return forImage ? 'कौनसा रंग है?' : 'तो बताओ.. कौनसा रंग है?';
-    case 'shape':     return forImage ? 'यह कौनसी आकृति है?' : 'तो बताओ.. यह कौनसी आकृति है?';
-    case 'alphabet':  return forImage ? 'यह कौनसा अक्षर है?' : 'तो बताओ.. यह कौनसा अक्षर है?';
-    case 'vegetable': return forImage ? 'यह कौनसी सब्ज़ी है?' : 'तो बताओ.. यह कौनसी सब्ज़ी है?';
-    case 'fruit':     return forImage ? 'यह कौनसा फल है?' : 'तो बताओ.. यह कौनसा फल है?';
-    case 'animal':    return forImage ? 'यह कौनसा जानवर है?' : 'तो बताओ.. यह कौनसा जानवर है?';
-    default:          return forImage ? 'यह क्या है?' : 'तो बताओ.. यह क्या है?';
+    case 'number':    return 'यह कौनसा नंबर है?';
+    case 'counting':  return 'यह कितने हैं?';
+    case 'color':     return 'कौनसा रंग है?';
+    case 'shape':     return 'यह कौनसी आकृति है?';
+    case 'alphabet':  return 'यह कौनसा अक्षर है?';
+    case 'vegetable': return 'यह कौनसी सब्ज़ी है?';
+    case 'fruit':     return 'यह कौनसा फल है?';
+    case 'animal':    return 'यह कौनसा जानवर है?';
+    default:          return 'यह क्या है?';
   }
 }
 function getQuestionTextPart2(type) {
@@ -119,7 +120,7 @@ function buildOutroVideoPrompt() { return `Use reference image exactly. No text 
 
 function buildImagePrompt(item, seriesName) {
   const type = getSeriesType(seriesName);
-  const q = getQuestionText(type, true);
+  const q = getQuestionText(type);
   // ✅ FIX: "?" removed from image prompt
   return `Use reference background exactly.
 Use reference teacher exactly.
@@ -129,15 +130,12 @@ Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other tex
 
 function buildVideoPrompt(item, seriesName, itemIndex = 0) {
   const type = getSeriesType(seriesName);
-  // Item 0 (first) → "तो बताओ", Item 1+ → "अब बताओ"
-  const prefix = itemIndex === 0 ? 'तो बताओ..' : 'अब बताओ..';
-  const baseQ = getQuestionText(type, true); // same as image
-  // Strip any existing prefix from baseQ if present
-  const cleanQ = baseQ.replace(/^(तो बताओ\.\.|अब बताओ\.\.|यह )/,'').trim();
-  const q = `${prefix} ${cleanQ}`;
-  return `Use reference scene exactly. This video continues from the image frame.
+  const baseQ = getQuestionText(type);
+  // Item 0 → "तो बताओ", Item 1+ → "अब बताओ"
+  const q = itemIndex === 0 ? `तो बताओ.. ${baseQ}` : `अब बताओ.. ${baseQ}`;
+  return `Use reference scene exactly.
 Teacher points to ${item.object} curiously.
-Bold text "${q}" already visible at bottom center (same as image) — keep it, do NOT add new question text anywhere else.
+Bold text "${q}" appears at bottom center.
 Teacher asks in Hindi: "${q}". Pause 2 seconds.
 Then bottom text smoothly transforms into glowing bold "${item.name.toUpperCase()}" with scale-up animation.
 Answer stays visible until the very last frame.
