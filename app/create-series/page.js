@@ -71,21 +71,21 @@ function getQuestionTextPart2(type) {
 }
 
 function buildIntroImagePrompt(n) { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${n}" floating center with colorful sparkles. 9:16 vertical. Pixar style. No other text.`; }
-function buildIntroVideoPrompt(n) { return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n} — चलो शुरू करते हैं!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. pure indian accent Hindi audio only.`; }
+function buildIntroVideoPrompt(n) { return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${n} — chalo shuru karte hain!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`; }
 function buildOutroImagePrompt() { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, waving goodbye with big smile. Colorful sparkles and stars floating around. 9:16 vertical. Pixar style. No text.`; }
-function buildOutroVideoPrompt() { return `Use reference image exactly. No text on screen. Character center, waves goodbye, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" Soft outro music. 8 seconds. Smooth. No glitch.pure indian accent Hindi audio only.`; }
+function buildOutroVideoPrompt() { return `Use reference image exactly. No text on screen. Character center, waves goodbye, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" Soft outro music. 8 seconds. Smooth. No glitch. Hindi audio only.`; }
 function buildImagePrompt(item, seriesName) {
   const type = getSeriesType(seriesName);
   const q = getQuestionText(type, true);
   return `Use reference background exactly.
 Use reference teacher exactly.
-Teacher left side pointing right with curious expression. Big question mark "?" glowing center top. ${item.object} clearly center right.
-Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style.`;
+Teacher left side pointing right with curious expression. ${item.object} clearly center right with a big glowing "?" floating directly above it.
+Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text.`;
 }
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
   const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
-  return `Use reference scene exactly. Teacher points to ${item.object} curiously. "?" appears with sparkles. Teacher asks in Hindi: "${q}". Pause 2 seconds. "?" mark disappears and "${item.name.toUpperCase()}" glows center top. Text changes to "${item.name}" at bottom with sparkles. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher claps and thumbs up without moving. 8 seconds. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
+  return `Use reference scene exactly. Teacher points to ${item.object} curiously. "?" appears floating directly above the ${item.object} with sparkles. Teacher asks in Hindi: "${q}". Pause 2 seconds. "?" disappears completely. Glowing bold "${item.name.toUpperCase()}" text appears at bottom center only — nothing on top. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher claps and thumbs up without moving. 8 seconds. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
