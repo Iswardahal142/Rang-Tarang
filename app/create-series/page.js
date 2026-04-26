@@ -44,48 +44,65 @@ function getSeriesType(seriesName) {
   if (n.includes('animal')) return 'animal';
   if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter')) return 'alphabet';
   if (n.includes('shape')) return 'shape';
-  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return 'vegetable';
+  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi') || n.includes('sabziyon')) return 'vegetable';
   return 'general';
 }
 
 function getQuestionText(type, forImage = false) {
-  const p = forImage ? '' : 'तो बताओ.. ';
   switch(type) {
-    case 'number':   return forImage ? 'यह कौनसा नंबर है?' : 'तो बताओ.. यह कौनसा नंबर है?';
-    case 'counting': return forImage ? 'यह कितने हैं?' : 'तो बताओ.. यह कितने हैं?';
-    case 'color':    return forImage ? 'कौनसा रंग है?' : 'तो बताओ.. कौनसा रंग है?';
-    case 'shape':    return forImage ? 'यह कौनसी आकृति है?' : 'तो बताओ.. यह कौनसी आकृति है?';
-    case 'alphabet': return forImage ? 'यह कौनसा अक्षर है?' : 'तो बताओ.. यह कौनसा अक्षर है?';
-    default:         return forImage ? 'यह क्या है?' : 'तो बताओ.. यह क्या है?';
+    case 'number':    return forImage ? 'यह कौनसा नंबर है?' : 'तो बताओ.. यह कौनसा नंबर है?';
+    case 'counting':  return forImage ? 'यह कितने हैं?' : 'तो बताओ.. यह कितने हैं?';
+    case 'color':     return forImage ? 'कौनसा रंग है?' : 'तो बताओ.. कौनसा रंग है?';
+    case 'shape':     return forImage ? 'यह कौनसी आकृति है?' : 'तो बताओ.. यह कौनसी आकृति है?';
+    case 'alphabet':  return forImage ? 'यह कौनसा अक्षर है?' : 'तो बताओ.. यह कौनसा अक्षर है?';
+    case 'vegetable': return forImage ? 'यह कौनसी सब्ज़ी है?' : 'तो बताओ.. यह कौनसी सब्ज़ी है?';
+    case 'fruit':     return forImage ? 'यह कौनसा फल है?' : 'तो बताओ.. यह कौनसा फल है?';
+    case 'animal':    return forImage ? 'यह कौनसा जानवर है?' : 'तो बताओ.. यह कौनसा जानवर है?';
+    default:          return forImage ? 'यह क्या है?' : 'तो बताओ.. यह क्या है?';
   }
 }
 function getQuestionTextPart2(type) {
   switch(type) {
-    case 'number':   return 'अब बताओ.. यह कौनसा नंबर है?';
-    case 'counting': return 'अब बताओ.. यह कितने हैं?';
-    case 'color':    return 'अब बताओ.. कौनसा रंग है?';
-    case 'shape':    return 'अब बताओ.. यह कौनसी आकृति है?';
-    case 'alphabet': return 'अब बताओ.. यह कौनसा अक्षर है?';
-    default:         return 'अब बताओ.. यह क्या है?';
+    case 'number':    return 'अब बताओ.. यह कौनसा नंबर है?';
+    case 'counting':  return 'अब बताओ.. यह कितने हैं?';
+    case 'color':     return 'अब बताओ.. कौनसा रंग है?';
+    case 'shape':     return 'अब बताओ.. यह कौनसी आकृति है?';
+    case 'alphabet':  return 'अब बताओ.. यह कौनसा अक्षर है?';
+    case 'vegetable': return 'अब बताओ.. यह कौनसी सब्ज़ी है?';
+    case 'fruit':     return 'अब बताओ.. यह कौनसा फल है?';
+    case 'animal':    return 'अब बताओ.. यह कौनसा जानवर है?';
+    default:          return 'अब बताओ.. यह क्या है?';
   }
 }
 
 function buildIntroImagePrompt(n) { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${n}" floating center with colorful sparkles. 9:16 vertical. Pixar style. No other text.`; }
-function buildIntroVideoPrompt(n) { return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${n} — chalo shuru karte hain!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`; }
+
+// ✅ FIX: part number mention in intro video
+function buildIntroVideoPrompt(n, part = 1) {
+  const partMention = part > 1 ? ` — yeh hai part ${part}` : '';
+  return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${n}${partMention} — chalo shuru karte hain!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
+}
+
 function buildOutroImagePrompt() { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, waving goodbye with big smile. Colorful sparkles and stars floating around. 9:16 vertical. Pixar style. No text.`; }
 function buildOutroVideoPrompt() { return `Use reference image exactly. No text on screen. Character center, waves goodbye, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" Soft outro music. 8 seconds. Smooth. No glitch. Hindi audio only.`; }
+
 function buildImagePrompt(item, seriesName) {
   const type = getSeriesType(seriesName);
   const q = getQuestionText(type, true);
+  // ✅ FIX: "?" removed from image prompt
   return `Use reference background exactly.
 Use reference teacher exactly.
-Teacher left side pointing right with curious expression. ${item.object} clearly center right with a big glowing "?" floating directly above it.
-Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text.`;
+Teacher left side pointing right with curious expression. ${item.object} clearly center right.
+Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text. No floating symbols above the object.`;
 }
+
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
   const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
-  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Bold text "${q}" stays visible at bottom throughout. Teacher asks in Hindi: "${q}". Pause 2 seconds. Glowing bold "${item.name.toUpperCase()}" replaces the question text at bottom center. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher claps and thumbs up. Answer text stays until last frame. No floating symbols or marks above the object. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;}
+  // ✅ FIX: No separate text instruction — image already has question text at bottom.
+  // Video just animates existing bottom text: question → answer reveal with sparkle.
+  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Teacher asks in Hindi: "${q}". Pause 2 seconds. The question text at bottom center animates away and glowing bold "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up. No floating symbols or marks above the object at any point. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
+}
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
@@ -136,7 +153,6 @@ function CreateSeriesPage({ user }) {
   // ── YouTube check: title se match karo ──────────────
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
-    // Agar saved title hai toh usi se match karo, warna naam se
     const matchStr = (series.ytTitle || series.name || '').toLowerCase();
     return ytVideos.some(v => (v.title || '').toLowerCase().includes(matchStr));
   }
@@ -261,7 +277,8 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
 
     const isFirstPart = (s.part || 1) === 1;
     const sections = [
-      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name) }] },
+      // ✅ FIX: part passed to buildIntroVideoPrompt
+      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) }] },
       ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
     ];
