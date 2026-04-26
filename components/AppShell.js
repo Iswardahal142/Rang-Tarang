@@ -10,8 +10,9 @@ const TABS = [
   { key: 'dashboard',     icon: '📺', label: 'Dashboard',  path: '/dashboard'     },
   { key: 'activity',      icon: '💬', label: 'Activity',   path: '/activity'      },
   { key: 'create-series', icon: '🎬', label: 'Series',     path: '/create-series' },
+  { key: 'long-video',    icon: '🎥', label: 'Long Video', path: '/long-video'    },
 ];
-const TAB_COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff' };
+const TAB_COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff', 'long-video': '#ffaa00' };
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
@@ -114,6 +115,7 @@ export default function AppShell({ children }) {
 
         {/* Center — Logo + Name */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <img src={LOGO} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #ff6644', objectFit: 'cover' }} />
           <span style={{ fontWeight: 800, fontSize: 15, background: 'linear-gradient(135deg,#ff6644,#cc88ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             रंग तरंग
           </span>
@@ -204,10 +206,19 @@ export default function AppShell({ children }) {
           overflow: 'hidden',
           transition: 'width 0.25s ease',
         }}>
-          <div style={{ width: 220, padding: 20, opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.15s' }}>
-            <div style={{ fontSize: 11, color: '#444', textAlign: 'center', marginTop: 40, letterSpacing: 1 }}>
-              Coming soon...
-            </div>
+          <div style={{ width: 220, padding: '16px 0', opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.15s' }}>
+            <div style={{ fontSize: 10, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, padding: '0 16px', marginBottom: 12 }}>Menu</div>
+            {TABS.map(tab => {
+              const active = pathname.startsWith(tab.path);
+              const color  = TAB_COLORS[tab.key];
+              return (
+                <button key={tab.key} onClick={() => { router.push(tab.path); setSidebarOpen(false); }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: active ? `${color}12` : 'none', border: 'none', borderLeft: active ? `3px solid ${color}` : '3px solid transparent', cursor: 'pointer', textAlign: 'left' }}>
+                  <span style={{ fontSize: 20 }}>{tab.icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? color : '#666' }}>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </aside>
       )}
