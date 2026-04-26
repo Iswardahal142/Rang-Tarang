@@ -47,10 +47,11 @@ function getSeriesType(topic) {
   return 'general';
 }
 function getQuestion(type) {
+  // Clean base question — prefix (तो बताओ/अब बताओ) added separately in video prompt
   switch(type) {
     case 'number':    return 'यह कौनसा नंबर है?';
     case 'alphabet':  return 'यह कौनसा अक्षर है?';
-    case 'color':     return 'यह कौनसा रंग है?';
+    case 'color':     return 'कौनसा रंग है?';
     case 'shape':     return 'यह कौनसी आकृति है?';
     case 'fruit':     return 'यह कौनसा फल है?';
     case 'animal':    return 'यह कौनसा जानवर है?';
@@ -68,21 +69,25 @@ function buildItemImagePrompt(item, type, question) {
   return `Use reference background exactly. Use reference teacher character exactly.
 Teacher center-left, pointing right with curious excited expression.
 ${centerDesc}.
-Bold question text "${question}" at TOP center with sparkles.
+Bold question text "${question}" at bottom center.
 No "?" symbol anywhere. No question mark floating anywhere. No other text.
 16:9 horizontal ratio. Pixar 3D style. Bright colorful scene.`;
 }
 
-function buildItemVideoPrompt(item, type, question) {
+function buildItemVideoPrompt(item, type, question, itemIndex = 0) {
   const isSymbol = type === 'number' || type === 'alphabet';
   const centerDesc = isSymbol ? `large glowing "${item}" center` : `${item} center`;
+  // Item 0 → "तो बताओ", Item 1+ → "अब बताओ"
+  const prefix = itemIndex === 0 ? 'तो बताओ..' : 'अब बताओ..';
+  const q = `${prefix} ${question}`;
   return `Use reference scene exactly. 16:9 horizontal ratio.
 Teacher center-left pointing at ${centerDesc} on right.
-Teacher asks in Hindi: "${question}". Pause 2 seconds.
-Question text at top center animates away → glowing bold "${item.toUpperCase()}" appears at top center with sparkle animation. Answer stays visible until very last frame.
+Teacher asks in Hindi: "${q}". Pause 2 seconds.
+Then the question text at bottom center disappears and "${item.toUpperCase()}" appears at the exact same position — smooth reveal, no scale animation, just clean replace.
+Answer stays visible until the very last frame.
 Teacher says in Hindi: "यह ${item} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
 No "?" or question mark anywhere. No floating symbols. No background music.
-8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
+8 seconds total. Smooth. No glitch. Pure Hindi Indian accent audio only.`;
 }
 
 function buildIntroImagePrompt(topic) {
@@ -497,7 +502,7 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
           return (
             <SectionCard key={gi} skey={skey} title={`${gi + 1}. ${item}`} color="#ffaa00" done={!!doneSections[skey]}>
               <PromptBox label="🖼 IMAGE PROMPT" text={buildItemImagePrompt(item, type, question)} pkey={`img_${gi}`} color="#4488ff" />
-              <PromptBox label="🎬 VIDEO PROMPT" text={buildItemVideoPrompt(item, type, question)} pkey={`vid_${gi}`} color="#cc88ff" />
+              <PromptBox label="🎬 VIDEO PROMPT" text={buildItemVideoPrompt(item, type, question, gi)} pkey={`vid_${gi}`} color="#cc88ff" />
               <button onClick={() => markSectionDone(skey)} disabled={!!doneSections[skey]}
                 style={{ background: doneSections[skey] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections[skey] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections[skey] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections[skey] ? 'not-allowed' : 'pointer', width: '100%' }}>
                 {doneSections[skey] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
