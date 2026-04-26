@@ -185,6 +185,31 @@ const PRESETS = [
 
 const PER_PAGE = 10;
 
+// ── Smart preset filter based on existing videos ─────
+function getAvailablePresets(list) {
+  const topics = list.map(v => (v.topic || '').toLowerCase());
+  const has10  = topics.some(t => t.includes('1 to 10'));
+  const has50  = topics.some(t => t.includes('1 to 50'));
+  const has100 = topics.some(t => t.includes('1 to 100'));
+
+  return PRESETS.filter(p => {
+    if (p.label === '1–10') {
+      // Hide if 1-10, 1-50, or 1-100 already exists
+      return !has10 && !has50 && !has100;
+    }
+    if (p.label === '1–50') {
+      // Hide if 1-50 or 1-100 already exists
+      // Show if 1-10 exists (user can still do 1-50 as separate)
+      return !has50 && !has100;
+    }
+    if (p.label === '1–100') {
+      // Hide if 1-100 already exists
+      return !has100;
+    }
+    return true; // all other presets always visible
+  });
+}
+
 // ── MAIN ────────────────────────────────────────────────
 function LongVideoPage({ user }) {
   const toast = useToast();
@@ -218,9 +243,14 @@ function LongVideoPage({ user }) {
   }
 
   function checkUploaded(video) {
-    if (!ytVideos.length) return null;
-    const matchStr = (video.ytTitle || video.topic || '').toLowerCase();
-    return ytVideos.some(v => (v.title || '').toLowerCase().includes(matchStr));
+    if (ytChecking) return null; // still checking
+    if (!ytVideos.length) return false;
+    // Exact word-boundary match to avoid "1 to 10" matching "1 to 100"
+    const matchStr = (video.ytTitle || video.topic || '').toLowerCase().trim();
+    return ytVideos.some(v => {
+      const ytTitle = (v.title || '').toLowerCase().trim();
+      return ytTitle === matchStr || ytTitle.startsWith(matchStr + ' ') || ytTitle.endsWith(' ' + matchStr) || ytTitle.includes(' ' + matchStr + ' ');
+    });
   }
 
   async function createVideo() {
@@ -228,6 +258,21 @@ function LongVideoPage({ user }) {
     const range = selPreset ? selPreset.range : customRange.trim();
     const type  = selPreset ? selPreset.type  : getSeriesType(customTopic);
     if (!topic) return toast('⚠️ Topic daalo!');
+    // ── Number overlap check ──
+    if (type === 'number' && range) {
+      const newNums = range.match(/\d+/g)?.map(Number);
+      if (newNums && newNums.length >= 2) {
+        const [newFrom, newTo] = newNums;
+        const overlap = list.find(v => {
+          if (v.type !== 'number') return false;
+          const existNums = (v.range || '').match(/\d+/g)?.map(Number);
+          if (!existNums || existNums.length < 2) return false;
+          const [eFrom, eTo] = existNums;
+          return newFrom >= eFrom && newTo <= eTo;
+        });
+        if (overlap) return toast(`⚠️ "${overlap.topic}" mein ye numbers already hain!`);
+      }
+    }
     setCreating(true);
     try {
       let items = [];
@@ -291,7 +336,7 @@ Generate 20 unique items.` }]);
               <div style={{ fontSize: 14, fontWeight: 800, color: '#ffaa00', marginBottom: 14, textAlign: 'center' }}>🎥 Naya Long Video</div>
               <div style={{ fontSize: 10, color: '#666', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>⚡ Quick Select</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                {PRESETS.map(p => (
+                {getAvailablePresets(list).map(p => (
                   <button key={p.label} onClick={() => setSelPreset(selPreset?.label === p.label ? null : p)}
                     style={{ background: selPreset?.label === p.label ? 'rgba(255,170,0,0.2)' : '#111', border: `1px solid ${selPreset?.label === p.label ? '#ffaa00' : '#333'}`, color: selPreset?.label === p.label ? '#ffaa00' : '#666', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {p.label}
