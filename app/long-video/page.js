@@ -197,6 +197,7 @@ function LongVideoPage({ user }) {
   const [customRange, setRange]   = useState('');
   const [creating, setCreating]   = useState(false);
   const [ytVideos, setYtVideos]   = useState([]);
+  const [ytChecking, setYtChecking] = useState(true); // true until fetchYT completes
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -207,11 +208,13 @@ function LongVideoPage({ user }) {
   }
 
   async function fetchYT() {
+    setYtChecking(true);
     try {
       const r = await fetch('/api/youtube');
       const d = await r.json();
       if (!d.error) setYtVideos(d.videos || []);
     } catch {}
+    setYtChecking(false);
   }
 
   function checkUploaded(video) {
@@ -248,27 +251,36 @@ Generate 20 unique items.` }]);
     setCreating(false);
   }
 
-  if (openVideo) return (
-    <DetailView
-      video={openVideo} user={user} toast={toast}
-      onBack={() => setOpenVideo(null)}
-      onDelete={async () => {
-        if (!confirm(`"${openVideo.topic}" delete karein?`)) return;
-        await deleteLongVideo(user.uid, openVideo.id);
-        toast('🗑 Deleted!'); setOpenVideo(null); loadList();
-      }}
-      onUpdate={updated => {
-        setList(l => l.map(v => v.id === updated.id ? updated : v));
-        setOpenVideo(updated);
-      }}
-    />
-  );
+  if (openVideo) {
+    const uploadedStatus = checkUploaded(openVideo);
+    return (
+      <DetailView
+        video={openVideo} user={user} toast={toast}
+        isUploaded={uploadedStatus}
+        ytChecking={ytChecking}
+        onBack={() => setOpenVideo(null)}
+        onDelete={async () => {
+          if (uploadedStatus === true) return toast('⚠️ YouTube pe upload hai — delete nahi ho sakta!');
+          if (!confirm(`"${openVideo.topic}" delete karein?`)) return;
+          await deleteLongVideo(user.uid, openVideo.id);
+          toast('🗑 Deleted!'); setOpenVideo(null); loadList();
+        }}
+        onUpdate={updated => {
+          setList(l => l.map(v => v.id === updated.id ? updated : v));
+          setOpenVideo(updated);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#ffaa00', fontSize: 14, fontWeight: 700 }}>🎥 Long Video</span>
-        <button onClick={() => setModal(true)} style={{ background: '#ffaa00', border: 'none', color: '#000', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Naya</button>
+        <button onClick={() => setModal(true)} disabled={ytChecking}
+          style={{ background: ytChecking ? '#554400' : '#ffaa00', border: 'none', color: ytChecking ? '#888' : '#000', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: ytChecking ? 'not-allowed' : 'pointer' }}>
+          {ytChecking ? '🔄 Checking...' : '+ Naya'}
+        </button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 80, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -339,7 +351,7 @@ Generate 20 unique items.` }]);
 }
 
 // ── DETAIL VIEW ─────────────────────────────────────────
-function DetailView({ video, user, toast, onBack, onDelete, onUpdate }) {
+function DetailView({ video, user, toast, onBack, onDelete, onUpdate, isUploaded, ytChecking }) {
   const [page, setPage]           = useState(0);
   const [copiedKey, setCopied]    = useState('');
   const [genTD, setGenTD]         = useState(false);
@@ -436,7 +448,9 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
       <div className="mini-topbar">
         <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#ffaa00', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
         <span style={{ fontSize: 12, color: '#888', fontWeight: 700 }}>🎥 {video.topic}</span>
-        <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
+        <button onClick={onDelete} disabled={ytChecking || isUploaded === true}
+          title={isUploaded === true ? 'YouTube pe upload hai' : ytChecking ? 'Checking...' : 'Delete'}
+          style={{ background: 'none', border: 'none', color: (ytChecking || isUploaded === true) ? '#333' : '#555', fontSize: 18, cursor: (ytChecking || isUploaded === true) ? 'not-allowed' : 'pointer', opacity: (ytChecking || isUploaded === true) ? 0.4 : 1 }}>🗑</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 160, display: 'flex', flexDirection: 'column', gap: 10 }}>
