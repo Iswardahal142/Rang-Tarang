@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import { AppShell } from '../../components/AppShell';
 import { ToastProvider, useToast } from '../../components/Toast';
 import AuthWrapper from '../../components/AuthWrapper';
 
@@ -18,13 +17,45 @@ const PRESETS = [
   { label: 'Shapes',    topic: 'Shapes',            hint: 'Circle, Square...' },
 ];
 
+// ── Prompt builders ───────────────────────────────────────
+
+function buildLongImagePrompt(item, question) {
+  return `Use reference background exactly. Use reference teacher character exactly.
+Teacher and ${item} both centered horizontally side by side — teacher on left pointing toward ${item} on right, both in center of frame.
+Bold glowing question text "${question}" appears at TOP center with sparkles.
+No "?" symbol. No question mark floating anywhere. No other text.
+16:9 horizontal ratio. Pixar 3D style. Bright colorful scene.`;
+}
+
+function buildLongVideoPrompt(item, itemName, question) {
+  return `Use reference scene exactly. 16:9 horizontal ratio.
+Teacher and ${item} both centered — teacher pointing at ${item} curiously.
+Teacher asks in Hindi: "${question}". Pause 2 seconds.
+The question text at top center animates away and glowing bold "${itemName.toUpperCase()}" appears at top center with sparkle animation.
+Answer text stays visible until the very last frame.
+Teacher says in Hindi: "यह ${itemName} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
+No "?" or question mark anywhere at any point. No floating symbols.
+8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio. No background music.`;
+}
+
 function LongVideoPage() {
-  const { toast } = useToast();
-  const [topic, setTopic]       = useState('');
-  const [range, setRange]       = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [prompt, setPrompt]     = useState('');
-  const [copied, setCopied]     = useState(false);
+  // ✅ FIX: useToast directly, no destructuring
+  const toast = useToast();
+
+  const [topic, setTopic]     = useState('');
+  const [range, setRange]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const [prompt, setPrompt]   = useState('');
+  const [copied, setCopied]   = useState(false);
+
+  // Image/Video prompt generator state
+  const [itemName, setItemName]   = useState('');
+  const [itemObj, setItemObj]     = useState('');
+  const [question, setQuestion]   = useState('यह क्या है?');
+  const [imgPrompt, setImgPrompt] = useState('');
+  const [vidPrompt, setVidPrompt] = useState('');
+  const [copiedImg, setCopiedImg] = useState(false);
+  const [copiedVid, setCopiedVid] = useState(false);
 
   async function generate() {
     const t = topic.trim();
@@ -85,6 +116,20 @@ Write ONLY the prompt itself (no explanation, no preamble). Start directly with 
     });
   }
 
+  function generateItemPrompts() {
+    if (!itemName.trim() || !itemObj.trim()) return toast('⚠️ Item naam aur object daalo!');
+    setImgPrompt(buildLongImagePrompt(itemObj.trim(), question.trim()));
+    setVidPrompt(buildLongVideoPrompt(itemObj.trim(), itemName.trim(), question.trim()));
+  }
+
+  function copyText(text, setFn) {
+    navigator.clipboard.writeText(text).then(() => {
+      setFn(true);
+      toast('📋 Copied!');
+      setTimeout(() => setFn(false), 2000);
+    });
+  }
+
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
@@ -93,21 +138,21 @@ Write ONLY the prompt itself (no explanation, no preamble). Start directly with 
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 80, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* Topic Input */}
+        {/* ── SCRIPT PROMPT SECTION ── */}
         <div style={{ background: '#0f0f0f', border: '1px solid #2a2a00', borderRadius: 14, padding: 14 }}>
-          <div style={{ fontSize: 10, color: '#777', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>📌 Topic</div>
+          <div style={{ fontSize: 11, color: '#ffaa00', fontWeight: 800, marginBottom: 10 }}>📝 Script Prompt Generator</div>
+
+          <div style={{ fontSize: 10, color: '#777', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>📌 Topic</div>
           <input
             value={topic}
             onChange={e => setTopic(e.target.value)}
             placeholder="e.g. Numbers 1 to 100, Fruits A to Z..."
-            style={{ width: '100%', background: '#1a1a00', border: '1px solid #333300', borderRadius: 10, padding: '11px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box' }}
+            style={{ width: '100%', background: '#1a1a00', border: '1px solid #333300', borderRadius: 10, padding: '11px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
           />
-        </div>
 
-        {/* Presets */}
-        <div>
+          {/* Presets */}
           <div style={{ fontSize: 10, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>⚡ Quick Select</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
             {PRESETS.map(p => (
               <button key={p.label} onClick={() => { setTopic(p.topic); setRange(p.hint); }}
                 style={{ background: topic === p.topic ? 'rgba(255,170,0,0.15)' : '#111', border: `1px solid ${topic === p.topic ? '#ffaa00' : '#222'}`, color: topic === p.topic ? '#ffaa00' : '#666', borderRadius: 20, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
@@ -115,28 +160,24 @@ Write ONLY the prompt itself (no explanation, no preamble). Start directly with 
               </button>
             ))}
           </div>
-        </div>
 
-        {/* Range Input */}
-        <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 14, padding: 14 }}>
-          <div style={{ fontSize: 10, color: '#777', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>🎯 Range / Items <span style={{ color: '#444', fontWeight: 400 }}>(optional)</span></div>
+          <div style={{ fontSize: 10, color: '#777', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>🎯 Range / Items <span style={{ color: '#444', fontWeight: 400 }}>(optional)</span></div>
           <input
             value={range}
             onChange={e => setRange(e.target.value)}
-            placeholder="e.g. 1 to 50, Apple to Mango, only vegetables..."
-            style={{ width: '100%', background: '#111', border: '1px solid #222', borderRadius: 10, padding: '11px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box' }}
+            placeholder="e.g. 1 to 50, Apple to Mango..."
+            style={{ width: '100%', background: '#111', border: '1px solid #222', borderRadius: 10, padding: '11px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
           />
+
+          <button onClick={generate} disabled={loading}
+            style={{ background: loading ? '#1a1000' : 'linear-gradient(135deg,#cc7700,#ffaa00)', border: 'none', color: loading ? '#555' : '#000', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 800, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%' }}>
+            {loading ? (
+              <><div className="spinner" style={{ width: 18, height: 18, borderTopColor: '#ffaa00' }} />Prompt ban raha hai...</>
+            ) : '✨ Script Prompt Generate Karo'}
+          </button>
         </div>
 
-        {/* Generate Button */}
-        <button onClick={generate} disabled={loading}
-          style={{ background: loading ? '#1a1000' : 'linear-gradient(135deg,#cc7700,#ffaa00)', border: 'none', color: loading ? '#555' : '#000', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 800, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {loading ? (
-            <><div className="spinner" style={{ width: 18, height: 18, borderTopColor: '#ffaa00' }} />Prompt ban raha hai...</>
-          ) : '✨ Prompt Generate Karo'}
-        </button>
-
-        {/* Output */}
+        {/* Script Prompt Output */}
         {prompt && (
           <div style={{ background: '#0a0a00', border: '1px solid #333300', borderRadius: 14, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -154,6 +195,63 @@ Write ONLY the prompt itself (no explanation, no preamble). Start directly with 
             </div>
           </div>
         )}
+
+        {/* ── IMAGE / VIDEO PROMPT SECTION ── */}
+        <div style={{ background: '#0f0f0f', border: '1px solid #001a2a', borderRadius: 14, padding: 14 }}>
+          <div style={{ fontSize: 11, color: '#4488ff', fontWeight: 800, marginBottom: 10 }}>🖼 Image + Video Prompt (16:9)</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 10, color: '#777', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>Item Naam (e.g. Apple)</div>
+              <input value={itemName} onChange={e => setItemName(e.target.value)} placeholder="Apple"
+                style={{ width: '100%', background: '#111', border: '1px solid #222', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: '#777', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>Object Description (Pixar ke liye)</div>
+              <input value={itemObj} onChange={e => setItemObj(e.target.value)} placeholder="a shiny red apple"
+                style={{ width: '100%', background: '#111', border: '1px solid #222', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: '#777', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>Question Text</div>
+              <input value={question} onChange={e => setQuestion(e.target.value)} placeholder="यह क्या है?"
+                style={{ width: '100%', background: '#111', border: '1px solid #222', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+
+          <button onClick={generateItemPrompts}
+            style={{ background: 'linear-gradient(135deg,#003366,#4488ff)', border: 'none', color: '#fff', borderRadius: 12, padding: '12px', fontSize: 13, fontWeight: 800, cursor: 'pointer', width: '100%', marginBottom: imgPrompt ? 12 : 0 }}>
+            🎬 Prompts Banao
+          </button>
+
+          {/* Image Prompt Output */}
+          {imgPrompt && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 9, color: '#4488ff', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>🖼 IMAGE PROMPT</div>
+              <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 44px 12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb', position: 'relative' }}>
+                {imgPrompt}
+                <button onClick={() => copyText(imgPrompt, setCopiedImg)}
+                  style={{ position: 'absolute', top: 8, right: 8, background: copiedImg ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedImg ? '#44bb66' : '#333'}`, color: copiedImg ? '#fff' : '#666', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  {copiedImg ? '✅' : '📋'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Video Prompt Output */}
+          {vidPrompt && (
+            <div>
+              <div style={{ fontSize: 9, color: '#cc88ff', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>🎬 VIDEO PROMPT</div>
+              <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 44px 12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb', position: 'relative' }}>
+                {vidPrompt}
+                <button onClick={() => copyText(vidPrompt, setCopiedVid)}
+                  style={{ position: 'absolute', top: 8, right: 8, background: copiedVid ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedVid ? '#44bb66' : '#333'}`, color: copiedVid ? '#fff' : '#666', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  {copiedVid ? '✅' : '📋'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
