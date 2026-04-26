@@ -75,6 +75,37 @@ function getQuestionTextPart2(type) {
   }
 }
 
+// ✅ Thumbnail prompt — 9:16 Short style, reference image same logo use karega
+function buildThumbnailPrompt(n, leftObjects) {
+  return `Use the exact logo from the reference image provided — replicate it as accurately as possible, same design, same text, same colors. Place it in top right corner.
+
+BACKGROUND:
+- Bright vibrant rainbow gradient (red → yellow → green → blue → purple)
+- Colorful confetti pieces scattered all over
+- Glowing sparkles and gold stars throughout the image
+
+CENTER TEXT:
+- Large bold 3D bubbly text: "${n}"
+- Each word in different bright color (red, green, blue, pink, orange)
+- Dark outline and shadow on each letter for visibility
+- Rounded bubbly font style, Pixar-inspired
+
+CHARACTER:
+- Cute Pixar 3D boy, brown hair, wearing colorful striped t-shirt and denim overalls
+- Positioned right side of image, pointing toward center text excitedly
+- Big open-mouth smile, happy expression
+
+LEFT SIDE:
+- ${leftObjects}
+- Large, colorful, 3D render style, slightly overlapping
+- Bright saturated colors, no dull tones
+
+OVERALL:
+- Ultra colorful, eye-catching, Pixar 3D render quality
+- Kids YouTube Shorts thumbnail style, high contrast
+- 9:16 vertical ratio, high resolution, no watermark, no extra text`;
+}
+
 function buildIntroImagePrompt(n) { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${n}" floating center with colorful sparkles. 9:16 vertical. Pixar style. No other text.`; }
 
 // ✅ FIX: part number mention in intro video
@@ -269,13 +300,29 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
-    const total = (s.items || []).length + 2;
+    const total = (s.items || []).length + 3; // thumbnail + intro + outro
     const allPromptsDone = Object.keys(done).length >= total;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const isUploaded = checkUploaded(s) === true;
 
     const isFirstPart = (s.part || 1) === 1;
+    // ✅ Thumbnail leftObjects: series type se auto-detect
+    const thumbType = getSeriesType(s.name);
+    const leftObjectsMap = {
+      number: '3 large colorful 3D numbers (1, 2, 3) stacked on left side',
+      color: '3 large colorful paint splashes or color blobs on left side',
+      fruit: '3 large colorful 3D fruits (apple, banana, mango) stacked on left side',
+      animal: '3 cute colorful 3D animals peeking from left side',
+      alphabet: '3 large colorful 3D letters (A, B, C) stacked on left side',
+      shape: '3 large colorful 3D shapes (circle, star, heart) on left side',
+      vegetable: '3 large colorful 3D vegetables (carrot, broccoli, tomato) on left side',
+      general: '3 large colorful 3D educational objects stacked on left side',
+    };
+    const leftObjects = leftObjectsMap[thumbType] || leftObjectsMap.general;
+
     const sections = [
+      // ✅ Thumbnail section — intro se pehele
+      { key: 'thumbnail', title: '🖼 Thumbnail', color: '#ffcc00', prompts: [{ type: '🖼 IMAGE (9:16 Short)', text: buildThumbnailPrompt(s.name, leftObjects) }] },
       // ✅ FIX: part passed to buildIntroVideoPrompt
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) }] },
       ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
@@ -477,7 +524,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
         ) : seriesList.map(s => {
-          const total = (s.items || []).length + 2;
+          const total = (s.items || []).length + 3; // thumbnail + intro + outro
           const uploaded = checkUploaded(s);
           const hasTD = !!(s.ytTitle && s.ytDescription);
           return (
