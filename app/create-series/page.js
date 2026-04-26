@@ -263,8 +263,8 @@ Series: "${series.name}"
 Items covered: ${itemNames}
 
 Rules:
-- Title: Catchy, Hindi+English mix, under 70 chars, include "| Rang Tarang" at end
-- Description: 3-4 lines, fun, mentions what kids will learn, includes "Rang Tarang" channel name, ends with subscribe line
+- Title: Catchy, Hindi+English mix, under 70 chars, include "| Rang Tarang" at end. Then add exactly 5 viral topic-related hashtags (e.g. #KidsLearning #HindiKids #RangTarang).
+- Description: 3-4 lines, fun, mentions what kids will learn, includes "Rang Tarang" channel name, ends with subscribe line. After the description, on a new line add exactly 10 viral topic-related hashtags.
 
 Return ONLY JSON, no markdown: {"title":"...","description":"..."}
 `);
