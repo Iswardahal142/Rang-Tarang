@@ -53,7 +53,7 @@ function getQuestionText(type) {
   switch(type) {
     case 'number':    return 'यह कौनसा नंबर है?';
     case 'counting':  return 'यह कितने हैं?';
-    case 'color':     return 'कौनसा रंग है?';
+    case 'color':     return 'यह कौनसा रंग है?';
     case 'shape':     return 'यह कौनसी आकृति है?';
     case 'alphabet':  return 'यह कौनसा अक्षर है?';
     case 'vegetable': return 'यह कौनसी सब्ज़ी है?';
