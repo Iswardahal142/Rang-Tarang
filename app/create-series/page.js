@@ -50,15 +50,15 @@ function getSeriesType(seriesName) {
 
 function getQuestionText(type, forImage = false) {
   switch(type) {
-    case 'number':    return forImage ? 'यह कौनसा नंबर है?' : 'यह कौनसा नंबर है?';
-    case 'counting':  return forImage ? 'यह कितने हैं?' : 'यह कितने हैं?';
-    case 'color':     return forImage ? 'कौनसा रंग है?' : 'कौनसा रंग है?';
-    case 'shape':     return forImage ? 'यह कौनसी आकृति है?' : 'यह कौनसी आकृति है?';
-    case 'alphabet':  return forImage ? 'यह कौनसा अक्षर है?' : 'यह कौनसा अक्षर है?';
-    case 'vegetable': return forImage ? 'यह कौनसी सब्ज़ी है?' : 'यह कौनसी सब्ज़ी है?';
-    case 'fruit':     return forImage ? 'यह कौनसा फल है?' : 'यह कौनसा फल है?';
-    case 'animal':    return forImage ? 'यह कौनसा जानवर है?' : 'यह कौनसा जानवर है?';
-    default:          return forImage ? 'यह क्या है?' : 'यह क्या है?';
+    case 'number':    return forImage ? 'यह कौनसा नंबर है?' : 'तो बताओ.. यह कौनसा नंबर है?';
+    case 'counting':  return forImage ? 'यह कितने हैं?' : 'तो बताओ.. यह कितने हैं?';
+    case 'color':     return forImage ? 'कौनसा रंग है?' : 'तो बताओ.. कौनसा रंग है?';
+    case 'shape':     return forImage ? 'यह कौनसी आकृति है?' : 'तो बताओ.. यह कौनसी आकृति है?';
+    case 'alphabet':  return forImage ? 'यह कौनसा अक्षर है?' : 'तो बताओ.. यह कौनसा अक्षर है?';
+    case 'vegetable': return forImage ? 'यह कौनसी सब्ज़ी है?' : 'तो बताओ.. यह कौनसी सब्ज़ी है?';
+    case 'fruit':     return forImage ? 'यह कौनसा फल है?' : 'तो बताओ.. यह कौनसा फल है?';
+    case 'animal':    return forImage ? 'यह कौनसा जानवर है?' : 'तो बताओ.. यह कौनसा जानवर है?';
+    default:          return forImage ? 'यह क्या है?' : 'तो बताओ.. यह क्या है?';
   }
 }
 function getQuestionTextPart2(type) {
@@ -127,11 +127,23 @@ Teacher left side pointing right with curious expression. ${item.object} clearly
 Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text. No floating symbols above the object.`;
 }
 
-function buildVideoPrompt(item, seriesName, isFirstPart = true) {
+function buildVideoPrompt(item, seriesName, itemIndex = 0) {
   const type = getSeriesType(seriesName);
-  const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
-  // ✅ FIX: No "?" above object. Question text stays visible until answer replaces it. Answer stays till last frame.
-  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Bold text "${q}" stays visible at bottom center throughout — do not remove it early. Teacher asks in Hindi: "${q}". Pause 2 seconds. Glowing bold "${item.name.toUpperCase()}" text replaces the question text at bottom center — answer stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up. No floating symbols or marks above the object at any point. Answer text must remain on screen for at least 5 seconds. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
+  // Item 0 (first) → "तो बताओ", Item 1+ → "अब बताओ"
+  const prefix = itemIndex === 0 ? 'तो बताओ..' : 'अब बताओ..';
+  const baseQ = getQuestionText(type, true); // same as image
+  // Strip any existing prefix from baseQ if present
+  const cleanQ = baseQ.replace(/^(तो बताओ\.\.|अब बताओ\.\.|यह )/,'').trim();
+  const q = `${prefix} ${cleanQ}`;
+  return `Use reference scene exactly. This video continues from the image frame.
+Teacher points to ${item.object} curiously.
+Bold text "${q}" already visible at bottom center (same as image) — keep it, do NOT add new question text anywhere else.
+Teacher asks in Hindi: "${q}". Pause 2 seconds.
+Then bottom text smoothly transforms into glowing bold "${item.name.toUpperCase()}" with scale-up animation.
+Answer stays visible until the very last frame.
+Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
+No floating symbols, no extra text, no question mark above the object.
+Answer on screen for at least 5 seconds. 8 seconds total. Smooth. No glitch. Hindi audio only.`;
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
@@ -384,7 +396,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
       { key: 'thumbnail', title: '🖼 Thumbnail', color: '#ffcc00', prompts: [{ type: '🖼 IMAGE (9:16 Short)', text: buildThumbnailPrompt(s.name, leftObjects) }] },
       // ✅ FIX: part passed to buildIntroVideoPrompt
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) }] },
-      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
+      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i) }] })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
     ];
 
