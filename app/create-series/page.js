@@ -135,7 +135,6 @@ function buildVideoPrompt(item, seriesName, itemIndex = 0) {
   const q = itemIndex === 0 ? `तो बताओ.. ${baseQ}` : `अब बताओ.. ${baseQ}`;
   return `Use reference scene exactly.
 Teacher points to ${item.object} curiously.
-Bold text "${q}" appears at bottom center.
 Teacher asks in Hindi: "${q}". Pause 2 seconds.
 Then bottom text smoothly transforms into glowing bold "${item.name.toUpperCase()}" with scale-up animation.
 Answer stays visible until the very last frame.
