@@ -35,12 +35,52 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
+// ── Series type detect ───────────────────────────────
+function getSeriesType(seriesName) {
+  const n = (seriesName || '').toLowerCase();
+  if (n.includes('number') || n.includes('1') || n.includes('counting') || n.includes('ginti')) return 'number';
+  if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
+  if (n.includes('fruit')) return 'fruit';
+  if (n.includes('animal')) return 'animal';
+  if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter')) return 'alphabet';
+  if (n.includes('shape')) return 'shape';
+  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return 'vegetable';
+  return 'general';
+}
+
+function getQuestionText(type, forImage = false) {
+  switch(type) {
+    case 'number':  return forImage ? 'यह कौनसा नंबर है?' : 'तो बताओ... यह कौनसा नंबर है?';
+    case 'color':   return forImage ? 'कौनसा रंग है?' : 'तो बताओ... कौनसा रंग है?';
+    case 'shape':   return forImage ? 'यह कौनसी आकृति है?' : 'तो बताओ... यह कौनसी आकृति है?';
+    case 'alphabet':return forImage ? 'यह कौनसा अक्षर है?' : 'तो बताओ... यह कौनसा अक्षर है?';
+    default:        return forImage ? 'यह क्या है?' : 'तो बताओ... यह क्या है?';
+  }
+}
+function getQuestionTextPart2(type) {
+  switch(type) {
+    case 'number':  return 'अब बताओ... यह कौनसा नंबर है?';
+    case 'color':   return 'अब बताओ... कौनसा रंग है?';
+    case 'shape':   return 'अब बताओ... यह कौनसी आकृति है?';
+    case 'alphabet':return 'अब बताओ... यह कौनसा अक्षर है?';
+    default:        return 'अब बताओ... यह क्या है?';
+  }
+}
+
 function buildIntroImagePrompt(n) { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${n}" floating center with colorful sparkles. 9:16 vertical. Pixar style. No other text.`; }
-function buildIntroVideoPrompt(n) { return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "हेल्लो बच्चों ! आज की VIDEO में हम सीखेंगे ${n} — चलो शुरू करते है !" Teacher claps excitedly. Soft cheerful background music. 8 seconds. Smooth animation. No glitch.pure indian accent Hindi audio only.`; }
+function buildIntroVideoPrompt(n) { return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${n} — chalo shuru karte hain!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`; }
 function buildOutroImagePrompt() { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, waving goodbye with big smile. Colorful sparkles and stars floating around. 9:16 vertical. Pixar style. No text.`; }
 function buildOutroVideoPrompt() { return `Use reference image exactly. No text on screen. Character center, waves goodbye, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" Soft outro music. 8 seconds. Smooth. No glitch. Hindi audio only.`; }
-function buildImagePrompt(item) { return `Use reference background exactly. Use reference teacher character exactly. Teacher left side, pointing right, curious expression. Big glowing "?" center top with sparkles. ${item.object} floating clearly center right. Bold Hindi text "ये क्या है?" bottom center. 9:16 vertical. Pixar style. No other text.`; }
-function buildVideoPrompt(item) { return `Use reference scene exactly. Teacher left side, pointing to ${item.object} curiously. "?" appears center top with sparkles. Teacher asks in Hindi: "तो बताओ... ये क्या है?" Pause 2 seconds. "?" disappears, glowing bold "${item.name.toUpperCase()}" text appears center. Teacher says in Hindi: "हाँ! ये ${item.name.toUpperCase()} है! बहुत अच्छे!" Teacher claps happily. 8 seconds. Smooth. No glitch.pure indian accent Hindi audio only.`; }
+function buildImagePrompt(item, seriesName) {
+  const type = getSeriesType(seriesName);
+  const q = getQuestionText(type, true);
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing left side, pointing right with curious expression. Big glowing "?" center top with sparkles. ${item.object} floating clearly center right. Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text on screen.`;
+}
+function buildVideoPrompt(item, seriesName, isFirstPart = true) {
+  const type = getSeriesType(seriesName);
+  const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
+  return `Use reference scene exactly. Teacher left side, pointing to ${item.object} curiously. "?" appears center top with sparkles. Teacher asks in Hindi: "${q}". Pause 2 seconds. "?" disappears, glowing bold "${item.name.toUpperCase()}" text appears center top with sparkles. Teacher says in Hindi: "हाँ! यह ${item.name} है! बहुत अच्छे!" Teacher claps and thumbs up. 8 seconds. Smooth animation. No glitch. Hindi Indian accent audio only.`;
+}
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
@@ -102,7 +142,7 @@ function CreateSeriesPage({ user }) {
     setModal('suggestions'); setSugLoading(true); setSuggestions([]);
     try {
       const existing = seriesList.map(s => s.name).join(', ') || 'none';
-      const text = await aiCall(`You are an AI for English kids YouTube channel "RangTarang".\nAlready created: ${existing}\nSuggest exactly 4 NEW unique educational series topics for kids aged 2-6.\nReturn ONLY JSON array, no markdown: [{"name":"Series Name","emoji":"🎯","description":"One line"}]`);
+      const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".\nAlready created: ${existing}\nSuggest exactly 4 NEW unique educational series topics for kids aged 2-6.\nReturn ONLY JSON array, no markdown: [{"name":"Series Name","emoji":"🎯","description":"One line"}]`);
       setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setSugLoading(false);
@@ -214,9 +254,10 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const isUploaded = checkUploaded(s) === true;
 
+    const isFirstPart = (s.part || 1) === 1;
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name) }] },
-      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item) }] })),
+      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
     ];
 
