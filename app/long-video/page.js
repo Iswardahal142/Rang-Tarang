@@ -434,7 +434,7 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
         <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 100, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 160, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* ── YOUTUBE CARD ── */}
         <SectionCard skey="yt" title="📺 YouTube Card" color={ytTitle ? '#44bb66' : '#ffaa44'} done={!!ytTitle}>
@@ -527,7 +527,7 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
       </div>
 
       {/* ── FIXED BOTTOM NAV ── */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.95)', borderTop: '1px solid #222', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, zIndex: 100 }}>
+      <div style={{ position: 'fixed', bottom: 70, left: 0, right: 0, background: 'rgba(0,0,0,0.97)', borderTop: '1px solid #333', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, zIndex: 200 }}>
         <button onClick={() => { setPage(p => Math.max(0, p - 1)); setOpenSection(null); }} disabled={page === 0}
           style={{ flex: 1, background: page === 0 ? '#111' : '#1a1a00', border: `1px solid ${page === 0 ? '#222' : '#443300'}`, color: page === 0 ? '#333' : '#ffaa00', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: page === 0 ? 'not-allowed' : 'pointer' }}>
           ← Prev
