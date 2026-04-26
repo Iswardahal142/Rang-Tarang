@@ -211,13 +211,62 @@ function CreateSeriesPage({ user }) {
     setModal('picker');
   }
 
+  // ── Hardcoded item banks for known types ────────────
+  const HARDCODED_ITEMS = {
+    color: [
+      { name: 'Red',    object: 'Bright red color splash with a red apple beside it' },
+      { name: 'Blue',   object: 'Sky blue color splash with a blue balloon beside it' },
+      { name: 'Green',  object: 'Lush green color splash with a green leaf beside it' },
+      { name: 'Yellow', object: 'Sunny yellow color splash with a yellow sun beside it' },
+      { name: 'Orange', object: 'Vibrant orange color splash with an orange fruit beside it' },
+      { name: 'Purple', object: 'Rich purple color splash with purple grapes beside it' },
+      { name: 'Pink',   object: 'Soft pink color splash with a pink flower beside it' },
+      { name: 'Brown',  object: 'Warm brown color splash with a chocolate bar beside it' },
+      { name: 'White',  object: 'Pure white color splash with a white cloud beside it' },
+      { name: 'Black',  object: 'Deep black color splash with a black umbrella beside it' },
+    ],
+    shape: [
+      { name: 'Circle',    object: 'Big colorful 3D circle shape glowing center' },
+      { name: 'Square',    object: 'Big colorful 3D square shape glowing center' },
+      { name: 'Triangle',  object: 'Big colorful 3D triangle shape glowing center' },
+      { name: 'Rectangle', object: 'Big colorful 3D rectangle shape glowing center' },
+      { name: 'Star',      object: 'Big colorful 3D star shape glowing center' },
+      { name: 'Heart',     object: 'Big colorful 3D heart shape glowing center' },
+      { name: 'Oval',      object: 'Big colorful 3D oval shape glowing center' },
+      { name: 'Diamond',   object: 'Big colorful 3D diamond shape glowing center' },
+      { name: 'Pentagon',  object: 'Big colorful 3D pentagon shape glowing center' },
+      { name: 'Hexagon',   object: 'Big colorful 3D hexagon shape glowing center' },
+    ],
+    alphabet: 'ABCDEFGHIJ'.split('').map(l => ({ name: l, object: `Large bold glowing 3D letter "${l}" center` })),
+  };
+
   async function generateSeries() {
     if (!selectedTopic) return;
     setGenerating(true);
     try {
-      const existing = seriesList.map(s => s.name).join(', ');
-      const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
-      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      const type = getSeriesType(selectedTopic.name);
+      let items;
+
+      if (HARDCODED_ITEMS[type]) {
+        // ✅ Hardcoded — AI pe depend nahi
+        items = HARDCODED_ITEMS[type];
+      } else if (type === 'number') {
+        // ✅ Series name se range parse karo — "1 to 50", "1 to 100", etc.
+        const nameStr = selectedTopic.name;
+        const nums = nameStr.match(/\d+/g)?.map(Number);
+        const from = nums?.[0] ?? 1;
+        const to   = nums?.[1] ?? 10;
+        items = Array.from({ length: to - from + 1 }, (_, i) => ({
+          name: String(from + i),
+          object: `Large bold glowing 3D number "${from + i}" center`
+        }));
+      } else {
+        // General/fruit/animal/vegetable — AI se
+        const existing = seriesList.map(s => s.name).join(', ');
+        const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
+        items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      }
+
       await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '' });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
       setModal('none'); setSelectedTopic(null); setCustomName('');
@@ -229,9 +278,19 @@ function CreateSeriesPage({ user }) {
   async function continueSeries(series) {
     setContinuing(true);
     try {
-      const done = (series.items || []).map(i => i.name).join(', ');
-      const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
-      const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      const type = getSeriesType(series.name);
+      let newItems;
+
+      if (type === 'color' || type === 'shape' || type === 'alphabet' || type === 'number') {
+        toast('⚠️ Yeh type continue nahi hota — sab items already hain!');
+        setContinuing(false);
+        return;
+      } else {
+        const done = (series.items || []).map(i => i.name).join(', ');
+        const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
+        newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      }
+
       const newPart = (series.part || 1) + 1;
       await saveSeries(user.uid, { name: `${series.name} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart, ytTitle: '', ytDescription: '' });
       toast(`🎉 Part ${newPart} ready!`); loadList();
