@@ -66,7 +66,7 @@ function getQuestionTextPart2(type) {
   switch(type) {
     case 'number':    return 'अब बताओ.. यह कौनसा नंबर है?';
     case 'counting':  return 'अब बताओ.. यह कितने हैं?';
-    case 'color':     return 'अब बताओ.. कौनसा रंग है?';
+    case 'color':     return 'अब बताओ.. यह कौनसा रंग है?';
     case 'shape':     return 'अब बताओ.. यह कौनसी आकृति है?';
     case 'alphabet':  return 'अब बताओ.. यह कौनसा अक्षर है?';
     case 'vegetable': return 'अब बताओ.. यह कौनसी सब्ज़ी है?';
