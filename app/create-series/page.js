@@ -99,9 +99,8 @@ Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other tex
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
   const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
-  // ✅ FIX: No separate text instruction — image already has question text at bottom.
-  // Video just animates existing bottom text: question → answer reveal with sparkle.
-  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Teacher asks in Hindi: "${q}". Pause 2 seconds. The question text at bottom center animates away and glowing bold "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up. No floating symbols or marks above the object at any point. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
+  // ✅ FIX: No "?" above object. Question text stays visible until answer replaces it. Answer stays till last frame.
+  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Bold text "${q}" stays visible at bottom center throughout — do not remove it early. Teacher asks in Hindi: "${q}". Pause 2 seconds. Glowing bold "${item.name.toUpperCase()}" text replaces the question text at bottom center — answer stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up. No floating symbols or marks above the object at any point. Answer text must remain on screen for at least 5 seconds. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
