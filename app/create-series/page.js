@@ -131,16 +131,15 @@ Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other tex
 function buildVideoPrompt(item, seriesName, itemIndex = 0) {
   const type = getSeriesType(seriesName);
   const baseQ = getQuestionText(type);
-  // Item 0 → "तो बताओ", Item 1+ → "अब बताओ"
   const q = itemIndex === 0 ? `तो बताओ.. ${baseQ}` : `अब बताओ.. ${baseQ}`;
   return `Use reference scene exactly.
 Teacher points to ${item.object} curiously.
 Teacher asks in Hindi: "${q}". Pause 2 seconds.
-Then bottom text smoothly transforms into glowing bold "${item.name.toUpperCase()}" with scale-up animation.
+Then the question text at bottom center disappears and "${item.name.toUpperCase()}" appears at the exact same position — smooth reveal, no scale animation, just clean replace.
 Answer stays visible until the very last frame.
 Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
 No floating symbols, no extra text, no question mark above the object.
-Answer on screen for at least 5 seconds. 8 seconds total. Smooth. No glitch. Hindi audio only.`;
+Answer on screen for at least 5 seconds. 8 seconds total. Smooth. No glitch. Pure Hindi Indian accent audio only.`;
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
