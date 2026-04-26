@@ -64,7 +64,10 @@ function CreateSeriesPage({ user }) {
   const [ytVideos, setYtVideos]       = useState([]);
   const [continuing, setContinuing]   = useState(false);
 
-  // Modal state: 'none' | 'choose' | 'suggestions' | 'custom' | 'picker'
+  // Title/desc generation state
+  const [genTD, setGenTD]             = useState(false);
+
+  // Modal state
   const [modal, setModal]             = useState('none');
   const [suggestions, setSuggestions] = useState([]);
   const [sugLoading, setSugLoading]   = useState(false);
@@ -73,8 +76,6 @@ function CreateSeriesPage({ user }) {
   const [selectedEmoji, setSelectedEmoji] = useState('🌟');
   const [selectedColor, setSelectedColor] = useState('#ff4400');
   const [generating, setGenerating]   = useState(false);
-
-  const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -86,24 +87,22 @@ function CreateSeriesPage({ user }) {
   async function fetchYT() {
     try { const r = await fetch('/api/youtube'); const d = await r.json(); if (!d.error) setYtVideos(d.videos || []); } catch {}
   }
+
+  // ── YouTube check: title se match karo ──────────────
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
-    const name = (series.name || '').toLowerCase();
-    return ytVideos.some(v => (v.title || '').toLowerCase().includes(name));
+    // Agar saved title hai toh usi se match karo, warna naam se
+    const matchStr = (series.ytTitle || series.name || '').toLowerCase();
+    return ytVideos.some(v => (v.title || '').toLowerCase().includes(matchStr));
   }
 
-  // ── Open choose modal ─────────────────────────────────
   function openChoose() { setModal('choose'); }
 
-  // ── Load AI suggestions ───────────────────────────────
   async function loadSuggestions() {
     setModal('suggestions'); setSugLoading(true); setSuggestions([]);
     try {
       const existing = seriesList.map(s => s.name).join(', ') || 'none';
-      const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
-Already created: ${existing}
-Suggest exactly 4 NEW unique educational series topics for kids aged 2-6.
-Return ONLY JSON array, no markdown: [{"name":"Series Name","emoji":"🎯","description":"One line"}]`);
+      const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".\nAlready created: ${existing}\nSuggest exactly 4 NEW unique educational series topics for kids aged 2-6.\nReturn ONLY JSON array, no markdown: [{"name":"Series Name","emoji":"🎯","description":"One line"}]`);
       setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setSugLoading(false);
@@ -121,17 +120,14 @@ Return ONLY JSON array, no markdown: [{"name":"Series Name","emoji":"🎯","desc
     setModal('picker');
   }
 
-  // ── Generate series ───────────────────────────────────
   async function generateSeries() {
     if (!selectedTopic) return;
     setGenerating(true);
     try {
       const existing = seriesList.map(s => s.name).join(', ');
-      const text = await aiCall(`Generate exactly 10 unique items for Hindi kids YouTube series about "${selectedTopic.name}".
-Avoid overlap with: ${existing}
-Return ONLY JSON array, no markdown: [{"name":"English Name","hindi":"Hinglish Roman","object":"One [adjective] [item] for Pixar 3D animation"}]`);
+      const text = await aiCall(`Generate exactly 10 unique items for Hindi kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","hindi":"Hinglish Roman","object":"One [adjective] [item] for Pixar 3D animation"}]`);
       const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-      await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1 });
+      await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '' });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
       setModal('none'); setSelectedTopic(null); setCustomName('');
       loadList();
@@ -139,17 +135,14 @@ Return ONLY JSON array, no markdown: [{"name":"English Name","hindi":"Hinglish R
     setGenerating(false);
   }
 
-  // ── Continue series ───────────────────────────────────
   async function continueSeries(series) {
     setContinuing(true);
     try {
       const done = (series.items || []).map(i => i.name).join(', ');
-      const text = await aiCall(`Generate 10 MORE unique items for Hindi kids series "${series.name}".
-Already done (DO NOT repeat): ${done}
-Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pixar 3D description"}]`);
+      const text = await aiCall(`Generate 10 MORE unique items for Hindi kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pixar 3D description"}]`);
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       const newPart = (series.part || 1) + 1;
-      await saveSeries(user.uid, { name: `${series.name} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart });
+      await saveSeries(user.uid, { name: `${series.name} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart, ytTitle: '', ytDescription: '' });
       toast(`🎉 Part ${newPart} ready!`); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setContinuing(false);
@@ -168,6 +161,40 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
     toast(wasDone ? 'Undone!' : '✅ Done!');
   }
 
+  // ── Generate Title & Description ─────────────────────
+  async function generateTitleDesc(series) {
+    setGenTD(true);
+    try {
+      const itemNames = (series.items || []).map(i => i.name).join(', ');
+      const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
+Generate a YouTube video title and description for a kids educational video.
+Series: "${series.name}"
+Items covered: ${itemNames}
+
+Rules:
+- Title: Catchy, Hindi+English mix, under 70 chars, include "| Rang Tarang" at end
+- Description: 3-4 lines, fun, mentions what kids will learn, includes "Rang Tarang" channel name, ends with subscribe line
+
+Return ONLY JSON, no markdown: {"title":"...","description":"..."}
+`);
+      const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
+      const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
+      setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+      setOpenSeries(updated);
+      toast('✅ Title & Description ready!');
+    } catch (e) { toast('❌ ' + e.message); }
+    setGenTD(false);
+  }
+
+  async function saveTitleDesc(series, title, desc) {
+    await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc });
+    const updated = { ...series, ytTitle: title, ytDescription: desc };
+    setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+    setOpenSeries(updated);
+    toast('💾 Saved!');
+  }
+
   function copy(key, text) {
     navigator.clipboard.writeText(text).then(() => { setCopiedKey(key); setTimeout(() => setCopiedKey(''), 2000); toast('📋 Copied!'); });
   }
@@ -183,6 +210,10 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
     const s = openSeries;
     const done = s.doneSections || {};
     const total = (s.items || []).length + 2;
+    const allPromptsDone = Object.keys(done).length >= total;
+    const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
+    const isUploaded = checkUploaded(s) === true;
+
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name) }] },
       ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name} (${item.hindi})`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item) }] })),
@@ -194,13 +225,16 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
         <div className="mini-topbar">
           <button onClick={() => setOpenSeries(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{s.emoji} {s.name}</span>
-          {checkUploaded(openSeries) === true ? (
-            <span title="YouTube pe upload hai, delete nahi ho sakta" style={{ fontSize: 18, opacity: 0.25, cursor: 'not-allowed' }}>🗑</span>
+          {isUploaded ? (
+            <span style={{ fontSize: 18, opacity: 0.25, cursor: 'not-allowed' }} title="YouTube pe upload hai, delete nahi ho sakta">🗑</span>
           ) : (
             <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
           )}
         </div>
+
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -210,6 +244,20 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
               <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 6 }} />
             </div>
           </div>
+
+          {/* ── TITLE & DESCRIPTION SECTION ── */}
+          <TitleDescSection
+            series={s}
+            allPromptsDone={allPromptsDone}
+            hasTitleDesc={hasTitleDesc}
+            genTD={genTD}
+            onGenerate={() => generateTitleDesc(s)}
+            onSave={(title, desc) => saveTitleDesc(s, title, desc)}
+            onCopy={copy}
+            copiedKey={copiedKey}
+          />
+
+          {/* Prompt sections */}
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -369,12 +417,14 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
         ) : seriesList.map(s => {
           const total = (s.items || []).length + 2;
           const uploaded = checkUploaded(s);
+          const hasTD = !!(s.ytTitle && s.ytDescription);
           return (
             <div key={s.id} style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 14, overflow: 'hidden', borderLeft: `3px solid ${s.color}` }}>
               <div onClick={() => setOpenSeries(s)} style={{ padding: '14px 14px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ fontSize: 36 }}>{s.emoji}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 2 }}>{s.name}</div>
+                  {hasTD && <div style={{ fontSize: 10, color: '#888', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📝 {s.ytTitle}</div>}
                   <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>{s.doneCount||0} / {total} prompts done</div>
                   <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
@@ -394,6 +444,79 @@ Return ONLY JSON array: [{"name":"English","hindi":"Hinglish Roman","object":"Pi
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── Title & Description Sub-Component ────────────────────
+function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
+  const [editing, setEditing]   = useState(false);
+  const [title, setTitle]       = useState(series.ytTitle || '');
+  const [desc, setDesc]         = useState(series.ytDescription || '');
+
+  useEffect(() => {
+    setTitle(series.ytTitle || '');
+    setDesc(series.ytDescription || '');
+  }, [series.ytTitle, series.ytDescription]);
+
+  const isOpen = editing || hasTitleDesc;
+
+  return (
+    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
+      <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
+          {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
+          {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
+        </div>
+        <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
+      </div>
+
+      {editing && (
+        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {!allPromptsDone && !hasTitleDesc && (
+            <div style={{ background: 'rgba(255,170,0,0.07)', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#aa7700' }}>
+              💡 Pehle saare prompts mark as done karo, phir title generate karo
+            </div>
+          )}
+
+          {/* AI Generate Button */}
+          <button onClick={onGenerate} disabled={genTD}
+            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
+          </button>
+
+          {/* Title field */}
+          <div>
+            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 YouTube Title</div>
+            <div style={{ position: 'relative' }}>
+              <input value={title} onChange={e => setTitle(e.target.value)}
+                placeholder="Video ka title..."
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey==='ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey==='ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey==='ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey==='ytTitle' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+
+          {/* Description field */}
+          <div>
+            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 YouTube Description</div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={desc} onChange={e => setDesc(e.target.value)}
+                placeholder="Video ki description..."
+                rows={4}
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+              <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey==='ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey==='ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey==='ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey==='ytDesc' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <button onClick={() => { onSave(title, desc); setEditing(false); }}
+            style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
+            💾 Save Karo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
