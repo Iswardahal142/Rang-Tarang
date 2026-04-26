@@ -85,8 +85,7 @@ Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other tex
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
   const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
-  return `Use reference scene exactly. Teacher points to ${item.object} curiously. "?" appears floating directly above the ${item.object} with sparkles. Teacher asks in Hindi: "${q}". Pause 2 seconds. "?" disappears completely. Glowing bold "${item.name.toUpperCase()}" text appears at bottom center only — nothing on top. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher claps and thumbs up without moving. 8 seconds. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
-}
+  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Bold text "${q}" stays visible at bottom throughout. Teacher asks in Hindi: "${q}". Pause 2 seconds. Glowing bold "${item.name.toUpperCase()}" replaces the question text at bottom center. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher claps and thumbs up. Answer text stays until last frame. No floating symbols or marks above the object. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;}
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
