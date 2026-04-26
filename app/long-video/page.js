@@ -149,6 +149,7 @@ LEFT SIDE:
 
 LOGO:
 - Top right corner: Use the exact logo from the reference image provided — replicate it as accurately as possible, same design, same text, same colors
+
 OVERALL:
 - Ultra colorful, eye-catching, Pixar 3D render quality
 - Kids YouTube thumbnail style, high contrast
@@ -190,13 +191,28 @@ function LongVideoPage({ user }) {
   const [customTopic, setCustom]  = useState('');
   const [customRange, setRange]   = useState('');
   const [creating, setCreating]   = useState(false);
+  const [ytVideos, setYtVideos]   = useState([]);
 
-  useEffect(() => { loadList(); }, [user.uid]);
+  useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
   async function loadList() {
     setLoading(true);
     try { setList(await getLongVideos(user.uid)); } catch { toast('❌ Load fail'); }
     setLoading(false);
+  }
+
+  async function fetchYT() {
+    try {
+      const r = await fetch('/api/youtube');
+      const d = await r.json();
+      if (!d.error) setYtVideos(d.videos || []);
+    } catch {}
+  }
+
+  function checkUploaded(video) {
+    if (!ytVideos.length) return null;
+    const matchStr = (video.ytTitle || video.topic || '').toLowerCase();
+    return ytVideos.some(v => (v.title || '').toLowerCase().includes(matchStr));
   }
 
   async function createVideo() {
@@ -219,7 +235,7 @@ Example: ["Apple","Banana","Cherry"]
 Generate 20 unique items.` }]);
         items = JSON.parse(text.replace(/```json|```/g, '').trim());
       }
-      await saveLongVideo(user.uid, { topic, range, type, items, ytTitle: '', ytDescription: '' });
+      await saveLongVideo(user.uid, { topic, range, type, items, ytTitle: '', ytDescription: '', doneSections: {}, isDone: false });
       toast(`✅ "${topic}" ready!`);
       setModal(false); setSelPreset(null); setCustom(''); setRange('');
       loadList();
@@ -292,15 +308,26 @@ Generate 20 unique items.` }]);
             <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi video nahi hai</div>
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Naya" se banao</div>
           </div>
-        ) : list.map(v => (
-          <div key={v.id} onClick={() => setOpenVideo(v)}
-            style={{ background: '#0f0f0f', border: '1px solid #2a2000', borderLeft: '3px solid #ffaa00', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>🎥 {v.topic}</div>
-            {v.range && <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>Range: {v.range}</div>}
-            <div style={{ fontSize: 11, color: '#555' }}>{(v.items || []).length} items</div>
-            {v.ytTitle && <div style={{ fontSize: 10, color: '#888', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📝 {v.ytTitle}</div>}
-          </div>
-        ))}
+        ) : list.map(v => {
+          const uploaded = checkUploaded(v);
+          return (
+            <div key={v.id} onClick={() => setOpenVideo(v)}
+              style={{ background: '#0f0f0f', border: '1px solid #2a2000', borderLeft: `3px solid ${v.isDone ? '#44bb66' : '#ffaa00'}`, borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}>
+              <div style={{ padding: 14 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>🎥 {v.topic}</div>
+                {v.range && <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>Range: {v.range}</div>}
+                <div style={{ fontSize: 11, color: '#555' }}>{(v.items || []).length} items</div>
+                {v.ytTitle && <div style={{ fontSize: 10, color: '#888', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📝 {v.ytTitle}</div>}
+              </div>
+              {/* YouTube upload status */}
+              <div style={{ padding: '0 14px 12px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center', background: uploaded === true ? 'rgba(68,187,102,0.12)' : uploaded === false ? 'rgba(255,68,0,0.1)' : '#1a1a1a', color: uploaded === true ? '#44bb66' : uploaded === false ? '#ff8866' : '#555', border: `1px solid ${uploaded === true ? 'rgba(68,187,102,0.3)' : uploaded === false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
+                  {uploaded === true ? '✅ YouTube pe hai' : uploaded === false ? '⏳ Upload baaki' : '🔄 Checking...'}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -308,19 +335,20 @@ Generate 20 unique items.` }]);
 
 // ── DETAIL VIEW ─────────────────────────────────────────
 function DetailView({ video, user, toast, onBack, onDelete, onUpdate }) {
-  const [page, setPage]       = useState(0);
-  const [copiedKey, setCopied]= useState('');
-  const [genTD, setGenTD]     = useState(false);
-  const [ytTitle, setYtTitle] = useState(video.ytTitle || '');
-  const [ytDesc, setYtDesc]   = useState(video.ytDescription || '');
-  const [showYT, setShowYT]   = useState(false);
-  const [showThumb, setShowThumb] = useState(false);
+  const [page, setPage]           = useState(0);
+  const [copiedKey, setCopied]    = useState('');
+  const [genTD, setGenTD]         = useState(false);
+  const [ytTitle, setYtTitle]     = useState(video.ytTitle || '');
+  const [ytDesc, setYtDesc]       = useState(video.ytDescription || '');
+  const [openSection, setOpenSection] = useState(null);
+  const [doneSections, setDoneSections] = useState(video.doneSections || {});
+  const [isDone, setIsDone]       = useState(video.isDone || false);
 
   const type     = video.type || getSeriesType(video.topic);
   const question = getQuestion(type);
   const items    = video.items || [];
-  const total    = Math.ceil(items.length / PER_PAGE);
-  const pageItems= items.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const totalPages = Math.ceil(items.length / PER_PAGE);
+  const pageItems  = items.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
 
   function copy(key, text) {
     navigator.clipboard.writeText(text).then(() => {
@@ -332,7 +360,7 @@ function DetailView({ video, user, toast, onBack, onDelete, onUpdate }) {
     return (
       <div>
         <div style={{ fontSize: 9, color: color || '#ffaa00', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>{label}</div>
-        <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 44px 12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb', position: 'relative' }}>
+        <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 44px 12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb', position: 'relative', whiteSpace: 'pre-wrap' }}>
           {text}
           <button onClick={() => copy(pkey, text)}
             style={{ position: 'absolute', top: 8, right: 8, background: copiedKey === pkey ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === pkey ? '#44bb66' : '#333'}`, color: copiedKey === pkey ? '#fff' : '#666', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
@@ -343,13 +371,49 @@ function DetailView({ video, user, toast, onBack, onDelete, onUpdate }) {
     );
   }
 
+  // ── Collapse Card ────────────────────────────────────
+  function SectionCard({ skey, title, color, done, children }) {
+    const isOpen = openSection === skey;
+    return (
+      <div style={{ background: '#0f0f0f', border: `1px solid ${done ? '#1a3a1a' : '#1e1e1e'}`, borderRadius: 12, overflow: 'hidden' }}>
+        <div onClick={() => setOpenSection(isOpen ? null : skey)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: done ? '#44bb66' : color }}>{title}</span>
+            {done && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
+          </div>
+          <span style={{ fontSize: 13, color: '#444' }}>{isOpen ? '▲' : '▼'}</span>
+        </div>
+        {isOpen && (
+          <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  async function markSectionDone(key) {
+    const updated = { ...doneSections, [key]: true };
+    setDoneSections(updated);
+    await updateLongVideo(user.uid, video.id, { doneSections: updated });
+    toast('✅ Done!');
+  }
+
+  async function markAllDone() {
+    setIsDone(true);
+    await updateLongVideo(user.uid, video.id, { isDone: true });
+    onUpdate({ ...video, isDone: true });
+    toast('🎉 Video complete!');
+  }
+
   async function generateTitleDesc() {
     setGenTD(true);
     try {
       const text = await aiCall([{ role: 'user', content: `YouTube SEO expert for Hindi kids channel "Rang Tarang".
 Generate title and description for: "${video.topic}"
-- Title: Catchy Hindi+English, under 70 chars, end with "| Rang Tarang"
-- Description: 3-4 lines, fun, what kids learn, includes "Rang Tarang", ends with subscribe line
+- Title: Catchy Hindi+English, under 70 chars, end with "| Rang Tarang". Add exactly 5 viral topic-related hashtags at the end.
+- Description: 3-4 lines, fun, what kids learn, includes "Rang Tarang", ends with subscribe line. Add exactly 10 viral topic-related hashtags on a new line after description.
 Return ONLY JSON: {"title":"...","description":"..."}` }]);
       const p = JSON.parse(text.replace(/```json|```/g, '').trim());
       setYtTitle(p.title); setYtDesc(p.description);
@@ -360,21 +424,7 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
     setGenTD(false);
   }
 
-  function PaginationBar() {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-        <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-          style={{ background: page === 0 ? '#111' : '#1a1a00', border: `1px solid ${page === 0 ? '#222' : '#443300'}`, color: page === 0 ? '#333' : '#ffaa00', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: page === 0 ? 'not-allowed' : 'pointer' }}>
-          ← Prev
-        </button>
-        <span style={{ fontSize: 11, color: '#555' }}>{page + 1} / {total}</span>
-        <button onClick={() => setPage(p => Math.min(total - 1, p + 1))} disabled={page >= total - 1}
-          style={{ background: page >= total - 1 ? '#111' : '#1a1a00', border: `1px solid ${page >= total - 1 ? '#222' : '#443300'}`, color: page >= total - 1 ? '#333' : '#ffaa00', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: page >= total - 1 ? 'not-allowed' : 'pointer' }}>
-          Next →
-        </button>
-      </div>
-    );
-  }
+  const isLastPage = page >= totalPages - 1;
 
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
@@ -384,108 +434,111 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
         <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 80, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 100, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* ── YOUTUBE CARD ── */}
-        <div style={{ background: '#0f0f0f', border: `1px solid ${video.ytTitle ? '#1a3a2a' : '#2a2000'}`, borderRadius: 14, overflow: 'hidden' }}>
-          <div onClick={() => setShowYT(s => !s)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: video.ytTitle ? '#44bb66' : '#ffaa44' }}>📺 YouTube Card</span>
-              {video.ytTitle && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
+        <SectionCard skey="yt" title="📺 YouTube Card" color={ytTitle ? '#44bb66' : '#ffaa44'} done={!!ytTitle}>
+          <button onClick={generateTitleDesc} disabled={genTD}
+            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
+          </button>
+          <div>
+            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 Title</div>
+            <div style={{ position: 'relative' }}>
+              <input value={ytTitle} onChange={e => setYtTitle(e.target.value)} placeholder="YouTube title..."
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              <button onClick={() => copy('ytTitle', ytTitle)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTitle' ? '✅' : '📋'}</button>
             </div>
-            <span style={{ fontSize: 13, color: '#444' }}>{showYT ? '▲' : '▼'}</span>
           </div>
-          {showYT && (
-            <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button onClick={generateTitleDesc} disabled={genTD}
-                style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
-              </button>
-              <div>
-                <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 Title</div>
-                <div style={{ position: 'relative' }}>
-                  <input value={ytTitle} onChange={e => setYtTitle(e.target.value)} placeholder="YouTube title..."
-                    style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-                  <button onClick={() => copy('ytTitle', ytTitle)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTitle' ? '✅' : '📋'}</button>
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 Description</div>
-                <div style={{ position: 'relative' }}>
-                  <textarea value={ytDesc} onChange={e => setYtDesc(e.target.value)} placeholder="YouTube description..." rows={4}
-                    style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
-                  <button onClick={() => copy('ytDesc', ytDesc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytDesc' ? '✅' : '📋'}</button>
-                </div>
-              </div>
-              <button onClick={async () => {
-                await updateLongVideo(user.uid, video.id, { ytTitle, ytDescription: ytDesc });
-                onUpdate({ ...video, ytTitle, ytDescription: ytDesc });
-                toast('💾 Saved!');
-              }} style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                💾 Save Karo
-              </button>
+          <div>
+            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 Description</div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={ytDesc} onChange={e => setYtDesc(e.target.value)} placeholder="YouTube description..." rows={4}
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+              <button onClick={() => copy('ytDesc', ytDesc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytDesc' ? '✅' : '📋'}</button>
             </div>
-          )}
-        </div>
+          </div>
+          <button onClick={async () => {
+            await updateLongVideo(user.uid, video.id, { ytTitle, ytDescription: ytDesc });
+            onUpdate({ ...video, ytTitle, ytDescription: ytDesc });
+            toast('💾 Saved!');
+          }} style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            💾 Save Karo
+          </button>
+        </SectionCard>
 
         {/* ── THUMBNAIL ── */}
-        <div style={{ background: '#0f0f0f', border: '1px solid #2a1a00', borderRadius: 14, overflow: 'hidden' }}>
-          <div onClick={() => setShowThumb(s => !s)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#ff8844' }}>🖼 Thumbnail Prompt</span>
-            <span style={{ fontSize: 13, color: '#444' }}>{showThumb ? '▲' : '▼'}</span>
-          </div>
-          {showThumb && (
-            <div style={{ padding: '0 14px 14px', borderTop: '1px solid #1e1e1e' }}>
-              <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 44px 12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb', position: 'relative', marginTop: 10, whiteSpace: 'pre-wrap' }}>
-                {buildThumbnailPrompt(video.topic, type, items)}
-                <button onClick={() => copy('thumb', buildThumbnailPrompt(video.topic, type, items))}
-                  style={{ position: 'absolute', top: 8, right: 8, background: copiedKey === 'thumb' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'thumb' ? '#44bb66' : '#333'}`, color: copiedKey === 'thumb' ? '#fff' : '#666', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  {copiedKey === 'thumb' ? '✅' : '📋'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <SectionCard skey="thumb" title="🖼 Thumbnail Prompt" color="#ff8844" done={!!doneSections['thumb']}>
+          <PromptBox label="🖼 IMAGE PROMPT (16:9)" text={buildThumbnailPrompt(video.topic, type, items)} pkey="thumb_img" color="#ff8844" />
+          <button onClick={() => markSectionDone('thumb')} disabled={!!doneSections['thumb']}
+            style={{ background: doneSections['thumb'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['thumb'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['thumb'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['thumb'] ? 'not-allowed' : 'pointer', width: '100%' }}>
+            {doneSections['thumb'] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
+          </button>
+        </SectionCard>
 
         {/* ── INTRO ── */}
-        <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#4488ff' }}>🎬 Intro</div>
+        <SectionCard skey="intro" title="🎬 Intro" color="#4488ff" done={!!doneSections['intro']}>
           <PromptBox label="🖼 IMAGE PROMPT" text={buildIntroImagePrompt(video.topic)} pkey="intro_img" color="#4488ff" />
           <PromptBox label="🎬 VIDEO PROMPT" text={buildIntroVideoPrompt(video.topic)} pkey="intro_vid" color="#cc88ff" />
+          <button onClick={() => markSectionDone('intro')} disabled={!!doneSections['intro']}
+            style={{ background: doneSections['intro'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['intro'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['intro'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['intro'] ? 'not-allowed' : 'pointer', width: '100%' }}>
+            {doneSections['intro'] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
+          </button>
+        </SectionCard>
+
+        {/* ── ITEMS — each item alag card ── */}
+        <div style={{ fontSize: 11, color: '#555', textAlign: 'center', fontWeight: 700 }}>
+          📋 Items {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, items.length)} / {items.length}
         </div>
 
-        {/* ── ITEMS ── */}
-        <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 14, padding: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#ffaa00' }}>
-              📋 Items {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, items.length)} / {items.length}
-            </div>
-          </div>
-          <PaginationBar />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
-            {pageItems.map((item, i) => {
-              const gi = page * PER_PAGE + i;
-              return (
-                <div key={gi} style={{ borderTop: i > 0 ? '1px solid #1a1a1a' : 'none', paddingTop: i > 0 ? 14 : 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#ffcc44', marginBottom: 8 }}>{gi + 1}. {item}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <PromptBox label="🖼 IMAGE PROMPT" text={buildItemImagePrompt(item, type, question)} pkey={`img_${gi}`} color="#4488ff" />
-                    <PromptBox label="🎬 VIDEO PROMPT" text={buildItemVideoPrompt(item, type, question)} pkey={`vid_${gi}`} color="#cc88ff" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ marginTop: 14 }}><PaginationBar /></div>
-        </div>
+        {pageItems.map((item, i) => {
+          const gi = page * PER_PAGE + i;
+          const skey = `item_${gi}`;
+          return (
+            <SectionCard key={gi} skey={skey} title={`${gi + 1}. ${item}`} color="#ffaa00" done={!!doneSections[skey]}>
+              <PromptBox label="🖼 IMAGE PROMPT" text={buildItemImagePrompt(item, type, question)} pkey={`img_${gi}`} color="#4488ff" />
+              <PromptBox label="🎬 VIDEO PROMPT" text={buildItemVideoPrompt(item, type, question)} pkey={`vid_${gi}`} color="#cc88ff" />
+              <button onClick={() => markSectionDone(skey)} disabled={!!doneSections[skey]}
+                style={{ background: doneSections[skey] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections[skey] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections[skey] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections[skey] ? 'not-allowed' : 'pointer', width: '100%' }}>
+                {doneSections[skey] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
+              </button>
+            </SectionCard>
+          );
+        })}
 
-        {/* ── OUTRO ── */}
-        <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#cc88ff' }}>🎤 Outro</div>
-          <PromptBox label="🖼 IMAGE PROMPT" text={buildOutroImagePrompt()} pkey="outro_img" color="#4488ff" />
-          <PromptBox label="🎬 VIDEO PROMPT" text={buildOutroVideoPrompt()} pkey="outro_vid" color="#cc88ff" />
-        </div>
+        {/* ── OUTRO — only on last page ── */}
+        {isLastPage && (
+          <SectionCard skey="outro" title="🎤 Outro" color="#cc88ff" done={!!doneSections['outro']}>
+            <PromptBox label="🖼 IMAGE PROMPT" text={buildOutroImagePrompt()} pkey="outro_img" color="#4488ff" />
+            <PromptBox label="🎬 VIDEO PROMPT" text={buildOutroVideoPrompt()} pkey="outro_vid" color="#cc88ff" />
+            <button onClick={() => markSectionDone('outro')} disabled={!!doneSections['outro']}
+              style={{ background: doneSections['outro'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['outro'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['outro'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['outro'] ? 'not-allowed' : 'pointer', width: '100%' }}>
+              {doneSections['outro'] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
+            </button>
 
+            {/* ── MARK ALL DONE — sabse last mein ── */}
+            <button onClick={markAllDone} disabled={isDone}
+              style={{ background: isDone ? 'rgba(68,187,102,0.08)' : 'linear-gradient(135deg,#1a3a1a,#0a2a0a)', border: `1px solid ${isDone ? 'rgba(68,187,102,0.3)' : '#33aa33'}`, color: isDone ? '#44bb66' : '#55dd55', borderRadius: 10, padding: '13px', fontSize: 14, fontWeight: 800, cursor: isDone ? 'not-allowed' : 'pointer', width: '100%', marginTop: 4 }}>
+              {isDone ? '🎉 Video Complete!' : '🏁 Poori Video Mark as Done'}
+            </button>
+          </SectionCard>
+        )}
+
+      </div>
+
+      {/* ── FIXED BOTTOM NAV ── */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.95)', borderTop: '1px solid #222', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, zIndex: 100 }}>
+        <button onClick={() => { setPage(p => Math.max(0, p - 1)); setOpenSection(null); }} disabled={page === 0}
+          style={{ flex: 1, background: page === 0 ? '#111' : '#1a1a00', border: `1px solid ${page === 0 ? '#222' : '#443300'}`, color: page === 0 ? '#333' : '#ffaa00', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: page === 0 ? 'not-allowed' : 'pointer' }}>
+          ← Prev
+        </button>
+        <span style={{ fontSize: 11, color: '#555', fontWeight: 700, minWidth: 60, textAlign: 'center' }}>
+          {page + 1} / {totalPages}
+        </span>
+        <button onClick={() => { setPage(p => Math.min(totalPages - 1, p + 1)); setOpenSection(null); }} disabled={isLastPage}
+          style={{ flex: 1, background: isLastPage ? '#111' : '#1a1a00', border: `1px solid ${isLastPage ? '#222' : '#443300'}`, color: isLastPage ? '#333' : '#ffaa00', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: isLastPage ? 'not-allowed' : 'pointer' }}>
+          Next →
+        </button>
       </div>
     </div>
   );
