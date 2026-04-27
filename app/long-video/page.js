@@ -243,15 +243,18 @@ function LongVideoPage({ user }) {
   }
 
   function checkUploaded(video) {
-    if (ytChecking) return null; // still checking
-    if (!ytVideos.length) return false;
-    // Exact word-boundary match to avoid "1 to 10" matching "1 to 100"
-    const matchStr = (video.ytTitle || video.topic || '').toLowerCase().trim();
-    return ytVideos.some(v => {
-      const ytTitle = (v.title || '').toLowerCase().trim();
-      return ytTitle === matchStr || ytTitle.startsWith(matchStr + ' ') || ytTitle.endsWith(' ' + matchStr) || ytTitle.includes(' ' + matchStr + ' ');
-    });
-  }
+  if (ytChecking) return null;
+  if (!ytVideos.length) return false;
+  const matchStr = (video.ytTitle || video.topic || '').toLowerCase().trim();
+  const matched = ytVideos.find(v => {
+    const ytTitle = (v.title || '').toLowerCase().trim();
+    return ytTitle === matchStr || ytTitle.startsWith(matchStr + ' ') || ytTitle.endsWith(' ' + matchStr) || ytTitle.includes(' ' + matchStr + ' ');
+  });
+  if (!matched) return false;
+  if (matched.isScheduled) return 'scheduled';
+  if (matched.privacyStatus === 'private') return 'private';
+  return true;
+}
 
   async function createVideo() {
     const topic = selPreset ? selPreset.topic : customTopic.trim();
@@ -382,10 +385,26 @@ Generate 20 unique items.` }]);
                 {v.ytTitle && <div style={{ fontSize: 10, color: '#888', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📝 {v.ytTitle}</div>}
               </div>
               {/* YouTube upload status */}
-              <div style={{ padding: '0 14px 12px' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center', background: uploaded === true ? 'rgba(68,187,102,0.12)' : uploaded === false ? 'rgba(255,68,0,0.1)' : '#1a1a1a', color: uploaded === true ? '#44bb66' : uploaded === false ? '#ff8866' : '#555', border: `1px solid ${uploaded === true ? 'rgba(68,187,102,0.3)' : uploaded === false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
-                  {uploaded === true ? '✅ YouTube pe hai' : uploaded === false ? '⏳ Upload baaki' : '🔄 Checking...'}
-                </div>
+              <div style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center',
+  background: uploaded===true ? 'rgba(68,187,102,0.12)'
+    : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)'
+    : uploaded==='private' ? 'rgba(204,136,255,0.12)'
+    : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
+  color: uploaded===true ? '#44bb66'
+    : uploaded==='scheduled' ? '#4488ff'
+    : uploaded==='private' ? '#cc88ff'
+    : uploaded===false ? '#ff8866' : '#555',
+  border: `1px solid ${
+    uploaded===true ? 'rgba(68,187,102,0.3)'
+    : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)'
+    : uploaded==='private' ? 'rgba(204,136,255,0.3)'
+    : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
+  {uploaded===true ? '✅ YouTube pe hai'
+    : uploaded==='scheduled' ? '📅 Scheduled hai'
+    : uploaded==='private' ? '🔒 Private hai'
+    : uploaded===false ? '⏳ Upload baaki'
+    : '🔄 Checking...'}
+</div>
               </div>
             </div>
           );
