@@ -48,25 +48,24 @@ function getSeriesType(seriesName) {
   return 'general';
 }
 
-function getQuestionText(type) {
-  // Returns clean base question — prefix (तो बताओ/अब बताओ) added separately in video prompt
+function getQuestionText(type, forImage = false) {
   switch(type) {
-    case 'number':    return 'यह कौनसा नंबर है?';
-    case 'counting':  return 'यह कितने हैं?';
-    case 'color':     return 'यह कौनसा रंग है?';
-    case 'shape':     return 'यह कौनसी आकृति है?';
-    case 'alphabet':  return 'यह कौनसा अक्षर है?';
-    case 'vegetable': return 'यह कौनसी सब्ज़ी है?';
-    case 'fruit':     return 'यह कौनसा फल है?';
-    case 'animal':    return 'यह कौनसा जानवर है?';
-    default:          return 'यह क्या है?';
+    case 'number':    return forImage ? 'यह कौनसा नंबर है?' : 'तो बताओ.. यह कौनसा नंबर है?';
+    case 'counting':  return forImage ? 'यह कितने हैं?' : 'तो बताओ.. यह कितने हैं?';
+    case 'color':     return forImage ? 'कौनसा रंग है?' : 'तो बताओ.. कौनसा रंग है?';
+    case 'shape':     return forImage ? 'यह कौनसी आकृति है?' : 'तो बताओ.. यह कौनसी आकृति है?';
+    case 'alphabet':  return forImage ? 'यह कौनसा अक्षर है?' : 'तो बताओ.. यह कौनसा अक्षर है?';
+    case 'vegetable': return forImage ? 'यह कौनसी सब्ज़ी है?' : 'तो बताओ.. यह कौनसी सब्ज़ी है?';
+    case 'fruit':     return forImage ? 'यह कौनसा फल है?' : 'तो बताओ.. यह कौनसा फल है?';
+    case 'animal':    return forImage ? 'यह कौनसा जानवर है?' : 'तो बताओ.. यह कौनसा जानवर है?';
+    default:          return forImage ? 'यह क्या है?' : 'तो बताओ.. यह क्या है?';
   }
 }
 function getQuestionTextPart2(type) {
   switch(type) {
     case 'number':    return 'अब बताओ.. यह कौनसा नंबर है?';
     case 'counting':  return 'अब बताओ.. यह कितने हैं?';
-    case 'color':     return 'अब बताओ.. यह कौनसा रंग है?';
+    case 'color':     return 'अब बताओ.. कौनसा रंग है?';
     case 'shape':     return 'अब बताओ.. यह कौनसी आकृति है?';
     case 'alphabet':  return 'अब बताओ.. यह कौनसा अक्षर है?';
     case 'vegetable': return 'अब बताओ.. यह कौनसी सब्ज़ी है?';
@@ -74,37 +73,6 @@ function getQuestionTextPart2(type) {
     case 'animal':    return 'अब बताओ.. यह कौनसा जानवर है?';
     default:          return 'अब बताओ.. यह क्या है?';
   }
-}
-
-// ✅ Thumbnail prompt — 9:16 Short style, reference image same logo use karega
-function buildThumbnailPrompt(n, leftObjects) {
-  return `Use the exact logo from the reference image provided — replicate it as accurately as possible, same design, same text, same colors. Place it in top right corner.
-
-BACKGROUND:
-- Bright vibrant rainbow gradient (red → yellow → green → blue → purple)
-- Colorful confetti pieces scattered all over
-- Glowing sparkles and gold stars throughout the image
-
-CENTER TEXT:
-- Large bold 3D bubbly text: "${n}"
-- Each word in different bright color (red, green, blue, pink, orange)
-- Dark outline and shadow on each letter for visibility
-- Rounded bubbly font style, Pixar-inspired
-
-CHARACTER:
-- Cute Pixar 3D boy, brown hair, wearing colorful striped t-shirt and denim overalls
-- Positioned right side of image, pointing toward center text excitedly
-- Big open-mouth smile, happy expression
-
-LEFT SIDE:
-- ${leftObjects}
-- Large, colorful, 3D render style, slightly overlapping
-- Bright saturated colors, no dull tones
-
-OVERALL:
-- Ultra colorful, eye-catching, Pixar 3D render quality
-- Kids YouTube Shorts thumbnail style, high contrast
-- 9:16 vertical ratio, high resolution, no watermark, no extra text`;
 }
 
 function buildIntroImagePrompt(n) { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${n}" floating center with colorful sparkles. 9:16 vertical. Pixar style. No other text.`; }
@@ -120,26 +88,17 @@ function buildOutroVideoPrompt() { return `Use reference image exactly. No text 
 
 function buildImagePrompt(item, seriesName) {
   const type = getSeriesType(seriesName);
-  const q = getQuestionText(type);
-  // ✅ FIX: "?" removed from image prompt
+  const q = getQuestionText(type, true);
   return `Use reference background exactly.
 Use reference teacher exactly.
 Teacher left side pointing right with curious expression. ${item.object} clearly center right.
-Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text. No floating symbols above the object.`;
+Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text. No question mark. No "?" anywhere in the image. No floating symbols above the object.`;
 }
 
-function buildVideoPrompt(item, seriesName, itemIndex = 0) {
+function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
-  const baseQ = getQuestionText(type);
-  const q = itemIndex === 0 ? `तो बताओ.. ${baseQ}` : `अब बताओ.. ${baseQ}`;
-  return `Use reference scene exactly.
-Teacher points to ${item.object} curiously.
-Teacher asks in Hindi: "${q}". Pause 2 seconds.
-Then the question text at bottom center disappears and "${item.name.toUpperCase()}" appears at the exact same position — smooth reveal, no scale animation, just clean replace.
-Answer stays visible until the very last frame.
-Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
-No floating symbols, no extra text, no question mark above the object.
-Answer on screen for at least 5 seconds. 8 seconds total. Smooth. No glitch. Pure Hindi Indian accent audio only.`;
+  const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
+  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Teacher asks in Hindi: "${q}". Pause 2 seconds. The question text at bottom center animates away and glowing bold "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
@@ -188,10 +147,12 @@ function CreateSeriesPage({ user }) {
     try { const r = await fetch('/api/youtube'); const d = await r.json(); if (!d.error) setYtVideos(d.videos || []); } catch {}
   }
 
-  // ── YouTube check: title se match karo ──────────────
+  // ── YouTube check: koi bhi match (public/private/scheduled) = uploaded ──
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
     const matchStr = (series.ytTitle || series.name || '').toLowerCase();
+    if (!matchStr) return null;
+    // Koi bhi match mile chahe public/private/scheduled — sab uploaded maano
     return ytVideos.some(v => (v.title || '').toLowerCase().includes(matchStr));
   }
 
@@ -219,62 +180,13 @@ function CreateSeriesPage({ user }) {
     setModal('picker');
   }
 
-  // ── Hardcoded item banks for known types ────────────
-  const HARDCODED_ITEMS = {
-    color: [
-      { name: 'Red',    object: 'Bright red color splash with a red apple beside it' },
-      { name: 'Blue',   object: 'Sky blue color splash with a blue balloon beside it' },
-      { name: 'Green',  object: 'Lush green color splash with a green leaf beside it' },
-      { name: 'Yellow', object: 'Sunny yellow color splash with a yellow sun beside it' },
-      { name: 'Orange', object: 'Vibrant orange color splash with an orange fruit beside it' },
-      { name: 'Purple', object: 'Rich purple color splash with purple grapes beside it' },
-      { name: 'Pink',   object: 'Soft pink color splash with a pink flower beside it' },
-      { name: 'Brown',  object: 'Warm brown color splash with a chocolate bar beside it' },
-      { name: 'White',  object: 'Pure white color splash with a white cloud beside it' },
-      { name: 'Black',  object: 'Deep black color splash with a black umbrella beside it' },
-    ],
-    shape: [
-      { name: 'Circle',    object: 'Big colorful 3D circle shape glowing center' },
-      { name: 'Square',    object: 'Big colorful 3D square shape glowing center' },
-      { name: 'Triangle',  object: 'Big colorful 3D triangle shape glowing center' },
-      { name: 'Rectangle', object: 'Big colorful 3D rectangle shape glowing center' },
-      { name: 'Star',      object: 'Big colorful 3D star shape glowing center' },
-      { name: 'Heart',     object: 'Big colorful 3D heart shape glowing center' },
-      { name: 'Oval',      object: 'Big colorful 3D oval shape glowing center' },
-      { name: 'Diamond',   object: 'Big colorful 3D diamond shape glowing center' },
-      { name: 'Pentagon',  object: 'Big colorful 3D pentagon shape glowing center' },
-      { name: 'Hexagon',   object: 'Big colorful 3D hexagon shape glowing center' },
-    ],
-    alphabet: 'ABCDEFGHIJ'.split('').map(l => ({ name: l, object: `Large bold glowing 3D letter "${l}" center` })),
-  };
-
   async function generateSeries() {
     if (!selectedTopic) return;
     setGenerating(true);
     try {
-      const type = getSeriesType(selectedTopic.name);
-      let items;
-
-      if (HARDCODED_ITEMS[type]) {
-        // ✅ Hardcoded — AI pe depend nahi
-        items = HARDCODED_ITEMS[type];
-      } else if (type === 'number') {
-        // ✅ Series name se range parse karo — "1 to 50", "1 to 100", etc.
-        const nameStr = selectedTopic.name;
-        const nums = nameStr.match(/\d+/g)?.map(Number);
-        const from = nums?.[0] ?? 1;
-        const to   = nums?.[1] ?? 10;
-        items = Array.from({ length: to - from + 1 }, (_, i) => ({
-          name: String(from + i),
-          object: `Large bold glowing 3D number "${from + i}" center`
-        }));
-      } else {
-        // General/fruit/animal/vegetable — AI se
-        const existing = seriesList.map(s => s.name).join(', ');
-        const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
-        items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-      }
-
+      const existing = seriesList.map(s => s.name).join(', ');
+      const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
+      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '' });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
       setModal('none'); setSelectedTopic(null); setCustomName('');
@@ -286,19 +198,9 @@ function CreateSeriesPage({ user }) {
   async function continueSeries(series) {
     setContinuing(true);
     try {
-      const type = getSeriesType(series.name);
-      let newItems;
-
-      if (type === 'color' || type === 'shape' || type === 'alphabet' || type === 'number') {
-        toast('⚠️ Yeh type continue nahi hota — sab items already hain!');
-        setContinuing(false);
-        return;
-      } else {
-        const done = (series.items || []).map(i => i.name).join(', ');
-        const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
-        newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-      }
-
+      const done = (series.items || []).map(i => i.name).join(', ');
+      const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
+      const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       const newPart = (series.part || 1) + 1;
       await saveSeries(user.uid, { name: `${series.name} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart, ytTitle: '', ytDescription: '' });
       toast(`🎉 Part ${newPart} ready!`); loadList();
@@ -330,8 +232,8 @@ Series: "${series.name}"
 Items covered: ${itemNames}
 
 Rules:
-- Title: Catchy, Hindi+English mix, under 70 chars, include "| Rang Tarang" at end. Then add exactly 5 viral topic-related hashtags (e.g. #KidsLearning #HindiKids #RangTarang).
-- Description: 3-4 lines, fun, mentions what kids will learn, includes "Rang Tarang" channel name, ends with subscribe line. After the description, on a new line add exactly 10 viral topic-related hashtags.
+- Title: Catchy, Hindi+English mix, under 70 chars, include "| Rang Tarang" at end
+- Description: 3-4 lines, fun, mentions what kids will learn, includes "Rang Tarang" channel name, ends with subscribe line
 
 Return ONLY JSON, no markdown: {"title":"...","description":"..."}
 `);
@@ -367,32 +269,16 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
-    const total = (s.items || []).length + 3; // thumbnail + intro + outro
+    const total = (s.items || []).length + 2;
     const allPromptsDone = Object.keys(done).length >= total;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const isUploaded = checkUploaded(s) === true;
 
     const isFirstPart = (s.part || 1) === 1;
-    // ✅ Thumbnail leftObjects: series type se auto-detect
-    const thumbType = getSeriesType(s.name);
-    const leftObjectsMap = {
-      number: '3 large colorful 3D numbers (1, 2, 3) stacked on left side',
-      color: '3 large colorful paint splashes or color blobs on left side',
-      fruit: '3 large colorful 3D fruits (apple, banana, mango) stacked on left side',
-      animal: '3 cute colorful 3D animals peeking from left side',
-      alphabet: '3 large colorful 3D letters (A, B, C) stacked on left side',
-      shape: '3 large colorful 3D shapes (circle, star, heart) on left side',
-      vegetable: '3 large colorful 3D vegetables (carrot, broccoli, tomato) on left side',
-      general: '3 large colorful 3D educational objects stacked on left side',
-    };
-    const leftObjects = leftObjectsMap[thumbType] || leftObjectsMap.general;
-
     const sections = [
-      // ✅ Thumbnail section — intro se pehele
-      { key: 'thumbnail', title: '🖼 Thumbnail', color: '#ffcc00', prompts: [{ type: '🖼 IMAGE (9:16 Short)', text: buildThumbnailPrompt(s.name, leftObjects) }] },
       // ✅ FIX: part passed to buildIntroVideoPrompt
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) }] },
-      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i) }] })),
+      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
     ];
 
@@ -479,6 +365,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
         {(() => {
+          // Block only if any series has NO match on YouTube (upload pending)
           const hasUnuploaded = seriesList.some(s => checkUploaded(s) === false);
           return hasUnuploaded ? (
             <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{ background: '#333', border: 'none', color: '#666', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6 }}>+ Nayi</button>
@@ -591,7 +478,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
         ) : seriesList.map(s => {
-          const total = (s.items || []).length + 3; // thumbnail + intro + outro
+          const total = (s.items || []).length + 2;
           const uploaded = checkUploaded(s);
           const hasTD = !!(s.ytTitle && s.ytDescription);
           return (
@@ -610,7 +497,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
               </div>
               <div style={{ padding: '0 14px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center', background: uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a', color: uploaded===true ? '#44bb66' : uploaded===false ? '#ff8866' : '#555', border: `1px solid ${uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
-                  {uploaded===true ? '✅ YouTube pe hai' : uploaded===false ? '⏳ Upload baaki' : '🔄 Checking...'}
+                  {uploaded===true ? '✅ YouTube pe hai' : uploaded===false ? '⏳ Upload baaki' : '🔍 Checking...'}
                 </div>
                 <button onClick={() => continueSeries(s)} disabled={continuing} style={{ background: `${s.color}15`, border: `1px solid ${s.color}40`, color: s.color, borderRadius: 20, padding: '6px 14px', fontSize: 11, fontWeight: 700, cursor: continuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                   {continuing ? <div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> : '▶ Continue'}
