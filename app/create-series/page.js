@@ -153,10 +153,14 @@ function CreateSeriesPage({ user }) {
   // ── YouTube check: koi bhi match (public/private/scheduled) = uploaded ──
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
-    const matchStr = (series.ytTitle || series.name || '').toLowerCase();
-    if (!matchStr) return null;
+    // ytTitle prefer karo, warna series name use karo — dono empty hain toh null
+    const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
+    if (!matchStr || matchStr.length < 3) return null; // too short = unreliable match
     // Koi bhi match mile chahe public/private/scheduled — sab uploaded maano
-    return ytVideos.some(v => (v.title || '').toLowerCase().includes(matchStr));
+    return ytVideos.some(v => {
+      const ytTitle = (v.title || '').toLowerCase();
+      return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
+    });
   }
 
   function openChoose() { setModal('choose'); }
