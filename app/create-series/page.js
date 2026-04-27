@@ -153,16 +153,19 @@ function CreateSeriesPage({ user }) {
   }
 
   // ── YouTube check ────────────────────────────────────────
-  function checkUploaded(series) {
-    if (!ytVideos.length) return null;
-    const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
-    if (!matchStr || matchStr.length < 3) return null;
-    return ytVideos.some(v => {
-      const ytTitle = (v.title || '').toLowerCase();
-      return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
-    });
-  }
-
+ function checkUploaded(series) {
+  if (!ytVideos.length) return null;
+  const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
+  if (!matchStr || matchStr.length < 3) return null;
+  const matched = ytVideos.find(v => {
+    const ytTitle = (v.title || '').toLowerCase();
+    return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
+  });
+  if (!matched) return false;
+  if (matched.isScheduled) return 'scheduled';
+  if (matched.privacyStatus === 'private') return 'private';
+  return true;
+ }
   function openChoose() { setModal('choose'); }
 
   async function loadSuggestions() {
@@ -487,8 +490,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
             </div>
           </div>
         )}
-
-        {/* SERIES LIST */}
+{/* SERIES LIST */}
         {loadingList ? (
           <div style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} /><div style={{ fontSize: 12, color: '#555' }}>Loading...</div></div>
         ) : seriesList.length === 0 ? (
@@ -517,11 +519,24 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
               </div>
               <div style={{ padding: '0 14px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center',
-                  background: uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
-                  color: uploaded===true ? '#44bb66' : uploaded===false ? '#ff8866' : '#555',
-                  border: `1px solid ${uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
-                  {/* ✅ FIX: ytLoading ho toh Checking... warna result dikhao */}
-                  {ytLoading ? '🔍 Checking...' : uploaded===true ? '✅ YouTube pe hai' : '⏳ Upload baaki'}
+                  background: uploaded===true ? 'rgba(68,187,102,0.12)'
+                    : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)'
+                    : uploaded==='private' ? 'rgba(204,136,255,0.12)'
+                    : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
+                  color: uploaded===true ? '#44bb66'
+                    : uploaded==='scheduled' ? '#4488ff'
+                    : uploaded==='private' ? '#cc88ff'
+                    : uploaded===false ? '#ff8866' : '#555',
+                  border: `1px solid ${
+                    uploaded===true ? 'rgba(68,187,102,0.3)'
+                    : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)'
+                    : uploaded==='private' ? 'rgba(204,136,255,0.3)'
+                    : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
+                  {ytLoading ? '🔍 Checking...'
+                    : uploaded===true ? '✅ YouTube pe hai'
+                    : uploaded==='scheduled' ? '📅 Scheduled hai'
+                    : uploaded==='private' ? '🔒 Private hai'
+                    : '⏳ Upload baaki'}
                 </div>
                 <button onClick={() => continueSeries(s)} disabled={continuing} style={{ background: `${s.color}15`, border: `1px solid ${s.color}40`, color: s.color, borderRadius: 20, padding: '6px 14px', fontSize: 11, fontWeight: 700, cursor: continuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                   {continuing ? <div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> : '▶ Continue'}
