@@ -35,7 +35,7 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
-// ── Series type detect ───────────────────────────────
+// ── Series type detect ───────────────────────────────────
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
@@ -77,7 +77,6 @@ function getQuestionTextPart2(type) {
 
 function buildIntroImagePrompt(n) { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${n}" floating center with colorful sparkles. 9:16 vertical. Pixar style. No other text.`; }
 
-// ✅ FIX: part number mention in intro video
 function buildIntroVideoPrompt(n, part = 1) {
   const partMention = part > 1 ? ` — yeh hai part ${part}` : '';
   return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${n}${partMention} — chalo shuru karte hain!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
@@ -123,10 +122,8 @@ function CreateSeriesPage({ user }) {
   const [ytVideos, setYtVideos]       = useState([]);
   const [continuing, setContinuing]   = useState(false);
 
-  // Title/desc generation state
   const [genTD, setGenTD]             = useState(false);
 
-  // Modal state
   const [modal, setModal]             = useState('none');
   const [suggestions, setSuggestions] = useState([]);
   const [sugLoading, setSugLoading]   = useState(false);
@@ -135,7 +132,7 @@ function CreateSeriesPage({ user }) {
   const [selectedEmoji, setSelectedEmoji] = useState('🌟');
   const [selectedColor, setSelectedColor] = useState('#ff4400');
   const [generating, setGenerating]   = useState(false);
-  const [ytLoading, setYtLoading]       = useState(true);
+  const [ytLoading, setYtLoading]     = useState(true);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -144,19 +141,22 @@ function CreateSeriesPage({ user }) {
     try { setSeriesList(await getSeries(user.uid)); } catch { toast('❌ Load fail'); }
     setLoadingList(false);
   }
+
   async function fetchYT() {
     setYtLoading(true);
-    try { const r = await fetch('/api/youtube'); const d = await r.json(); if (!d.error) setYtVideos(d.videos || []); } catch {}
+    try {
+      const r = await fetch('/api/youtube');
+      const d = await r.json();
+      if (!d.error) setYtVideos(d.videos || []);
+    } catch {}
     setYtLoading(false);
   }
 
-  // ── YouTube check: koi bhi match (public/private/scheduled) = uploaded ──
+  // ── YouTube check ────────────────────────────────────────
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
-    // ytTitle prefer karo, warna series name use karo — dono empty hain toh null
     const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
-    if (!matchStr || matchStr.length < 3) return null; // too short = unreliable match
-    // Koi bhi match mile chahe public/private/scheduled — sab uploaded maano
+    if (!matchStr || matchStr.length < 3) return null;
     return ytVideos.some(v => {
       const ytTitle = (v.title || '').toLowerCase();
       return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
@@ -228,7 +228,6 @@ function CreateSeriesPage({ user }) {
     toast(wasDone ? 'Undone!' : '✅ Done!');
   }
 
-  // ── Generate Title & Description ─────────────────────
   async function generateTitleDesc(series) {
     setGenTD(true);
     try {
@@ -283,7 +282,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
 
     const isFirstPart = (s.part || 1) === 1;
     const sections = [
-      // ✅ FIX: part passed to buildIntroVideoPrompt
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) }] },
       ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
@@ -314,7 +312,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
             </div>
           </div>
 
-          {/* ── TITLE & DESCRIPTION SECTION ── */}
+          {/* Title & Description */}
           <TitleDescSection
             series={s}
             allPromptsDone={allPromptsDone}
@@ -371,25 +369,35 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
-        {(() => {
-          if (ytLoading) return (
-            <button disabled style={{ background: '#222', border: 'none', color: '#555', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#555' }} />Check...
-            </button>
-          );
-          // Block only if any series has NO match on YouTube (upload pending)
+
+        {/* ✅ FIX: ytLoading ho toh + Nayi button greyed out/disabled */}
+        {ytLoading ? (
+          <button disabled style={{
+            background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444',
+            borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700,
+            cursor: 'not-allowed', opacity: 0.5
+          }}>+ Nayi</button>
+        ) : (() => {
           const hasUnuploaded = seriesList.some(s => checkUploaded(s) === false);
           return hasUnuploaded ? (
-            <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{ background: '#333', border: 'none', color: '#666', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6 }}>+ Nayi</button>
+            <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{
+              background: '#333', border: 'none', color: '#666',
+              borderRadius: 20, padding: '6px 14px', fontSize: 12,
+              fontWeight: 700, cursor: 'not-allowed', opacity: 0.6
+            }}>+ Nayi</button>
           ) : (
-            <button onClick={openChoose} style={{ background: '#cc88ff', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Nayi</button>
+            <button onClick={openChoose} style={{
+              background: '#cc88ff', border: 'none', color: '#fff',
+              borderRadius: 20, padding: '6px 14px', fontSize: 12,
+              fontWeight: 700, cursor: 'pointer'
+            }}>+ Nayi</button>
           );
         })()}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* ── CHOOSE MODAL ── */}
+        {/* CHOOSE MODAL */}
         {modal === 'choose' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -415,7 +423,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* ── AI SUGGESTIONS MODAL ── */}
+        {/* AI SUGGESTIONS MODAL */}
         {modal === 'suggestions' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -437,7 +445,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* ── CUSTOM NAME MODAL ── */}
+        {/* CUSTOM NAME MODAL */}
         {modal === 'custom' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -456,7 +464,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* ── PICKER MODAL ── */}
+        {/* PICKER MODAL */}
         {modal === 'picker' && selectedTopic && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -480,7 +488,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* ── SERIES LIST ── */}
+        {/* SERIES LIST */}
         {loadingList ? (
           <div style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} /><div style={{ fontSize: 12, color: '#555' }}>Loading...</div></div>
         ) : seriesList.length === 0 ? (
@@ -508,8 +516,12 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
                 <span style={{ fontSize: 13, color: '#333' }}>›</span>
               </div>
               <div style={{ padding: '0 14px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center', background: uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a', color: uploaded===true ? '#44bb66' : uploaded===false ? '#ff8866' : '#555', border: `1px solid ${uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
-                  {uploaded===true ? '✅ YouTube pe hai' : uploaded===false ? '⏳ Upload baaki' : '🔍 Checking...'}
+                <div style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center',
+                  background: uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
+                  color: uploaded===true ? '#44bb66' : uploaded===false ? '#ff8866' : '#555',
+                  border: `1px solid ${uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
+                  {/* ✅ FIX: ytLoading ho toh Checking... warna result dikhao */}
+                  {ytLoading ? '🔍 Checking...' : uploaded===true ? '✅ YouTube pe hai' : '⏳ Upload baaki'}
                 </div>
                 <button onClick={() => continueSeries(s)} disabled={continuing} style={{ background: `${s.color}15`, border: `1px solid ${s.color}40`, color: s.color, borderRadius: 20, padding: '6px 14px', fontSize: 11, fontWeight: 700, cursor: continuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                   {continuing ? <div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> : '▶ Continue'}
@@ -556,13 +568,11 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
             </div>
           )}
 
-          {/* AI Generate Button */}
           <button onClick={onGenerate} disabled={genTD}
             style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
           </button>
 
-          {/* Title field */}
           <div>
             <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 YouTube Title</div>
             <div style={{ position: 'relative' }}>
@@ -573,7 +583,6 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
             </div>
           </div>
 
-          {/* Description field */}
           <div>
             <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 YouTube Description</div>
             <div style={{ position: 'relative' }}>
@@ -585,7 +594,6 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
             </div>
           </div>
 
-          {/* Save button */}
           <button onClick={() => { onSave(title, desc); setEditing(false); }}
             style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
             💾 Save Karo
