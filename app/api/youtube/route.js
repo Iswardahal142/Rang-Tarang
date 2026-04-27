@@ -1,16 +1,48 @@
 // 📁 LOCATION: app/api/youtube/route.js
 export const revalidate = 300;
 
+async function getAccessToken() {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     process.env.YOUTUBE_CLIENT_ID,
+      client_secret: process.env.YOUTUBE_CLIENT_SECRET,
+      refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
+      grant_type:    'refresh_token',
+    }),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('Token error: ' + JSON.stringify(data));
+  return data.access_token;
+}
+
 export async function GET() {
   const apiKey    = process.env.YOUTUBE_API_KEY;
   const channelId = process.env.YOUTUBE_CHANNEL_ID;
 
-  if (!apiKey)    return Response.json({ error: 'YOUTUBE_API_KEY not set' }, { status: 500 });
+  if (!apiKey)    return Response.json({ error: 'YOUTUBE_API_KEY not set' },    { status: 500 });
   if (!channelId) return Response.json({ error: 'YOUTUBE_CHANNEL_ID not set' }, { status: 500 });
 
+  // OAuth token lo
+  let accessToken = null;
   try {
+    accessToken = await getAccessToken();
+  } catch (e) {
+    console.warn('OAuth fail, API key fallback:', e.message);
+  }
+
+  // ✅ KEY INSIGHT: OAuth ho toh key mat bhejo, warna key bhejo
+  function buildUrl(base) {
+    return accessToken ? base : `${base}${base.includes('?') ? '&' : '?'}key=${apiKey}`;
+  }
+  const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
+  try {
+    // ── Channel ──────────────────────────────────────────
     const channelRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet,statistics&id=${channelId}&key=${apiKey}`
+      buildUrl(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet,statistics&id=${channelId}`),
+      { headers }
     );
     const channelData = await channelRes.json();
 
@@ -18,23 +50,30 @@ export async function GET() {
       return Response.json({ error: 'Channel not found.' }, { status: 404 });
     }
 
-    const channel             = channelData.items[0];
-    const uploadsPlaylistId   = channel.contentDetails.relatedPlaylists.uploads;
-    const channelName         = channel.snippet?.title || '';
-    const channelThumb        = channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url || '';
-    const channelId_out       = channel.id || channelId;
-    const subscriberCount     = channel.statistics?.subscriberCount || '0';
-    const videoCount          = channel.statistics?.videoCount || '0';
+    const channel           = channelData.items[0];
+    const uploadsPlaylistId = channel.contentDetails.relatedPlaylists.uploads;
+    const channelName       = channel.snippet?.title || '';
+    const channelThumb      = channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url || '';
+    const channelId_out     = channel.id || channelId;
+    const subscriberCount   = channel.statistics?.subscriberCount || '0';
+    const videoCount        = channel.statistics?.videoCount || '0';
 
+    // ── Playlist — OAuth se private/scheduled bhi aayenge ──
     const playlistRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=20&key=${apiKey}`
+      buildUrl(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=50`),
+      { headers }
     );
     const playlistData = await playlistRes.json();
     const videoIds = playlistData.items?.map(item => item.contentDetails.videoId).join(',') || '';
 
-    // Fetch stats + contentDetails for duration
+    if (!videoIds) {
+      return Response.json({ channelId: channelId_out, channelName, channelThumb, subscriberCount, videoCount, videos: [] });
+    }
+
+    // ── Video stats + privacy ─────────────────────────────
     const statsRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,contentDetails&id=${videoIds}&key=${apiKey}`
+      buildUrl(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,contentDetails,status&id=${videoIds}`),
+      { headers }
     );
     const statsData = await statsRes.json();
 
@@ -46,18 +85,24 @@ export async function GET() {
     }
 
     const videos = statsData.items?.map(v => {
-      const durationSec = parseDuration(v.contentDetails?.duration);
-      const isShort = durationSec > 0 && durationSec <= 60;
+      const durationSec   = parseDuration(v.contentDetails?.duration);
+      const isShort       = durationSec > 0 && durationSec <= 60;
+      const privacyStatus = v.status?.privacyStatus || 'public';
+      const publishAt     = v.status?.publishAt || null;
+      const isScheduled   = privacyStatus === 'private' && !!publishAt;
       return {
-        videoId:     v.id,
-        title:       v.snippet.title,
-        description: v.snippet.description,
-        thumbnail:   v.snippet.thumbnails?.maxres?.url || v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url || '',
-        publishedAt: v.snippet.publishedAt,
-        viewCount:   parseInt(v.statistics.viewCount || '0'),
-        likeCount:   parseInt(v.statistics.likeCount || '0'),
+        videoId:       v.id,
+        title:         v.snippet.title,
+        description:   v.snippet.description,
+        thumbnail:     v.snippet.thumbnails?.maxres?.url || v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url || '',
+        publishedAt:   v.snippet.publishedAt,
+        viewCount:     parseInt(v.statistics?.viewCount  || '0'),
+        likeCount:     parseInt(v.statistics?.likeCount  || '0'),
         durationSec,
         isShort,
+        privacyStatus,
+        isScheduled,
+        scheduledAt: publishAt,
       };
     }) || [];
 
@@ -68,6 +113,7 @@ export async function GET() {
       subscriberCount,
       videoCount,
       videos,
+      oauthActive: !!accessToken,
     });
 
   } catch (err) {
