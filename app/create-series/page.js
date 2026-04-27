@@ -135,6 +135,7 @@ function CreateSeriesPage({ user }) {
   const [selectedEmoji, setSelectedEmoji] = useState('🌟');
   const [selectedColor, setSelectedColor] = useState('#ff4400');
   const [generating, setGenerating]   = useState(false);
+  const [ytLoading, setYtLoading]       = useState(true);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -144,7 +145,9 @@ function CreateSeriesPage({ user }) {
     setLoadingList(false);
   }
   async function fetchYT() {
+    setYtLoading(true);
     try { const r = await fetch('/api/youtube'); const d = await r.json(); if (!d.error) setYtVideos(d.videos || []); } catch {}
+    setYtLoading(false);
   }
 
   // ── YouTube check: koi bhi match (public/private/scheduled) = uploaded ──
@@ -365,6 +368,11 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
         {(() => {
+          if (ytLoading) return (
+            <button disabled style={{ background: '#222', border: 'none', color: '#555', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#555' }} />Check...
+            </button>
+          );
           // Block only if any series has NO match on YouTube (upload pending)
           const hasUnuploaded = seriesList.some(s => checkUploaded(s) === false);
           return hasUnuploaded ? (
