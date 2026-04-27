@@ -403,8 +403,7 @@ Generate 20 unique items.` }]);
     : uploaded==='scheduled' ? '📅 Scheduled hai'
     : uploaded==='private' ? '🔒 Private hai'
     : uploaded===false ? '⏳ Upload baaki'
-    : '🔄 Checking...'}
-</div>
+    : '🔄 Checking...}
               </div>
             </div>
           );
