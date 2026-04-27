@@ -75,11 +75,22 @@ function getQuestionTextPart2(type) {
   }
 }
 
-function buildIntroImagePrompt(n) { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${n}" floating center with colorful sparkles. 9:16 vertical. Pixar style. No other text.`; }
+function buildIntroImagePrompt(seriesName, items = []) {
+  const first3 = items.slice(0, 3);
+  const positions = ['bottom left', 'bottom center', 'bottom right'];
+  const shuffled = positions.sort(() => Math.random() - 0.5);
 
-function buildIntroVideoPrompt(n, part = 1) {
-  const partMention = part > 1 ? ` — yeh hai part ${part}` : '';
-  return `Use reference scene exactly. No text on screen. Teacher standing center, smiling, waving hand at camera. Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${n}${partMention} — chalo shuru karte hain!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
+  const itemsDesc = first3.length > 0
+    ? first3.map((item, i) => `${item.name} (${item.object}) at ${shuffled[i]}`).join(', ')
+    : 'colorful educational items at bottom';
+
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show 3 Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
+}
+function buildIntroVideoPrompt(n, part = 1, items = []) {
+  const partMention = part > 1 ? ` — यह है part ${part}` : '';
+  const firstItem = items?.[0]?.name || '';
+  const objectLine = firstItem ? `Teacher bends down, picks up a ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
+  return `Use reference scene exactly. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${n}" with hand and slides it off screen to the right. ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
 }
 
 function buildOutroImagePrompt() { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, waving goodbye with big smile. Colorful sparkles and stars floating around. 9:16 vertical. Pixar style. No text.`; }
@@ -274,7 +285,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     toast('🗑 Deleted!'); setOpenSeries(null); loadList();
   }
 
-  // ── DETAIL VIEW ───────────────────────────────────────
+// ── DETAIL VIEW ───────────────────────────────────────
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
@@ -285,7 +296,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
 
     const isFirstPart = (s.part || 1) === 1;
     const sections = [
-      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) }] },
+      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }] },
       ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
     ];
@@ -303,7 +314,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
           {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
