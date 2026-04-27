@@ -1,58 +1,16 @@
 // 📁 LOCATION: app/api/youtube/route.js
 export const revalidate = 300;
 
-// ── Step 1: Refresh token se access token lo ──────────────
-async function getAccessToken() {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id:     process.env.YOUTUBE_CLIENT_ID,
-      client_secret: process.env.YOUTUBE_CLIENT_SECRET,
-      refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
-      grant_type:    'refresh_token',
-    }),
-  });
-  const data = await res.json();
-  if (!data.access_token) throw new Error('Access token nahi mila: ' + JSON.stringify(data));
-  return data.access_token;
-}
-
 export async function GET() {
   const apiKey    = process.env.YOUTUBE_API_KEY;
   const channelId = process.env.YOUTUBE_CHANNEL_ID;
 
-  if (!apiKey)    return Response.json({ error: 'YOUTUBE_API_KEY not set' },    { status: 500 });
+  if (!apiKey)    return Response.json({ error: 'YOUTUBE_API_KEY not set' }, { status: 500 });
   if (!channelId) return Response.json({ error: 'YOUTUBE_CHANNEL_ID not set' }, { status: 500 });
 
-  // Refresh token env check
-  const hasOAuth =
-    process.env.YOUTUBE_CLIENT_ID &&
-    process.env.YOUTUBE_CLIENT_SECRET &&
-    process.env.YOUTUBE_REFRESH_TOKEN;
-
   try {
-    // ── Step 2: Access token lo (agar OAuth env hai) ──────
-    let accessToken = null;
-    if (hasOAuth) {
-      try { accessToken = await getAccessToken(); }
-      catch (e) { console.warn('OAuth fail, falling back to API key only:', e.message); }
-    }
-
-    // Auth header helper
-    function authHeaders() {
-      return accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : {};
-    }
-    function withKey(url) {
-      return url + (url.includes('?') ? '&' : '?') + `key=${apiKey}`;
-    }
-
-    // ── Step 3: Channel info ──────────────────────────────
     const channelRes = await fetch(
-      withKey(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet,statistics&id=${channelId}`),
-      { headers: authHeaders() }
+      `https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet,statistics&id=${channelId}&key=${apiKey}`
     );
     const channelData = await channelRes.json();
 
@@ -60,41 +18,26 @@ export async function GET() {
       return Response.json({ error: 'Channel not found.' }, { status: 404 });
     }
 
-    const channel           = channelData.items[0];
-    const uploadsPlaylistId = channel.contentDetails.relatedPlaylists.uploads;
-    const channelName       = channel.snippet?.title || '';
-    const channelThumb      = channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url || '';
-    const channelId_out     = channel.id || channelId;
-    const subscriberCount   = channel.statistics?.subscriberCount || '0';
-    const videoCount        = channel.statistics?.videoCount || '0';
+    const channel             = channelData.items[0];
+    const uploadsPlaylistId   = channel.contentDetails.relatedPlaylists.uploads;
+    const channelName         = channel.snippet?.title || '';
+    const channelThumb        = channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url || '';
+    const channelId_out       = channel.id || channelId;
+    const subscriberCount     = channel.statistics?.subscriberCount || '0';
+    const videoCount          = channel.statistics?.videoCount || '0';
 
-    // ── Step 4: Playlist items — private/scheduled bhi aayenge OAuth se ──
-    // maxResults=50 for better coverage
     const playlistRes = await fetch(
-      withKey(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails,status&playlistId=${uploadsPlaylistId}&maxResults=50`),
-      { headers: authHeaders() }
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=20&key=${apiKey}`
     );
     const playlistData = await playlistRes.json();
-    const allItems = playlistData.items || [];
+    const videoIds = playlistData.items?.map(item => item.contentDetails.videoId).join(',') || '';
 
-    // Video IDs extract karo — private videos ka videoId bhi aata hai OAuth se
-    const videoIds = allItems
-      .map(item => item.contentDetails?.videoId)
-      .filter(Boolean)
-      .join(',');
-
-    if (!videoIds) {
-      return Response.json({ channelId: channelId_out, channelName, channelThumb, subscriberCount, videoCount, videos: [] });
-    }
-
-    // ── Step 5: Video stats + status (privacyStatus, publishAt) ──────────
+    // Fetch stats + contentDetails for duration
     const statsRes = await fetch(
-      withKey(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,contentDetails,status&id=${videoIds}`),
-      { headers: authHeaders() }
+      `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,contentDetails&id=${videoIds}&key=${apiKey}`
     );
     const statsData = await statsRes.json();
 
-    // ── Duration parser ───────────────────────────────────
     function parseDuration(iso) {
       if (!iso) return 0;
       const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -102,29 +45,21 @@ export async function GET() {
       return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
     }
 
-    // ── Step 6: Videos map karo with privacy + schedule info ─
-    const videos = (statsData.items || []).map(v => {
-      const durationSec   = parseDuration(v.contentDetails?.duration);
-      const isShort       = durationSec > 0 && durationSec <= 60;
-      const privacyStatus = v.status?.privacyStatus || 'public'; // public | private | unlisted
-      const publishAt     = v.status?.publishAt || null;         // scheduled hoga toh date aayega
-      const isScheduled   = privacyStatus === 'private' && !!publishAt;
-
+    const videos = statsData.items?.map(v => {
+      const durationSec = parseDuration(v.contentDetails?.duration);
+      const isShort = durationSec > 0 && durationSec <= 60;
       return {
-        videoId:       v.id,
-        title:         v.snippet.title,
-        description:   v.snippet.description,
-        thumbnail:     v.snippet.thumbnails?.maxres?.url || v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url || '',
-        publishedAt:   v.snippet.publishedAt,
-        viewCount:     parseInt(v.statistics?.viewCount  || '0'),
-        likeCount:     parseInt(v.statistics?.likeCount  || '0'),
+        videoId:     v.id,
+        title:       v.snippet.title,
+        description: v.snippet.description,
+        thumbnail:   v.snippet.thumbnails?.maxres?.url || v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url || '',
+        publishedAt: v.snippet.publishedAt,
+        viewCount:   parseInt(v.statistics.viewCount || '0'),
+        likeCount:   parseInt(v.statistics.likeCount || '0'),
         durationSec,
         isShort,
-        privacyStatus, // 'public' | 'private' | 'unlisted'
-        isScheduled,   // true = scheduled (private + publishAt set)
-        scheduledAt:   publishAt, // scheduled time (null if not scheduled)
       };
-    });
+    }) || [];
 
     return Response.json({
       channelId: channelId_out,
@@ -133,8 +68,6 @@ export async function GET() {
       subscriberCount,
       videoCount,
       videos,
-      // Debug info
-      oauthActive: !!accessToken,
     });
 
   } catch (err) {
