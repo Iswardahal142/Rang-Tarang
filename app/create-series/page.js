@@ -101,7 +101,7 @@ function buildImagePrompt(item, seriesName) {
   const q = getQuestionText(type, true);
   return `Use reference background exactly.
 Use reference teacher exactly.
-Teacher left side pointing right with curious expression. ${item.object} clearly center right.
+Teacher left side pointing right with curious expression. ${item.name} clearly center right.
 Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text. No question mark. No "?" anywhere in the image. No floating symbols above the object.`;
 }
 
