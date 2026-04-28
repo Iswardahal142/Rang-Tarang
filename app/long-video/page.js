@@ -45,6 +45,7 @@ function getSeriesType(topic) {
   if (n.includes('animal')) return 'animal';
   if (n.includes('bird')) return 'bird';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return 'vegetable';
+  if (n.includes('body') || n.includes('body parts')) return 'body';
   return 'general';
 }
 
@@ -58,9 +59,16 @@ function getQuestion(type) {
     case 'animal':    return 'यह कौनसा जानवर है?';
     case 'bird':      return 'यह कौनसा पक्षी है?';
     case 'vegetable': return 'यह कौनसी सब्ज़ी है?';
+    case 'body':      return 'यह कौनसा body part है?';
     default:          return 'यह क्या है?';
   }
 }
+
+const BODY_PARTS_LIST = [
+  'Head','Hair','Eyes','Ears','Nose','Mouth','Teeth','Tongue',
+  'Neck','Shoulders','Arm','Elbow','Hand','Fingers',
+  'Chest','Stomach','Back','Knee','Leg','Foot'
+];
 
 // ── Prompt Builders ─────────────────────────────────────
 
@@ -76,20 +84,23 @@ No background music. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
 function buildItemVideoPrompt(item, type, question, itemIndex = 0) {
   const isSymbol = type === 'number' || type === 'alphabet';
   const hasOwnLegs = type === 'animal' || type === 'bird';
+  const isBody = type === 'body';
   const prefix = itemIndex === 0 ? 'तो बताओ..' : 'अब बताओ..';
   const q = `${prefix} ${question}`;
 
-  const entryDesc = isSymbol
-    ? `Big bold 3D bright golden yellow "${item}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides. Character walks out from behind the right side table, swinging arms naturally while walking. Teacher eyes follow the character from right side all the way to center. Character reaches center and stops with a small bounce effect. Teacher and character do a friendly handshake.`
-    : hasOwnLegs
-      ? `${item} walks in naturally from right side of screen on its own legs. Teacher eyes follow it all the way to center. ${item} reaches center and stops.`
-      : `${item} — with two small cute legs at bottom and two small arms on sides — walks in from right side of screen with light glow trail. Teacher eyes follow it all the way to center. ${item} reaches center and stops with a small bounce effect. Teacher and ${item} do a friendly handshake.`;
+  const entryDesc = isBody
+    ? `A cute Pixar 3D male character — full body visible, grey/white colored body — walks in from right side of screen naturally. Teacher eyes follow the character from right side all the way to center. Character reaches center and stops with a small bounce. The "${item}" part of the character's body starts glowing in bright vibrant color (yellow or orange glow) — only that one part is colored, rest of the body remains grey. Character does a cute pose highlighting the glowing part.`
+    : isSymbol
+      ? `Big bold 3D bright golden yellow "${item}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides. Character walks out from behind the right side table, swinging arms naturally while walking. Teacher eyes follow the character from right side all the way to center. Character reaches center and stops with a small bounce effect. Teacher and character do a friendly handshake.`
+      : hasOwnLegs
+        ? `${item} walks in naturally from right side of screen on its own legs. Teacher eyes follow it all the way to center. ${item} reaches center and stops.`
+        : `${item} — with two small cute legs at bottom and two small arms on sides — walks in from right side of screen with light glow trail. Teacher eyes follow it all the way to center. ${item} reaches center and stops with a small bounce effect. Teacher and ${item} do a friendly handshake.`;
 
   return `Use reference scene exactly. 16:9 horizontal ratio.
 ${entryDesc}
-Teacher points to ${item} curiously. Teacher asks in Hindi: "${q}".
+Teacher points to the ${isBody ? `glowing ${item}` : item} curiously. Teacher asks in Hindi: "${q}".
 Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds.
-Teacher softly touches the ${item}. Bottom text animates away and glowing bold rainbow text "यह ${item} है!" appears at same position. Answer text stays visible until the very last frame.
+Teacher softly touches the ${isBody ? `glowing ${item}` : item}. Bottom text animates away and glowing bold rainbow text "यह ${item} है!" appears at same position. Answer text stays visible until the very last frame.
 Teacher says in Hindi: "यह ${item} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
 No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music.
 8 seconds total. Smooth. No glitch. Pure Hindi Indian accent audio only.`;
@@ -164,6 +175,7 @@ const PRESETS = [
   { label: 'Fruits',  topic: 'Fruits',           type: 'fruit',    range: '' },
   { label: 'Animals', topic: 'Animals',          type: 'animal',   range: '' },
   { label: 'Birds',   topic: 'Birds',            type: 'bird',     range: '' },
+  { label: 'Body',    topic: 'Body Parts',       type: 'body',     range: '' },
   { label: 'Veggies', topic: 'Vegetables',       type: 'vegetable',range: '' },
   { label: 'Colors',  topic: 'Colors',           type: 'color',    range: '' },
   { label: 'Shapes',  topic: 'Shapes',           type: 'shape',    range: '' },
@@ -260,6 +272,8 @@ function LongVideoPage({ user }) {
         items = Array.from({ length: nums[1] - nums[0] + 1 }, (_, i) => String(nums[0] + i));
       } else if (type === 'alphabet') {
         items = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      } else if (type === 'body') {
+        items = BODY_PARTS_LIST;
       } else {
         const text = await aiCall([{ role: 'user', content: `Generate a list of items for kids YouTube series "${topic}".
 Return ONLY a JSON array of English item names, no markdown, no explanation.
