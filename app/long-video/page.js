@@ -86,7 +86,8 @@ function buildItemVideoPrompt(item, type, question, itemIndex = 0) {
   const hasOwnLegs = type === 'animal' || type === 'bird';
   const isBody = type === 'body';
   const prefix = itemIndex === 0 ? 'तो बताओ..' : 'अब बताओ..';
-  const q = `${prefix} ${question}`;
+  const qSpoken = `${prefix} ${question}`;
+  const qText = question;
 
   const entryDesc = isBody
     ? `A cute Pixar 3D male character — full body visible, grey/white colored body — walks in from right side of screen naturally. Teacher eyes follow the character from right side all the way to center. Character reaches center and stops with a small bounce. The "${item}" part of the character's body starts glowing in bright vibrant color (yellow or orange glow) — only that one part is colored, rest of the body remains grey. Character does a cute pose highlighting the glowing part.`
@@ -98,8 +99,8 @@ function buildItemVideoPrompt(item, type, question, itemIndex = 0) {
 
   return `Use reference scene exactly. 16:9 horizontal ratio.
 ${entryDesc}
-Teacher points to the ${isBody ? `glowing ${item}` : item} curiously. Teacher asks in Hindi: "${q}".
-Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds.
+Teacher points to the ${isBody ? `glowing ${item}` : item} curiously. Teacher asks in Hindi: "${qSpoken}".
+Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds.
 Teacher softly touches the ${isBody ? `glowing ${item}` : item}. Bottom text animates away and glowing bold rainbow text "यह ${item} है!" appears at same position. Answer text stays visible until the very last frame.
 Teacher says in Hindi: "यह ${item} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
 No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music.
