@@ -110,7 +110,6 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
   return `Use reference scene exactly. Teacher points to ${item.object} curiously. Teacher asks in Hindi: "${q}". Pause 2 seconds. The question text at bottom center animates away and glowing bold "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
 }
-
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
 
@@ -121,6 +120,12 @@ async function aiCall(prompt) {
   });
   const data = await res.json();
   return (data.choices?.[0]?.message?.content || '').trim();
+}
+
+async function detectEmoji(seriesName) {
+  const text = await aiCall(`Given this kids YouTube series name: "${seriesName}"
+Return ONLY a single most appropriate emoji for this topic. No explanation, no text, just one emoji.`);
+  return text.trim().replace(/[^a-zA-Z\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').slice(0, 2) || '🌟';
 }
 
 function CreateSeriesPage({ user }) {
@@ -189,17 +194,20 @@ function CreateSeriesPage({ user }) {
     setSugLoading(false);
   }
 
-  function selectSuggestion(topic) {
-    setSelectedTopic(topic);
-    setSelectedEmoji(topic.emoji || '🌟');
-    setModal('picker');
-  }
+  async function selectSuggestion(topic) {
+  const detectedEmoji = await detectEmoji(topic.name);
+  setSelectedEmoji(detectedEmoji);
+  setSelectedTopic({ ...topic, emoji: detectedEmoji });
+  setModal('picker');
+}
 
-  function submitCustom() {
-    if (!customName.trim()) { toast('⚠️ Naam likho!'); return; }
-    setSelectedTopic({ name: customName.trim(), emoji: selectedEmoji, description: '' });
-    setModal('picker');
-  }
+  async function submitCustom() {
+  if (!customName.trim()) { toast('⚠️ Naam likho!'); return; }
+  const detectedEmoji = await detectEmoji(customName.trim());
+  setSelectedEmoji(detectedEmoji);
+  setSelectedTopic({ name: customName.trim(), emoji: detectedEmoji, description: '' });
+  setModal('picker');
+}
 
   async function generateSeries() {
     if (!selectedTopic) return;
