@@ -90,7 +90,7 @@ function buildIntroVideoPrompt(n, part = 1, items = []) {
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
   const objectLine = firstItem ? `Teacher bends down, picks up a ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
-  return `Use reference scene exactly. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${n}" with hand and slides it off screen to the right. ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" Teacher claps excitedly. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
+  return `Use reference scene exactly. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${n}" with hand and slides it off screen to the right. ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
 }
 
 function buildOutroImagePrompt() { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, waving goodbye with big smile. Colorful sparkles and stars floating around. 9:16 vertical. Pixar style. No text.`; }
@@ -297,7 +297,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     const isFirstPart = (s.part || 1) === 1;
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }] },
-      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, isFirstPart) }] })),
+      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }] })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
     ];
 
