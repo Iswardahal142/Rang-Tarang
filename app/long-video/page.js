@@ -107,10 +107,23 @@ No "?" or question mark anywhere at any point in the video. No floating symbols 
 8 seconds total. Smooth. No glitch. Pure Hindi Indian accent audio only.`;
 }
 
-function buildOutroVideoPrompt() {
-  return `Use reference scene exactly. 16:9 horizontal ratio.
-No text on screen. Teacher center, waves goodbye happily.
-Teacher says in Hindi: "Toh bacchon, aaj ke liye bas itna hi — milte hain agle video mein, tata bye bye!"
+function buildOutroVideoPrompt(lastItem, type) {
+  const isSymbol = type === 'number' || type === 'alphabet';
+  const hasOwnLegs = type === 'animal' || type === 'bird';
+  const isBody = type === 'body';
+
+  const itemDesc = isSymbol
+    ? `Big bold 3D bright golden yellow "${lastItem}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides. "${lastItem}" waves goodbye to teacher, then turns and walks toward right side of screen swinging arms, disappears behind the right side table.`
+    : isBody
+      ? `The Pixar 3D male character with "${lastItem}" part still glowing waves goodbye to teacher, then walks toward right side of screen and disappears.`
+      : hasOwnLegs
+        ? `${lastItem} waves goodbye and walks naturally toward right side of screen and disappears.`
+        : `${lastItem} — with two small cute legs and arms — waves goodbye to teacher, then walks toward right side of screen and disappears.`;
+
+  return `Use reference scene exactly. 16:9 horizontal ratio. No text on screen at any point. No bottom text. No captions. Keep the logo exactly as it is in the top right corner — do not remove or hide it.
+${itemDesc}
+Teacher — the Pixar 3D boy character — standing center, watches ${lastItem} leave, then turns to camera, smiles and waves goodbye happily. Only the boy teacher is speaking — his mouth moves naturally in perfect lip sync with the Hindi audio. ${lastItem} does not speak, has no mouth, makes no sound.
+Teacher boy says in Hindi: "तो बच्चों आज के लिए इतना ही, मिलते हैं अगले वीडियो में, टाटा बाई बाई!"
 No background music. 8 seconds. Smooth. No glitch. Hindi audio only.`;
 }
 
@@ -564,7 +577,7 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
         {/* ── OUTRO — only on last page ── */}
         {isLastPage && (
           <SectionCard skey="outro" title="🎤 Outro" color="#cc88ff" done={!!doneSections['outro']}>
-            <PromptBox label="🎬 VIDEO PROMPT" text={buildOutroVideoPrompt()} pkey="outro_vid" color="#cc88ff" />
+            <PromptBox label="🎬 VIDEO PROMPT" text={buildOutroVideoPrompt(items[items.length - 1], type)} pkey="outro_vid" color="#cc88ff" />
             <button onClick={() => markSectionDone('outro')} disabled={!!doneSections['outro']}
               style={{ background: doneSections['outro'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['outro'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['outro'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['outro'] ? 'not-allowed' : 'pointer', width: '100%' }}>
               {doneSections['outro'] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
