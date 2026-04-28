@@ -43,72 +43,56 @@ function getSeriesType(topic) {
   if (n.includes('shape')) return 'shape';
   if (n.includes('fruit')) return 'fruit';
   if (n.includes('animal')) return 'animal';
+  if (n.includes('bird')) return 'bird';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return 'vegetable';
   return 'general';
 }
+
 function getQuestion(type) {
-  // Clean base question — prefix (तो बताओ/अब बताओ) added separately in video prompt
   switch(type) {
     case 'number':    return 'यह कौनसा नंबर है?';
-    case 'alphabet':  return 'यह कौनसा अक्षर है?';
+    case 'alphabet':  return 'यह कौनसा Alphabet है?';
     case 'color':     return 'कौनसा रंग है?';
     case 'shape':     return 'यह कौनसी आकृति है?';
     case 'fruit':     return 'यह कौनसा फल है?';
     case 'animal':    return 'यह कौनसा जानवर है?';
+    case 'bird':      return 'यह कौनसा पक्षी है?';
     case 'vegetable': return 'यह कौनसी सब्ज़ी है?';
     default:          return 'यह क्या है?';
   }
 }
 
 // ── Prompt Builders ─────────────────────────────────────
-function buildItemImagePrompt(item, type, question) {
-  const isSymbol = type === 'number' || type === 'alphabet';
-  const centerDesc = isSymbol
-    ? `Large bold glowing "${item}" in 3D colorful style displayed center-right — no other object`
-    : `${item} object displayed center-right, large, colorful, 3D Pixar style`;
-  return `Use reference background exactly. Use reference teacher character exactly.
-Teacher center-left, pointing right with curious excited expression.
-${centerDesc}.
-Bold question text "${question}" at bottom center.
-No "?" symbol anywhere. No question mark floating anywhere. No other text.
-16:9 horizontal ratio. Pixar 3D style. Bright colorful scene.`;
+
+function buildIntroVideoPrompt(topic) {
+  return `Use reference scene exactly. 16:9 horizontal ratio.
+Bold glowing text "${topic}" placed center screen. Teacher standing behind/below the title text.
+Teacher raises both hands and pushes the title text upward — title slides up and off screen smoothly.
+Teacher steps forward from behind, faces camera, smiles excitedly and waves.
+Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${topic} — chalo shuru karte hain!"
+No background music. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
 }
 
 function buildItemVideoPrompt(item, type, question, itemIndex = 0) {
   const isSymbol = type === 'number' || type === 'alphabet';
-  const centerDesc = isSymbol ? `large glowing "${item}" center` : `${item} center`;
-  // Item 0 → "तो बताओ", Item 1+ → "अब बताओ"
+  const hasOwnLegs = type === 'animal' || type === 'bird';
   const prefix = itemIndex === 0 ? 'तो बताओ..' : 'अब बताओ..';
   const q = `${prefix} ${question}`;
+
+  const entryDesc = isSymbol
+    ? `Big bold 3D bright golden yellow "${item}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides. Character walks out from behind the right side table, swinging arms naturally while walking. Teacher eyes follow the character from right side all the way to center. Character reaches center and stops with a small bounce effect. Teacher and character do a friendly handshake.`
+    : hasOwnLegs
+      ? `${item} walks in naturally from right side of screen on its own legs. Teacher eyes follow it all the way to center. ${item} reaches center and stops.`
+      : `${item} — with two small cute legs at bottom and two small arms on sides — walks in from right side of screen with light glow trail. Teacher eyes follow it all the way to center. ${item} reaches center and stops with a small bounce effect. Teacher and ${item} do a friendly handshake.`;
+
   return `Use reference scene exactly. 16:9 horizontal ratio.
-Teacher center-left pointing at ${centerDesc} on right.
-Teacher asks in Hindi: "${q}". Pause 2 seconds.
-Then the question text at bottom center disappears and "${item.toUpperCase()}" appears at the exact same position — smooth reveal, no scale animation, just clean replace.
-Answer stays visible until the very last frame.
+${entryDesc}
+Teacher points to ${item} curiously. Teacher asks in Hindi: "${q}".
+Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds.
+Teacher softly touches the ${item}. Bottom text animates away and glowing bold rainbow text "यह ${item} है!" appears at same position. Answer text stays visible until the very last frame.
 Teacher says in Hindi: "यह ${item} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
-No "?" or question mark anywhere. No floating symbols. No background music.
+No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music.
 8 seconds total. Smooth. No glitch. Pure Hindi Indian accent audio only.`;
-}
-
-function buildIntroImagePrompt(topic) {
-  return `Use reference background exactly. Use reference teacher character exactly.
-Teacher standing center, smiling, waving hand with excited expression.
-Bold glowing text "${topic}" floating center-top with colorful sparkles and confetti.
-16:9 horizontal ratio. Pixar 3D style. Bright colorful scene. No other text.`;
-}
-
-function buildIntroVideoPrompt(topic) {
-  return `Use reference scene exactly. 16:9 horizontal ratio.
-No text on screen. Teacher standing center, smiling, waving at camera excitedly.
-Teacher says in Hindi: "Hello bacchon! Aaj hum sikhenge ${topic} — chalo shuru karte hain!" Teacher claps happily.
-No background music. 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
-}
-
-function buildOutroImagePrompt() {
-  return `Use reference background exactly. Use reference teacher character exactly.
-Teacher standing center, waving goodbye with big smile and thumbs up.
-Colorful sparkles, stars, confetti floating around.
-16:9 horizontal ratio. Pixar 3D style. No text.`;
 }
 
 function buildOutroVideoPrompt() {
@@ -124,6 +108,7 @@ function buildThumbnailPrompt(topic, type, items) {
   else if (type === 'alphabet') leftObjects = 'Large colorful 3D letters "A", "B", "C" stacked on left side';
   else if (type === 'fruit')    leftObjects = `Large colorful 3D fruits: ${items.slice(0,3).join(', ')} on left side`;
   else if (type === 'animal')   leftObjects = `Large colorful 3D animals: ${items.slice(0,3).join(', ')} on left side`;
+  else if (type === 'bird')     leftObjects = `Large colorful 3D birds: ${items.slice(0,3).join(', ')} on left side`;
   else if (type === 'vegetable')leftObjects = `Large colorful 3D vegetables: ${items.slice(0,3).join(', ')} on left side`;
   else if (type === 'color')    leftObjects = 'Large colorful 3D color circles and blobs on left side';
   else if (type === 'shape')    leftObjects = 'Large colorful 3D shapes: circle, square, triangle on left side';
@@ -178,6 +163,7 @@ const PRESETS = [
   { label: 'A–Z',     topic: 'Alphabets A to Z', type: 'alphabet', range: 'A to Z' },
   { label: 'Fruits',  topic: 'Fruits',           type: 'fruit',    range: '' },
   { label: 'Animals', topic: 'Animals',          type: 'animal',   range: '' },
+  { label: 'Birds',   topic: 'Birds',            type: 'bird',     range: '' },
   { label: 'Veggies', topic: 'Vegetables',       type: 'vegetable',range: '' },
   { label: 'Colors',  topic: 'Colors',           type: 'color',    range: '' },
   { label: 'Shapes',  topic: 'Shapes',           type: 'shape',    range: '' },
@@ -185,7 +171,6 @@ const PRESETS = [
 
 const PER_PAGE = 10;
 
-// ── Smart preset filter based on existing videos ─────
 function getAvailablePresets(list) {
   const topics = list.map(v => (v.topic || '').toLowerCase());
   const has10  = topics.some(t => t.includes('1 to 10'));
@@ -193,20 +178,10 @@ function getAvailablePresets(list) {
   const has100 = topics.some(t => t.includes('1 to 100'));
 
   return PRESETS.filter(p => {
-    if (p.label === '1–10') {
-      // Hide if 1-10, 1-50, or 1-100 already exists
-      return !has10 && !has50 && !has100;
-    }
-    if (p.label === '1–50') {
-      // Hide if 1-50 or 1-100 already exists
-      // Show if 1-10 exists (user can still do 1-50 as separate)
-      return !has50 && !has100;
-    }
-    if (p.label === '1–100') {
-      // Hide if 1-100 already exists
-      return !has100;
-    }
-    return true; // all other presets always visible
+    if (p.label === '1–10')  return !has10 && !has50 && !has100;
+    if (p.label === '1–50')  return !has50 && !has100;
+    if (p.label === '1–100') return !has100;
+    return true;
   });
 }
 
@@ -222,7 +197,7 @@ function LongVideoPage({ user }) {
   const [customRange, setRange]   = useState('');
   const [creating, setCreating]   = useState(false);
   const [ytVideos, setYtVideos]   = useState([]);
-  const [ytChecking, setYtChecking] = useState(true); // true until fetchYT completes
+  const [ytChecking, setYtChecking] = useState(true);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -243,25 +218,25 @@ function LongVideoPage({ user }) {
   }
 
   function checkUploaded(video) {
-  if (ytChecking) return null;
-  if (!ytVideos.length) return false;
-  const matchStr = (video.ytTitle || video.topic || '').toLowerCase().trim();
-  const matched = ytVideos.find(v => {
-    const ytTitle = (v.title || '').toLowerCase().trim();
-    return ytTitle === matchStr || ytTitle.startsWith(matchStr + ' ') || ytTitle.endsWith(' ' + matchStr) || ytTitle.includes(' ' + matchStr + ' ');
-  });
-  if (!matched) return false;
-  if (matched.isScheduled) return 'scheduled';
-  if (matched.privacyStatus === 'private') return 'private';
-  return true;
-}
+    if (ytChecking) return null;
+    if (!ytVideos.length) return false;
+    const matchStr = (video.ytTitle || video.topic || '').toLowerCase().trim();
+    const matched = ytVideos.find(v => {
+      const ytTitle = (v.title || '').toLowerCase().trim();
+      return ytTitle === matchStr || ytTitle.startsWith(matchStr + ' ') || ytTitle.endsWith(' ' + matchStr) || ytTitle.includes(' ' + matchStr + ' ');
+    });
+    if (!matched) return false;
+    if (matched.isScheduled) return 'scheduled';
+    if (matched.privacyStatus === 'private') return 'private';
+    return true;
+  }
 
   async function createVideo() {
     const topic = selPreset ? selPreset.topic : customTopic.trim();
     const range = selPreset ? selPreset.range : customRange.trim();
     const type  = selPreset ? selPreset.type  : getSeriesType(customTopic);
     if (!topic) return toast('⚠️ Topic daalo!');
-    // ── Number overlap check ──
+
     if (type === 'number' && range) {
       const newNums = range.match(/\d+/g)?.map(Number);
       if (newNums && newNums.length >= 2) {
@@ -276,6 +251,7 @@ function LongVideoPage({ user }) {
         if (overlap) return toast(`⚠️ "${overlap.topic}" mein ye numbers already hain!`);
       }
     }
+
     setCreating(true);
     try {
       let items = [];
@@ -384,26 +360,11 @@ Generate 20 unique items.` }]);
                 <div style={{ fontSize: 11, color: '#555' }}>{(v.items || []).length} items</div>
                 {v.ytTitle && <div style={{ fontSize: 10, color: '#888', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📝 {v.ytTitle}</div>}
               </div>
-              {/* YouTube upload status */}
               <div style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center',
-  background: uploaded===true ? 'rgba(68,187,102,0.12)'
-    : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)'
-    : uploaded==='private' ? 'rgba(204,136,255,0.12)'
-    : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
-  color: uploaded===true ? '#44bb66'
-    : uploaded==='scheduled' ? '#4488ff'
-    : uploaded==='private' ? '#cc88ff'
-    : uploaded===false ? '#ff8866' : '#555',
-  border: `1px solid ${
-    uploaded===true ? 'rgba(68,187,102,0.3)'
-    : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)'
-    : uploaded==='private' ? 'rgba(204,136,255,0.3)'
-    : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
-  {uploaded===true ? '✅ YouTube pe hai'
-    : uploaded==='scheduled' ? '📅 Scheduled hai'
-    : uploaded==='private' ? '🔒 Private hai'
-    : uploaded===false ? '⏳ Upload baaki'
-    : '🔄 Checking...'}
+                background: uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)' : uploaded==='private' ? 'rgba(204,136,255,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
+                color: uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555',
+                border: `1px solid ${uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)' : uploaded==='private' ? 'rgba(204,136,255,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
+                {uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled hai' : uploaded==='private' ? '🔒 Private hai' : uploaded===false ? '⏳ Upload baaki' : '🔄 Checking...'}
               </div>
             </div>
           );
@@ -415,14 +376,14 @@ Generate 20 unique items.` }]);
 
 // ── DETAIL VIEW ─────────────────────────────────────────
 function DetailView({ video, user, toast, onBack, onDelete, onUpdate, isUploaded, ytChecking }) {
-  const [page, setPage]           = useState(0);
-  const [copiedKey, setCopied]    = useState('');
-  const [genTD, setGenTD]         = useState(false);
-  const [ytTitle, setYtTitle]     = useState(video.ytTitle || '');
-  const [ytDesc, setYtDesc]       = useState(video.ytDescription || '');
+  const [page, setPage]               = useState(0);
+  const [copiedKey, setCopied]        = useState('');
+  const [genTD, setGenTD]             = useState(false);
+  const [ytTitle, setYtTitle]         = useState(video.ytTitle || '');
+  const [ytDesc, setYtDesc]           = useState(video.ytDescription || '');
   const [openSection, setOpenSection] = useState(null);
   const [doneSections, setDoneSections] = useState(video.doneSections || {});
-  const [isDone, setIsDone]       = useState(video.isDone || false);
+  const [isDone, setIsDone]           = useState(video.isDone || false);
 
   const type     = video.type || getSeriesType(video.topic);
   const question = getQuestion(type);
@@ -451,7 +412,6 @@ function DetailView({ video, user, toast, onBack, onDelete, onUpdate, isUploaded
     );
   }
 
-  // ── Collapse Card ────────────────────────────────────
   function SectionCard({ skey, title, color, done, children }) {
     const isOpen = openSection === skey;
     return (
@@ -551,7 +511,7 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
 
         {/* ── THUMBNAIL ── */}
         <SectionCard skey="thumb" title="🖼 Thumbnail Prompt" color="#ff8844" done={!!doneSections['thumb']}>
-          <PromptBox label="🖼 IMAGE PROMPT (16:9)" text={buildThumbnailPrompt(video.topic, type, items)} pkey="thumb_img" color="#ff8844" />
+          <PromptBox label="🖼 THUMBNAIL PROMPT (16:9)" text={buildThumbnailPrompt(video.topic, type, items)} pkey="thumb_img" color="#ff8844" />
           <button onClick={() => markSectionDone('thumb')} disabled={!!doneSections['thumb']}
             style={{ background: doneSections['thumb'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['thumb'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['thumb'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['thumb'] ? 'not-allowed' : 'pointer', width: '100%' }}>
             {doneSections['thumb'] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
@@ -560,7 +520,6 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
 
         {/* ── INTRO ── */}
         <SectionCard skey="intro" title="🎬 Intro" color="#4488ff" done={!!doneSections['intro']}>
-          <PromptBox label="🖼 IMAGE PROMPT" text={buildIntroImagePrompt(video.topic)} pkey="intro_img" color="#4488ff" />
           <PromptBox label="🎬 VIDEO PROMPT" text={buildIntroVideoPrompt(video.topic)} pkey="intro_vid" color="#cc88ff" />
           <button onClick={() => markSectionDone('intro')} disabled={!!doneSections['intro']}
             style={{ background: doneSections['intro'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['intro'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['intro'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['intro'] ? 'not-allowed' : 'pointer', width: '100%' }}>
@@ -568,7 +527,7 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
           </button>
         </SectionCard>
 
-        {/* ── ITEMS — each item alag card ── */}
+        {/* ── ITEMS ── */}
         <div style={{ fontSize: 11, color: '#555', textAlign: 'center', fontWeight: 700 }}>
           📋 Items {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, items.length)} / {items.length}
         </div>
@@ -578,7 +537,6 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
           const skey = `item_${gi}`;
           return (
             <SectionCard key={gi} skey={skey} title={`${gi + 1}. ${item}`} color="#ffaa00" done={!!doneSections[skey]}>
-              <PromptBox label="🖼 IMAGE PROMPT" text={buildItemImagePrompt(item, type, question)} pkey={`img_${gi}`} color="#4488ff" />
               <PromptBox label="🎬 VIDEO PROMPT" text={buildItemVideoPrompt(item, type, question, gi)} pkey={`vid_${gi}`} color="#cc88ff" />
               <button onClick={() => markSectionDone(skey)} disabled={!!doneSections[skey]}
                 style={{ background: doneSections[skey] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections[skey] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections[skey] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections[skey] ? 'not-allowed' : 'pointer', width: '100%' }}>
@@ -591,14 +549,11 @@ Return ONLY JSON: {"title":"...","description":"..."}` }]);
         {/* ── OUTRO — only on last page ── */}
         {isLastPage && (
           <SectionCard skey="outro" title="🎤 Outro" color="#cc88ff" done={!!doneSections['outro']}>
-            <PromptBox label="🖼 IMAGE PROMPT" text={buildOutroImagePrompt()} pkey="outro_img" color="#4488ff" />
             <PromptBox label="🎬 VIDEO PROMPT" text={buildOutroVideoPrompt()} pkey="outro_vid" color="#cc88ff" />
             <button onClick={() => markSectionDone('outro')} disabled={!!doneSections['outro']}
               style={{ background: doneSections['outro'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['outro'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['outro'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['outro'] ? 'not-allowed' : 'pointer', width: '100%' }}>
               {doneSections['outro'] ? '✅ Done ho gaya!' : '✔ Mark as Done'}
             </button>
-
-            {/* ── MARK ALL DONE — sabse last mein ── */}
             <button onClick={markAllDone} disabled={isDone}
               style={{ background: isDone ? 'rgba(68,187,102,0.08)' : 'linear-gradient(135deg,#1a3a1a,#0a2a0a)', border: `1px solid ${isDone ? 'rgba(68,187,102,0.3)' : '#33aa33'}`, color: isDone ? '#44bb66' : '#55dd55', borderRadius: 10, padding: '13px', fontSize: 14, fontWeight: 800, cursor: isDone ? 'not-allowed' : 'pointer', width: '100%', marginTop: 4 }}>
               {isDone ? '🎉 Video Complete!' : '🏁 Poori Video Mark as Done'}
