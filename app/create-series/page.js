@@ -75,34 +75,16 @@ function getQuestionTextPart2(type) {
   }
 }
 
-function buildIntroImagePrompt(seriesName, items = []) {
-  const first3 = items.slice(0, 3);
-  const positions = ['bottom left', 'bottom center', 'bottom right'];
-  const shuffled = positions.sort(() => Math.random() - 0.5);
-
-  const itemsDesc = first3.length > 0
-    ? first3.map((item, i) => `${item.name} (${item.object}) at ${shuffled[i]}`).join(', ')
-    : 'colorful educational items at bottom';
-
-  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show 3 Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
-}
 function buildIntroVideoPrompt(n, part = 1, items = []) {
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
   const objectLine = firstItem ? `Teacher bends down, picks up a ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
-  return `Use reference scene exactly. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${n}" with hand and slides it off screen to the right. ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only.`;
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${n}" with hand and slides it off screen to the right. ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
-function buildOutroImagePrompt() { return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, waving goodbye with big smile. Colorful sparkles and stars floating around. 9:16 vertical. Pixar style. No text.`; }
-function buildOutroVideoPrompt() { return `Use reference image exactly. No text on screen. Character center, waves goodbye, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" Soft outro music. 8 seconds. Smooth. No glitch. Hindi audio only.`; }
-
-function buildImagePrompt(item, seriesName) {
-  const type = getSeriesType(seriesName);
-  const q = getQuestionText(type, true);
-  return `Use reference background exactly.
-Use reference teacher exactly.
-Teacher left side pointing right with curious expression. big  ${item.name} clearly center right.
-Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other text. No question mark. No "?" anywhere in the image. No floating symbols above the object.`;
+function buildOutroVideoPrompt(items = []) {
+  const lastItem = items?.[items.length - 1]?.object || 'the object';
+  return `Use reference image exactly as background scene. ${lastItem} floating on right side slowly fades out and disappears. Any text on screen also fades away completely. Screen is clean with only teacher visible. Teacher waves goodbye to camera with big smile, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 8 seconds. Smooth. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
@@ -113,12 +95,13 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   if (type === 'number') {
     const num = item.name;
     const hindiNum = item.hindiName || num;
-    return `Use reference scene exactly. 16:9 horizontal ratio. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
+    return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
 
   // ── Animal, Fruit, Vegetable, Color, Alphabet, General ──
-  return `Use reference scene exactly. 16:9 horizontal ratio. Teacher standing on left side pointing toward right. Pixar 3D animated ${item.object} floating in air at center-right of screen, gently bobbing up and down. No walking, no entry animation — object already floating when scene starts. Teacher points to the ${item.object} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
+  return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Pixar 3D animated ${item.object} floating in air at center-right of screen, gently bobbing up and down. No walking, no entry animation — object already floating when scene starts. Teacher points to the ${item.object} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
 }
+
 const hindiNumbers = {
   1:'वन',2:'टू',3:'थ्री',4:'फोर',5:'फाइव',
   6:'सिक्स',7:'सेवन',8:'एट',9:'नाइन',10:'टेन',
@@ -145,6 +128,7 @@ const hindiNumbers = {
   93:'नाइंटी-थ्री',94:'नाइंटी-फोर',95:'नाइंटी-फाइव',96:'नाइंटी-सिक्स',
   97:'नाइंटी-सेवन',98:'नाइंटी-एट',99:'नाइंटी-नाइन',100:'हंड्रेड'
 };
+
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
 
@@ -204,19 +188,20 @@ function CreateSeriesPage({ user }) {
   }
 
   // ── YouTube check ────────────────────────────────────────
- function checkUploaded(series) {
-  if (!ytVideos.length) return null;
-  const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
-  if (!matchStr || matchStr.length < 3) return null;
-  const matched = ytVideos.find(v => {
-    const ytTitle = (v.title || '').toLowerCase();
-    return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
-  });
-  if (!matched) return false;
-  if (matched.isScheduled) return 'scheduled';
-  if (matched.privacyStatus === 'private') return 'private';
-  return true;
- }
+  function checkUploaded(series) {
+    if (!ytVideos.length) return null;
+    const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
+    if (!matchStr || matchStr.length < 3) return null;
+    const matched = ytVideos.find(v => {
+      const ytTitle = (v.title || '').toLowerCase();
+      return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
+    });
+    if (!matched) return false;
+    if (matched.isScheduled) return 'scheduled';
+    if (matched.privacyStatus === 'private') return 'private';
+    return true;
+  }
+
   function openChoose() { setModal('choose'); }
 
   async function loadSuggestions() {
@@ -230,19 +215,19 @@ function CreateSeriesPage({ user }) {
   }
 
   async function selectSuggestion(topic) {
-  const detectedEmoji = await detectEmoji(topic.name);
-  setSelectedEmoji(detectedEmoji);
-  setSelectedTopic({ ...topic, emoji: detectedEmoji });
-  setModal('picker');
-}
+    const detectedEmoji = await detectEmoji(topic.name);
+    setSelectedEmoji(detectedEmoji);
+    setSelectedTopic({ ...topic, emoji: detectedEmoji });
+    setModal('picker');
+  }
 
   async function submitCustom() {
-  if (!customName.trim()) { toast('⚠️ Naam likho!'); return; }
-  const detectedEmoji = await detectEmoji(customName.trim());
-  setSelectedEmoji(detectedEmoji);
-  setSelectedTopic({ name: customName.trim(), emoji: detectedEmoji, description: '' });
-  setModal('picker');
-}
+    if (!customName.trim()) { toast('⚠️ Naam likho!'); return; }
+    const detectedEmoji = await detectEmoji(customName.trim());
+    setSelectedEmoji(detectedEmoji);
+    setSelectedTopic({ name: customName.trim(), emoji: detectedEmoji, description: '' });
+    setModal('picker');
+  }
 
   async function generateSeries() {
     if (!selectedTopic) return;
@@ -252,7 +237,7 @@ function CreateSeriesPage({ user }) {
       const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
       const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
 
-      // ⬇️ Yeh add karo
+      // Number series ke liye hindi names inject karo
       if (getSeriesType(selectedTopic.name) === 'number') {
         items.forEach(item => {
           const n = parseInt(item.name);
@@ -274,6 +259,15 @@ function CreateSeriesPage({ user }) {
       const done = (series.items || []).map(i => i.name).join(', ');
       const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+
+      // Number series ke liye hindi names inject karo
+      if (getSeriesType(series.name) === 'number') {
+        newItems.forEach(item => {
+          const n = parseInt(item.name);
+          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
+        });
+      }
+
       const newPart = (series.part || 1) + 1;
       await saveSeries(user.uid, { name: `${series.name} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart, ytTitle: '', ytDescription: '' });
       toast(`🎉 Part ${newPart} ready!`); loadList();
@@ -337,7 +331,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     toast('🗑 Deleted!'); setOpenSeries(null); loadList();
   }
 
-// ── DETAIL VIEW ───────────────────────────────────────
+  // ── DETAIL VIEW ───────────────────────────────────────
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
@@ -346,11 +340,15 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const isUploaded = checkUploaded(s) === true;
 
-    const isFirstPart = (s.part || 1) === 1;
     const sections = [
-      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) }, { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }] },
-      ...(s.items || []).map((item, i) => ({ key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color, prompts: [{ type: '🖼 IMAGE', text: buildImagePrompt(item, s.name) }, { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }] })),
-      { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🖼 IMAGE', text: buildOutroImagePrompt() }, { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }] },
+      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }] },
+      ...(s.items || []).map((item, i) => ({
+        key: `item_${i}`,
+        title: `${i+1}. ${item.name}`,
+        color: s.color,
+        prompts: [{ type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }]
+      })),
+      { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🎬 VIDEO', text: buildOutroVideoPrompt(s.items || []) }] },
     ];
 
     return (
@@ -435,7 +433,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
 
-        {/* ✅ FIX: ytLoading ho toh + Nayi button greyed out/disabled */}
         {ytLoading ? (
           <button disabled style={{
             background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444',
@@ -552,7 +549,8 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
             </div>
           </div>
         )}
-{/* SERIES LIST */}
+
+        {/* SERIES LIST */}
         {loadingList ? (
           <div style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} /><div style={{ fontSize: 12, color: '#555' }}>Loading...</div></div>
         ) : seriesList.length === 0 ? (
