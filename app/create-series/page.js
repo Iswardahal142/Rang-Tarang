@@ -108,8 +108,44 @@ Bold text "${q}" at very bottom center. 9:16 vertical. Pixar style. No other tex
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
   const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
-  return `Use reference scene exactly. Teacher points to ${item.object} curiously. Teacher asks in Hindi: "${q}". Pause 2 seconds. The question text at bottom center animates away and glowing bold "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. 8 seconds total. Smooth animation. No glitch. Only Hindi Indian accent audio.`;
+
+  // ── NUMBER series ──
+  if (type === 'number') {
+    const num = item.name;
+    const hindiNum = item.hindiName || num;
+    return `Use reference scene exactly. 16:9 horizontal ratio. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
+  }
+
+  // ── Animal, Fruit, Vegetable, Color, Alphabet, General ──
+  return `Use reference scene exactly. 16:9 horizontal ratio. Teacher standing on left side pointing toward right. Pixar 3D animated ${item.object} floating in air at center-right of screen, gently bobbing up and down. No walking, no entry animation — object already floating when scene starts. Teacher points to the ${item.object} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
 }
+const hindiNumbers = {
+  1:'वन',2:'टू',3:'थ्री',4:'फोर',5:'फाइव',
+  6:'सिक्स',7:'सेवन',8:'एट',9:'नाइन',10:'टेन',
+  11:'इलेवन',12:'ट्वेल्व',13:'थर्टीन',14:'फोर्टीन',15:'फिफ्टीन',
+  16:'सिक्सटीन',17:'सेवेंटीन',18:'एटीन',19:'नाइनटीन',20:'ट्वेंटी',
+  21:'ट्वेंटी-वन',22:'ट्वेंटी-टू',23:'ट्वेंटी-थ्री',24:'ट्वेंटी-फोर',
+  25:'ट्वेंटी-फाइव',26:'ट्वेंटी-सिक्स',27:'ट्वेंटी-सेवन',28:'ट्वेंटी-एट',
+  29:'ट्वेंटी-नाइन',30:'थर्टी',31:'थर्टी-वन',32:'थर्टी-टू',
+  33:'थर्टी-थ्री',34:'थर्टी-फोर',35:'थर्टी-फाइव',36:'थर्टी-सिक्स',
+  37:'थर्टी-सेवन',38:'थर्टी-एट',39:'थर्टी-नाइन',40:'फोर्टी',
+  41:'फोर्टी-वन',42:'फोर्टी-टू',43:'फोर्टी-थ्री',44:'फोर्टी-फोर',
+  45:'फोर्टी-फाइव',46:'फोर्टी-सिक्स',47:'फोर्टी-सेवन',48:'फोर्टी-एट',
+  49:'फोर्टी-नाइन',50:'फिफ्टी',51:'फिफ्टी-वन',52:'फिफ्टी-टू',
+  53:'फिफ्टी-थ्री',54:'फिफ्टी-फोर',55:'फिफ्टी-फाइव',56:'फिफ्टी-सिक्स',
+  57:'फिफ्टी-सेवन',58:'फिफ्टी-एट',59:'फिफ्टी-नाइन',60:'सिक्सटी',
+  61:'सिक्सटी-वन',62:'सिक्सटी-टू',63:'सिक्सटी-थ्री',64:'सिक्सटी-फोर',
+  65:'सिक्सटी-फाइव',66:'सिक्सटी-सिक्स',67:'सिक्सटी-सेवन',68:'सिक्सटी-एट',
+  69:'सिक्सटी-नाइन',70:'सेवेंटी',71:'सेवेंटी-वन',72:'सेवेंटी-टू',
+  73:'सेवेंटी-थ्री',74:'सेवेंटी-फोर',75:'सेवेंटी-फाइव',76:'सेवेंटी-सिक्स',
+  77:'सेवेंटी-सेवन',78:'सेवेंटी-एट',79:'सेवेंटी-नाइन',80:'एटी',
+  81:'एटी-वन',82:'एटी-टू',83:'एटी-थ्री',84:'एटी-फोर',
+  85:'एटी-फाइव',86:'एटी-सिक्स',87:'एटी-सेवन',88:'एटी-एट',
+  89:'एटी-नाइन',90:'नाइंटी',91:'नाइंटी-वन',92:'नाइंटी-टू',
+  93:'नाइंटी-थ्री',94:'नाइंटी-फोर',95:'नाइंटी-फाइव',96:'नाइंटी-सिक्स',
+  97:'नाइंटी-सेवन',98:'नाइंटी-एट',99:'नाइंटी-नाइन',100:'हंड्रेड'
+};
+const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
 
@@ -216,6 +252,15 @@ function CreateSeriesPage({ user }) {
       const existing = seriesList.map(s => s.name).join(', ');
       const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
       const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+
+      // ⬇️ Yeh add karo
+      if (getSeriesType(selectedTopic.name) === 'number') {
+        items.forEach(item => {
+          const n = parseInt(item.name);
+          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
+        });
+      }
+
       await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '' });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
       setModal('none'); setSelectedTopic(null); setCustomName('');
