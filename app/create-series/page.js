@@ -74,6 +74,15 @@ function getQuestionTextPart2(type) {
     default:          return 'अब बताओ.. यह क्या है?';
   }
 }
+function buildIntroImagePrompt(seriesName, items = []) {
+  const first3 = items.slice(0, 3);
+  const positions = ['bottom left', 'bottom center', 'bottom right'];
+  const shuffled = positions.sort(() => Math.random() - 0.5);
+  const itemsDesc = first3.length > 0
+    ? first3.map((item, i) => `${item.name} (${item.object}) at ${shuffled[i]}`).join(', ')
+    : 'colorful educational items at bottom';
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show 3 Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
+}
 
 function buildIntroVideoPrompt(n, part = 1, items = []) {
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
@@ -341,15 +350,18 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     const isUploaded = checkUploaded(s) === true;
 
     const sections = [
-      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [{ type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }] },
-      ...(s.items || []).map((item, i) => ({
-        key: `item_${i}`,
-        title: `${i+1}. ${item.name}`,
-        color: s.color,
-        prompts: [{ type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }]
-      })),
-      { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🎬 VIDEO', text: buildOutroVideoPrompt(s.items || []) }] },
-    ];
+  { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
+    { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
+    { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }
+  ]},
+  ...(s.items || []).map((item, i) => ({
+    key: `item_${i}`,
+    title: `${i+1}. ${item.name}`,
+    color: s.color,
+    prompts: [{ type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }]
+  })),
+  { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🎬 VIDEO', text: buildOutroVideoPrompt(s.items || []) }] },
+];
 
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
