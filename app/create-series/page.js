@@ -337,28 +337,47 @@ function CreateSeriesPage({ user }) {
   }
 
   async function generateTitleDesc(series) {
-    setGenTD(true);
-    try {
-      const itemNames = (series.items || []).map(i => i.name).join(', ');
-      const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
-Generate a YouTube video title and description for a kids educational video.
-Series: "${series.name}"
-Items covered: ${itemNames}
+  setGenTD(true);
+  try {
+    const itemNames = (series.items || []).map(i => i.name).join(', ');
+    const partText = series.part > 1 ? ` Part ${series.part}` : '';
+    
+    const text = await aiCall(`You are a YouTube SEO expert for Hindi kids educational channel "Rang Tarang" (@RangTarangHindi).
 
-Rules:
-- Title: Catchy, Hindi+English mix, under 70 chars, include "| Rang Tarang" at end
-- Description: 3-4 lines, fun, mentions what kids will learn, includes "Rang Tarang" channel name, ends with subscribe line
+Series: "${series.name}${partText}"
+Items in this video: ${itemNames}
+Target audience: Indian kids aged 2-6 years
+Language: Hindi + English mix
 
-Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
-      const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-      await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
-      const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
-      setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
-      setOpenSeries(updated);
-      toast('✅ Title & Description ready!');
-    } catch (e) { toast('❌ ' + e.message); }
-    setGenTD(false);
-  }
+Generate an optimized YouTube title and description.
+
+TITLE RULES:
+- Max 70 characters
+- Start with the main topic in a fun way
+- Include Hindi words naturally
+- End with "| Rang Tarang"
+- Use numbers or emojis if relevant
+- Example style: "🐄 10 Janwar Ke Naam | Animals Name in Hindi | Rang Tarang"
+
+DESCRIPTION RULES:
+- Line 1: Hook — what kids will learn (Hindi+English)
+- Line 2: List top 5 items from the video like "✅ ${(series.items||[]).slice(0,3).map(i=>i.name).join(', ')}..."
+- Line 3: Fun encouraging line for kids in Hindi
+- Line 4: "🔔 Rang Tarang ko Subscribe karo aur Bell dabao — taaki koi video miss na ho!"
+- Line 5-6: 10-12 relevant hashtags like #HindiRhymes #KidsSongs #BacchonKeGaane #LearnHindi #${series.name.replace(/\s+/g,'')} #RangTarang #HindiKids #EducationalVideo
+- Title mein kam se kam 2-3 Hindi words zaroor ho (Devanagari script mein) like "जानवर", "सीखो", "बच्चों के लिए"
+RETURN ONLY JSON, no markdown:
+{"title":"...","description":"..."}`);
+
+    const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+    await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
+    const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
+    setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+    setOpenSeries(updated);
+    toast('✅ Title & Description ready!');
+  } catch (e) { toast('❌ ' + e.message); }
+  setGenTD(false);
+}
 
   async function saveTitleDesc(series, title, desc) {
     await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc });
