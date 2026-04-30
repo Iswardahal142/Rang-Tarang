@@ -469,14 +469,17 @@ RETURN ONLY JSON, no markdown:
                 {isOpen && (
                   <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {sec.prompts.map((p, pi) => {
-                      const ck = `${sec.key}_${pi}`;
+                      const bck = `bottom_${sec.key}_${pi}`;
                       return (
                         <div key={pi}>
                           <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>{p.type}</div>
-                          <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 44px 12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb', position: 'relative' }}>
+                          <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>
                             {p.text}
-                            <button onClick={() => copy(ck, p.text)} style={{ position: 'absolute', top: 8, right: 8, background: copiedKey===ck ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey===ck ? '#44bb66' : '#333'}`, color: copiedKey===ck ? '#fff' : '#666', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{copiedKey===ck ? '✅' : '📋'}</button>
                           </div>
+                          <button onClick={() => copy(bck, p.text)}
+                            style={{ background: copiedKey===bck ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey===bck ? '#4488ff' : '#223355'}`, color: copiedKey===bck ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%', marginTop: 6 }}>
+                            {copiedKey===bck ? '✅ Copied!' : `📋 Copy ${p.type}`}
+                          </button>
                         </div>
                       );
                     })}
