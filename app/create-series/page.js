@@ -80,7 +80,7 @@ const FOLDER_CONFIG = {
   color:     { label: 'Colors',     emoji: '🌈', color: '#cc88ff' },
   alphabet:  { label: 'Alphabets',  emoji: '🔤', color: '#00ccbb' },
   shape:     { label: 'Shapes',     emoji: '🔷', color: '#ffcc00' },
-  general:   { label: 'Other',      emoji: '🌟', color: '#888888' },
+  general:   { label: 'flowers',      emoji: '🌺', color: '#888888' },
 };
 
 function groupSeriesByFolder(seriesList) {
