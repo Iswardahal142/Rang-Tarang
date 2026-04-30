@@ -50,7 +50,6 @@ function getSeriesType(seriesName) {
   return 'general';
 }
 
-// ── Hindi category word for specific question ────────────
 function getHindiCategoryWord(seriesName) {
   const n = (seriesName || '').toLowerCase();
   if (n.includes('flower'))                                                                                    return 'flower';
@@ -71,7 +70,6 @@ function getHindiCategoryWord(seriesName) {
   return 'चीज़';
 }
 
-// ── Folder config ────────────────────────────────────────
 const FOLDER_CONFIG = {
   number:    { label: 'Numbers',    emoji: '🔢', color: '#4488ff' },
   animal:    { label: 'Animals',    emoji: '🐾', color: '#ff8800' },
@@ -80,7 +78,7 @@ const FOLDER_CONFIG = {
   color:     { label: 'Colors',     emoji: '🌈', color: '#cc88ff' },
   alphabet:  { label: 'Alphabets',  emoji: '🔤', color: '#00ccbb' },
   shape:     { label: 'Shapes',     emoji: '🔷', color: '#ffcc00' },
-  general:   { label: 'flowers',      emoji: '🌺', color: '#888888' },
+  general:   { label: 'Flowers',    emoji: '🌺', color: '#ff88aa' },
 };
 
 function groupSeriesByFolder(seriesList) {
@@ -182,24 +180,23 @@ Return ONLY a single most appropriate emoji for this topic. No explanation, no t
 
 function CreateSeriesPage({ user }) {
   const toast = useToast();
-  const [seriesList, setSeriesList]         = useState([]);
-  const [loadingList, setLoadingList]       = useState(true);
-  const [openSeries, setOpenSeries]         = useState(null);
-  const [openSection, setOpenSection]       = useState(null);
-  const [copiedKey, setCopiedKey]           = useState('');
-  const [ytVideos, setYtVideos]             = useState([]);
-  const [continuing, setContinuing]         = useState(false);
-  const [genTD, setGenTD]                   = useState(false);
-  const [openFolders, setOpenFolders]       = useState({});
-  const [modal, setModal]                   = useState('none');
-  const [suggestions, setSuggestions]       = useState([]);
-  const [sugLoading, setSugLoading]         = useState(false);
-  const [selectedTopic, setSelectedTopic]   = useState(null);
-  const [customName, setCustomName]         = useState('');
-  const [selectedEmoji, setSelectedEmoji]   = useState('🌟');
-  const [selectedColor, setSelectedColor]   = useState('#ff4400');
-  const [generating, setGenerating]         = useState(false);
-  const [ytLoading, setYtLoading]           = useState(true);
+  const [seriesList, setSeriesList]       = useState([]);
+  const [loadingList, setLoadingList]     = useState(true);
+  const [openFolder, setOpenFolder]       = useState(null); // folder type string
+  const [openSeries, setOpenSeries]       = useState(null); // series object
+  const [openSection, setOpenSection]     = useState(null);
+  const [copiedKey, setCopiedKey]         = useState('');
+  const [ytVideos, setYtVideos]           = useState([]);
+  const [genTD, setGenTD]                 = useState(false);
+  const [modal, setModal]                 = useState('none');
+  const [suggestions, setSuggestions]     = useState([]);
+  const [sugLoading, setSugLoading]       = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [customName, setCustomName]       = useState('');
+  const [selectedEmoji, setSelectedEmoji] = useState('🌟');
+  const [selectedColor, setSelectedColor] = useState('#ff4400');
+  const [generating, setGenerating]       = useState(false);
+  const [ytLoading, setYtLoading]         = useState(true);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -231,10 +228,6 @@ function CreateSeriesPage({ user }) {
     if (matched.isScheduled) return 'scheduled';
     if (matched.privacyStatus === 'private') return 'private';
     return true;
-  }
-
-  function toggleFolder(type) {
-    setOpenFolders(prev => ({ ...prev, [type]: !prev[type] }));
   }
 
   function openChoose() { setModal('choose'); }
@@ -283,25 +276,6 @@ function CreateSeriesPage({ user }) {
       loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setGenerating(false);
-  }
-
-  async function continueSeries(series) {
-    setContinuing(true);
-    try {
-      const done = (series.items || []).map(i => i.name).join(', ');
-      const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
-      const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-      if (getSeriesType(series.name) === 'number') {
-        newItems.forEach(item => {
-          const n = parseInt(item.name);
-          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
-        });
-      }
-      const newPart = (series.part || 1) + 1;
-      await saveSeries(user.uid, { name: `${series.name} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart, ytTitle: '', ytDescription: '' });
-      toast(`🎉 Part ${newPart} ready!`); loadList();
-    } catch (e) { toast('❌ ' + e.message); }
-    setContinuing(false);
   }
 
   async function markDone(series, key, wasDone) {
@@ -359,7 +333,9 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
     toast('🗑 Deleted!'); setOpenSeries(null); loadList();
   }
 
-  // ── DETAIL VIEW ───────────────────────────────────────
+  // ══════════════════════════════════════════════
+  // LEVEL 3: SERIES DETAIL VIEW
+  // ══════════════════════════════════════════════
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
@@ -453,7 +429,60 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
     );
   }
 
-  // ── LIST VIEW with 2-LEVEL FOLDERS ───────────────────
+  // ══════════════════════════════════════════════
+  // LEVEL 2: FOLDER VIEW (series inside a category)
+  // ══════════════════════════════════════════════
+  if (openFolder) {
+    const folder = FOLDER_CONFIG[openFolder];
+    const grouped = groupSeriesByFolder(seriesList);
+    const seriesInFolder = grouped[openFolder] || [];
+
+    return (
+      <div className="page-content" style={{ background: 'var(--void)' }}>
+        <div className="mini-topbar">
+          <button onClick={() => setOpenFolder(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
+          <span style={{ fontSize: 13, fontWeight: 700, color: folder.color }}>{folder.emoji} {folder.label}</span>
+          <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{seriesInFolder.length} series</span>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {seriesInFolder.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>{folder.emoji}</div>
+              <div style={{ fontSize: 13, color: '#555' }}>Koi series nahi hai</div>
+            </div>
+          ) : seriesInFolder.map(s => {
+            const total = (s.items || []).length + 2;
+            const uploaded = checkUploaded(s);
+            const uploadColor = uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
+            const uploadText = ytLoading ? '🔍...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled' : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
+
+            return (
+              <div key={s.id} onClick={() => setOpenSeries(s)}
+                style={{ background: '#0f0f0f', borderRadius: 14, borderLeft: `4px solid ${s.color}`, border: `1px solid #1e1e1e`, borderLeftWidth: 4, borderLeftColor: s.color, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 28 }}>{s.emoji}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>{s.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount||0}/{total} done</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
+                  </div>
+                  <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
+                  </div>
+                </div>
+                <span style={{ fontSize: 20, color: '#333' }}>›</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════
+  // LEVEL 1: FOLDER LIST
+  // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
   const folderOrder = ['number','animal','fruit','vegetable','color','alphabet','shape','general'];
 
@@ -475,6 +504,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
+        {/* ── MODALS ── */}
         {modal === 'choose' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -562,7 +592,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
           </div>
         )}
 
-        {/* ── 2-LEVEL FOLDER LIST ── */}
+        {/* ── FOLDER CARDS ── */}
         {loadingList ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
             <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} />
@@ -577,49 +607,21 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
         ) : folderOrder.filter(type => grouped[type]?.length > 0).map(type => {
           const folder = FOLDER_CONFIG[type];
           const seriesInFolder = grouped[type];
-          const isFolderOpen = openFolders[type] !== false;
+          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
 
           return (
-            <div key={type} style={{ background: '#0d0d0d', border: `1px solid ${folder.color}33`, borderRadius: 14, overflow: 'hidden' }}>
-
-              {/* Level 1: Category */}
-              <div onClick={() => toggleFolder(type)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', cursor: 'pointer', background: `${folder.color}0d` }}>
-                <span style={{ fontSize: 22 }}>{folder.emoji}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: folder.color }}>{folder.label}</div>
-                  <div style={{ fontSize: 10, color: '#555', marginTop: 1 }}>{seriesInFolder.length} series</div>
-                </div>
-                <span style={{ fontSize: 12, color: '#555', fontWeight: 700 }}>{isFolderOpen ? '▲' : '▼'}</span>
+            <div key={type} onClick={() => setOpenFolder(type)}
+              style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
+              {/* subtle bg glow */}
+              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
+                {folder.emoji}
               </div>
-
-              {/* Level 2: Series */}
-              {isFolderOpen && (
-                <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${folder.color}22` }}>
-                  {seriesInFolder.map(s => {
-                    const total = (s.items || []).length + 2;
-                    const uploaded = checkUploaded(s);
-                    const uploadColor = uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
-                    const uploadText = ytLoading ? '🔍...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled' : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
-
-                    return (
-                      <div key={s.id} onClick={() => setOpenSeries(s)} style={{ borderLeft: `3px solid ${s.color}`, margin: '4px 8px', borderRadius: 10, background: '#111', cursor: 'pointer', padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 20 }}>{s.emoji}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: '#eee', marginBottom: 2 }}>{s.name}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                            <span style={{ fontSize: 10, color: '#555' }}>{s.doneCount||0}/{total}</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
-                          </div>
-                          <div style={{ height: 3, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 3 }} />
-                          </div>
-                        </div>
-                        <span style={{ fontSize: 14, color: '#444' }}>›</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
+                <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
+              </div>
+              <span style={{ fontSize: 22, color: `${folder.color}66` }}>›</span>
             </div>
           );
         })}
