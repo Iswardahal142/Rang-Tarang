@@ -91,6 +91,17 @@ function groupSeriesByFolder(seriesList) {
   return groups;
 }
 
+// Check if next part already exists for a series
+function hasNextPart(series, allSeries) {
+  const baseName = series.name.replace(/ Part \d+$/, '').trim();
+  const currentPart = series.part || 1;
+  const nextPart = currentPart + 1;
+  return allSeries.some(s => {
+    const sBase = s.name.replace(/ Part \d+$/, '').trim();
+    return sBase === baseName && (s.part || 1) === nextPart;
+  });
+}
+
 function buildIntroImagePrompt(seriesName, items = []) {
   const first3 = items.slice(0, 3);
   const positions = ['bottom left', 'bottom center', 'bottom right'];
@@ -182,11 +193,12 @@ function CreateSeriesPage({ user }) {
   const toast = useToast();
   const [seriesList, setSeriesList]       = useState([]);
   const [loadingList, setLoadingList]     = useState(true);
-  const [openFolder, setOpenFolder]       = useState(null); // folder type string
-  const [openSeries, setOpenSeries]       = useState(null); // series object
+  const [openFolder, setOpenFolder]       = useState(null);
+  const [openSeries, setOpenSeries]       = useState(null);
   const [openSection, setOpenSection]     = useState(null);
   const [copiedKey, setCopiedKey]         = useState('');
   const [ytVideos, setYtVideos]           = useState([]);
+  const [continuing, setContinuing]       = useState(null); // series id being continued
   const [genTD, setGenTD]                 = useState(false);
   const [modal, setModal]                 = useState('none');
   const [suggestions, setSuggestions]     = useState([]);
@@ -228,6 +240,12 @@ function CreateSeriesPage({ user }) {
     if (matched.isScheduled) return 'scheduled';
     if (matched.privacyStatus === 'private') return 'private';
     return true;
+  }
+
+  // Delete disabled if uploaded, private, or scheduled
+  function isDeleteDisabled(series) {
+    const u = checkUploaded(series);
+    return u === true || u === 'private' || u === 'scheduled';
   }
 
   function openChoose() { setModal('choose'); }
@@ -276,6 +294,33 @@ function CreateSeriesPage({ user }) {
       loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setGenerating(false);
+  }
+
+  async function continueSeries(e, series) {
+    e.stopPropagation(); // prevent card click
+    setContinuing(series.id);
+    try {
+      const done = (series.items || []).map(i => i.name).join(', ');
+      const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
+      const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      if (getSeriesType(series.name) === 'number') {
+        newItems.forEach(item => {
+          const n = parseInt(item.name);
+          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
+        });
+      }
+      const newPart = (series.part || 1) + 1;
+      const baseName = series.name.replace(/ Part \d+$/, '').trim();
+      await saveSeries(user.uid, {
+        name: `${baseName} Part ${newPart}`,
+        emoji: series.emoji, color: series.color,
+        items: newItems, doneSections: {}, doneCount: 0, progress: 0,
+        part: newPart, ytTitle: '', ytDescription: ''
+      });
+      toast(`🎉 Part ${newPart} ready!`);
+      loadList();
+    } catch (e) { toast('❌ ' + e.message); }
+    setContinuing(null);
   }
 
   async function markDone(series, key, wasDone) {
@@ -342,7 +387,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
     const total = (s.items || []).length + 2;
     const allPromptsDone = Object.keys(done).length >= total;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
-    const isUploaded = checkUploaded(s) === true;
+    const deleteDisabled = isDeleteDisabled(s);
 
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
@@ -365,8 +410,8 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
         <div className="mini-topbar">
           <button onClick={() => setOpenSeries(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{s.emoji} {s.name}</span>
-          {isUploaded ? (
-            <span style={{ fontSize: 18, opacity: 0.25, cursor: 'not-allowed' }}>🗑</span>
+          {deleteDisabled ? (
+            <span style={{ fontSize: 18, opacity: 0.2, cursor: 'not-allowed' }}>🗑</span>
           ) : (
             <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
           )}
@@ -430,11 +475,12 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
   }
 
   // ══════════════════════════════════════════════
-  // LEVEL 2: FOLDER VIEW (series inside a category)
+  // LEVEL 2: FOLDER VIEW
   // ══════════════════════════════════════════════
   if (openFolder) {
     const folder = FOLDER_CONFIG[openFolder];
     const grouped = groupSeriesByFolder(seriesList);
+    // Recent created first (already sorted by createdAt desc from Firestore)
     const seriesInFolder = grouped[openFolder] || [];
 
     return (
@@ -456,10 +502,12 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
             const uploaded = checkUploaded(s);
             const uploadColor = uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
             const uploadText = ytLoading ? '🔍...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled' : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
+            const nextPartExists = hasNextPart(s, seriesList);
+            const isContinuing = continuing === s.id;
 
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
-                style={{ background: '#0f0f0f', borderRadius: 14, borderLeft: `4px solid ${s.color}`, border: `1px solid #1e1e1e`, borderLeftWidth: 4, borderLeftColor: s.color, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                style={{ background: '#0f0f0f', borderRadius: 14, border: `1px solid #1e1e1e`, borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 28 }}>{s.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>{s.name}</div>
@@ -467,11 +515,22 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
                     <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount||0}/{total} done</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
                   </div>
-                  <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden', marginBottom: nextPartExists ? 0 : 0 }}>
                     <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
                   </div>
+                  {/* Continue button — only if next part does NOT exist */}
+                  {!nextPartExists && (
+                    <button
+                      onClick={(e) => continueSeries(e, s)}
+                      disabled={isContinuing}
+                      style={{ marginTop: 10, background: isContinuing ? '#111' : `${s.color}18`, border: `1px solid ${s.color}55`, color: isContinuing ? '#555' : s.color, borderRadius: 8, padding: '7px 12px', fontSize: 11, fontWeight: 700, cursor: isContinuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
+                      {isContinuing
+                        ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</>
+                        : `➕ Continue → Part ${(s.part || 1) + 1}`}
+                    </button>
+                  )}
                 </div>
-                <span style={{ fontSize: 20, color: '#333' }}>›</span>
+                <span style={{ fontSize: 20, color: '#333', alignSelf: 'flex-start', marginTop: 4 }}>›</span>
               </div>
             );
           })}
@@ -485,6 +544,15 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
   const folderOrder = ['number','animal','fruit','vegetable','color','alphabet','shape','general'];
+
+  // Sort folders by most recently created series inside
+  const sortedFolderOrder = folderOrder
+    .filter(type => grouped[type]?.length > 0)
+    .sort((a, b) => {
+      const aLatest = grouped[a]?.[0]?.createdAt?.seconds || 0;
+      const bLatest = grouped[b]?.[0]?.createdAt?.seconds || 0;
+      return bLatest - aLatest;
+    });
 
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
@@ -604,7 +672,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
             <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
-        ) : folderOrder.filter(type => grouped[type]?.length > 0).map(type => {
+        ) : sortedFolderOrder.map(type => {
           const folder = FOLDER_CONFIG[type];
           const seriesInFolder = grouped[type];
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
@@ -612,7 +680,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
           return (
             <div key={type} onClick={() => setOpenFolder(type)}
               style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
-              {/* subtle bg glow */}
               <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
               <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
                 {folder.emoji}
