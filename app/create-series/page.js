@@ -45,7 +45,32 @@ function getSeriesType(seriesName) {
   if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter')) return 'alphabet';
   if (n.includes('shape')) return 'shape';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi') || n.includes('sabziyon')) return 'vegetable';
+  if (n.includes('bird')) return 'animal';
+  if (n.includes('insect') || n.includes('bug')) return 'animal';
+  if (n.includes('fish') || n.includes('sea') || n.includes('ocean')) return 'animal';
   return 'general';
+}
+
+// ── Folder config ────────────────────────────────────────
+const FOLDER_CONFIG = {
+  number:    { label: 'Numbers',    emoji: '🔢', color: '#4488ff' },
+  animal:    { label: 'Animals',    emoji: '🐾', color: '#ff8800' },
+  fruit:     { label: 'Fruits',     emoji: '🍎', color: '#ff4488' },
+  vegetable: { label: 'Vegetables', emoji: '🥦', color: '#44bb66' },
+  color:     { label: 'Colors',     emoji: '🌈', color: '#cc88ff' },
+  alphabet:  { label: 'Alphabets',  emoji: '🔤', color: '#00ccbb' },
+  shape:     { label: 'Shapes',     emoji: '🔷', color: '#ffcc00' },
+  general:   { label: 'Other',      emoji: '🌟', color: '#888888' },
+};
+
+function groupSeriesByFolder(seriesList) {
+  const groups = {};
+  seriesList.forEach(s => {
+    const type = getSeriesType(s.name);
+    if (!groups[type]) groups[type] = [];
+    groups[type].push(s);
+  });
+  return groups;
 }
 
 function getQuestionText(type, forImage = false) {
@@ -74,6 +99,7 @@ function getQuestionTextPart2(type) {
     default:          return 'अब बताओ.. यह क्या है?';
   }
 }
+
 function buildIntroImagePrompt(seriesName, items = []) {
   const first3 = items.slice(0, 3);
   const positions = ['bottom left', 'bottom center', 'bottom right'];
@@ -81,13 +107,13 @@ function buildIntroImagePrompt(seriesName, items = []) {
   const itemsDesc = first3.length > 0
     ? first3.map((item, i) => `${item.name} (${item.object}) at ${shuffled[i]}`).join(', ')
     : 'colorful educational items at bottom';
-  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show 3 Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show 3 big Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
 }
 
 function buildIntroVideoPrompt(n, part = 1, items = []) {
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
-  const objectLine = firstItem ? `Teacher bends down, picks up a ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
+  const objectLine = firstItem ? `Teacher bends down, picks up a big ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
   return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${n}" with hand and slides it off screen to the right. ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
@@ -108,7 +134,7 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   }
 
   // ── Animal, Fruit, Vegetable, Color, Alphabet, General ──
-  return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Pixar 3D animated ${item.object} floating in air at center-right of screen, gently bobbing up and down. No walking, no entry animation — object already floating when scene starts. Teacher points to the ${item.object} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
+  return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big Pixar 3D animated ${item.name} (${item.object}) floating in air at center-right of screen, gently bobbing up and down. Object is large and clearly visible — not small. No walking, no entry animation — object already floating when scene starts. Teacher points to the ${item.name} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
 }
 
 const hindiNumbers = {
@@ -158,25 +184,26 @@ Return ONLY a single most appropriate emoji for this topic. No explanation, no t
 
 function CreateSeriesPage({ user }) {
   const toast = useToast();
-  const [seriesList, setSeriesList]   = useState([]);
-  const [loadingList, setLoadingList] = useState(true);
-  const [openSeries, setOpenSeries]   = useState(null);
-  const [openSection, setOpenSection] = useState(null);
-  const [copiedKey, setCopiedKey]     = useState('');
-  const [ytVideos, setYtVideos]       = useState([]);
-  const [continuing, setContinuing]   = useState(false);
+  const [seriesList, setSeriesList]       = useState([]);
+  const [loadingList, setLoadingList]     = useState(true);
+  const [openSeries, setOpenSeries]       = useState(null);
+  const [openSection, setOpenSection]     = useState(null);
+  const [copiedKey, setCopiedKey]         = useState('');
+  const [ytVideos, setYtVideos]           = useState([]);
+  const [continuing, setContinuing]       = useState(false);
+  const [genTD, setGenTD]                 = useState(false);
+  const [openFolders, setOpenFolders]     = useState({});
+  const [openSubFolders, setOpenSubFolders] = useState({});
 
-  const [genTD, setGenTD]             = useState(false);
-
-  const [modal, setModal]             = useState('none');
-  const [suggestions, setSuggestions] = useState([]);
-  const [sugLoading, setSugLoading]   = useState(false);
+  const [modal, setModal]                 = useState('none');
+  const [suggestions, setSuggestions]     = useState([]);
+  const [sugLoading, setSugLoading]       = useState(false);
   const [selectedTopic, setSelectedTopic] = useState(null);
-  const [customName, setCustomName]   = useState('');
+  const [customName, setCustomName]       = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState('🌟');
   const [selectedColor, setSelectedColor] = useState('#ff4400');
-  const [generating, setGenerating]   = useState(false);
-  const [ytLoading, setYtLoading]     = useState(true);
+  const [generating, setGenerating]       = useState(false);
+  const [ytLoading, setYtLoading]         = useState(true);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -196,7 +223,6 @@ function CreateSeriesPage({ user }) {
     setYtLoading(false);
   }
 
-  // ── YouTube check ────────────────────────────────────────
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
     const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
@@ -209,6 +235,14 @@ function CreateSeriesPage({ user }) {
     if (matched.isScheduled) return 'scheduled';
     if (matched.privacyStatus === 'private') return 'private';
     return true;
+  }
+
+  function toggleFolder(type) {
+    setOpenFolders(prev => ({ ...prev, [type]: !prev[type] }));
+  }
+
+  function toggleSubFolder(id) {
+    setOpenSubFolders(prev => ({ ...prev, [id]: !prev[id] }));
   }
 
   function openChoose() { setModal('choose'); }
@@ -245,15 +279,12 @@ function CreateSeriesPage({ user }) {
       const existing = seriesList.map(s => s.name).join(', ');
       const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
       const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-
-      // Number series ke liye hindi names inject karo
       if (getSeriesType(selectedTopic.name) === 'number') {
         items.forEach(item => {
           const n = parseInt(item.name);
           if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
         });
       }
-
       await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '' });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
       setModal('none'); setSelectedTopic(null); setCustomName('');
@@ -268,15 +299,12 @@ function CreateSeriesPage({ user }) {
       const done = (series.items || []).map(i => i.name).join(', ');
       const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-
-      // Number series ke liye hindi names inject karo
       if (getSeriesType(series.name) === 'number') {
         newItems.forEach(item => {
           const n = parseInt(item.name);
           if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
         });
       }
-
       const newPart = (series.part || 1) + 1;
       await saveSeries(user.uid, { name: `${series.name} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart, ytTitle: '', ytDescription: '' });
       toast(`🎉 Part ${newPart} ready!`); loadList();
@@ -350,18 +378,20 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     const isUploaded = checkUploaded(s) === true;
 
     const sections = [
-  { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
-    { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
-    { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }
-  ]},
-  ...(s.items || []).map((item, i) => ({
-    key: `item_${i}`,
-    title: `${i+1}. ${item.name}`,
-    color: s.color,
-    prompts: [{ type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }]
-  })),
-  { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [{ type: '🎬 VIDEO', text: buildOutroVideoPrompt(s.items || []) }] },
-];
+      { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
+        { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
+        { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }
+      ]},
+      ...(s.items || []).map((item, i) => ({
+        key: `item_${i}`,
+        title: `${i+1}. ${item.name}`,
+        color: s.color,
+        prompts: [{ type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }]
+      })),
+      { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [
+        { type: '🎬 VIDEO', text: buildOutroVideoPrompt(s.items || []) }
+      ]},
+    ];
 
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
@@ -439,39 +469,29 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
     );
   }
 
-  // ── LIST VIEW ─────────────────────────────────────────
+  // ── LIST VIEW with 2-LEVEL FOLDERS ───────────────────
+  const grouped = groupSeriesByFolder(seriesList);
+  const folderOrder = ['number','animal','fruit','vegetable','color','alphabet','shape','general'];
+
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
-
         {ytLoading ? (
-          <button disabled style={{
-            background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444',
-            borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700,
-            cursor: 'not-allowed', opacity: 0.5
-          }}>+ Nayi</button>
+          <button disabled style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.5 }}>+ Nayi</button>
         ) : (() => {
           const hasUnuploaded = seriesList.some(s => checkUploaded(s) === false);
           return hasUnuploaded ? (
-            <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{
-              background: '#333', border: 'none', color: '#666',
-              borderRadius: 20, padding: '6px 14px', fontSize: 12,
-              fontWeight: 700, cursor: 'not-allowed', opacity: 0.6
-            }}>+ Nayi</button>
+            <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{ background: '#333', border: 'none', color: '#666', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6 }}>+ Nayi</button>
           ) : (
-            <button onClick={openChoose} style={{
-              background: '#cc88ff', border: 'none', color: '#fff',
-              borderRadius: 20, padding: '6px 14px', fontSize: 12,
-              fontWeight: 700, cursor: 'pointer'
-            }}>+ Nayi</button>
+            <button onClick={openChoose} style={{ background: '#cc88ff', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Nayi</button>
           );
         })()}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* CHOOSE MODAL */}
+        {/* MODALS */}
         {modal === 'choose' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -497,7 +517,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* AI SUGGESTIONS MODAL */}
         {modal === 'suggestions' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -519,7 +538,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* CUSTOM NAME MODAL */}
         {modal === 'custom' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -538,7 +556,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* PICKER MODAL */}
         {modal === 'picker' && selectedTopic && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -562,58 +579,93 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* SERIES LIST */}
+        {/* ── 2-LEVEL FOLDER LIST ── */}
         {loadingList ? (
-          <div style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} /><div style={{ fontSize: 12, color: '#555' }}>Loading...</div></div>
+          <div style={{ textAlign: 'center', padding: 32 }}>
+            <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} />
+            <div style={{ fontSize: 12, color: '#555' }}>Loading...</div>
+          </div>
         ) : seriesList.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: '#444' }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
-        ) : seriesList.map(s => {
-          const total = (s.items || []).length + 2;
-          const uploaded = checkUploaded(s);
-          const hasTD = !!(s.ytTitle && s.ytDescription);
+        ) : folderOrder.filter(type => grouped[type]?.length > 0).map(type => {
+          const folder = FOLDER_CONFIG[type];
+          const seriesInFolder = grouped[type];
+          const isFolderOpen = openFolders[type] !== false; // default open
+          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
+
           return (
-            <div key={s.id} style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 14, overflow: 'hidden', borderLeft: `3px solid ${s.color}` }}>
-              <div onClick={() => setOpenSeries(s)} style={{ padding: '14px 14px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontSize: 36 }}>{s.emoji}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 2 }}>{s.name}</div>
-                  {hasTD && <div style={{ fontSize: 10, color: '#888', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📝 {s.ytTitle}</div>}
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>{s.doneCount||0} / {total} prompts done</div>
-                  <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
-                  </div>
+            <div key={type} style={{ background: '#0d0d0d', border: `1px solid ${folder.color}33`, borderRadius: 14, overflow: 'hidden' }}>
+
+              {/* ── LEVEL 1: Category Folder Header ── */}
+              <div onClick={() => toggleFolder(type)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', cursor: 'pointer', background: `${folder.color}0d` }}>
+                <span style={{ fontSize: 22 }}>{folder.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: folder.color }}>{folder.label}</div>
+                  <div style={{ fontSize: 10, color: '#555', marginTop: 1 }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
                 </div>
-                <span style={{ fontSize: 13, color: '#333' }}>›</span>
+                <span style={{ fontSize: 12, color: '#444', fontWeight: 700 }}>{isFolderOpen ? '▲' : '▼'}</span>
               </div>
-              <div style={{ padding: '0 14px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center',
-                  background: uploaded===true ? 'rgba(68,187,102,0.12)'
-                    : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)'
-                    : uploaded==='private' ? 'rgba(204,136,255,0.12)'
-                    : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
-                  color: uploaded===true ? '#44bb66'
-                    : uploaded==='scheduled' ? '#4488ff'
-                    : uploaded==='private' ? '#cc88ff'
-                    : uploaded===false ? '#ff8866' : '#555',
-                  border: `1px solid ${
-                    uploaded===true ? 'rgba(68,187,102,0.3)'
-                    : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)'
-                    : uploaded==='private' ? 'rgba(204,136,255,0.3)'
-                    : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
-                  {ytLoading ? '🔍 Checking...'
-                    : uploaded===true ? '✅ YouTube pe hai'
-                    : uploaded==='scheduled' ? '📅 Scheduled hai'
-                    : uploaded==='private' ? '🔒 Private hai'
-                    : '⏳ Upload baaki'}
+
+              {/* ── LEVEL 2: Series as Sub-folders ── */}
+              {isFolderOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, borderTop: `1px solid ${folder.color}22` }}>
+                  {seriesInFolder.map(s => {
+                    const total = (s.items || []).length + 2;
+                    const uploaded = checkUploaded(s);
+                    const isSubOpen = openSubFolders[s.id] !== false; // default open
+
+                    const uploadBg = uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)' : uploaded==='private' ? 'rgba(204,136,255,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a';
+                    const uploadColor = uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
+                    const uploadBorder = uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)' : uploaded==='private' ? 'rgba(204,136,255,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222';
+                    const uploadText = ytLoading ? '🔍 Checking...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled hai' : uploaded==='private' ? '🔒 Private hai' : '⏳ Upload baaki';
+
+                    return (
+                      <div key={s.id} style={{ background: '#111', borderLeft: `3px solid ${s.color}`, margin: '4px 8px', borderRadius: 10, overflow: 'hidden' }}>
+
+                        {/* Sub-folder header = Series name */}
+                        <div onClick={() => toggleSubFolder(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', cursor: 'pointer' }}>
+                          <span style={{ fontSize: 22 }}>{s.emoji}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: '#eee' }}>{s.name}</div>
+                            <div style={{ fontSize: 10, color: '#555', marginTop: 1 }}>{s.doneCount||0} / {total} done</div>
+                          </div>
+                          <span style={{ fontSize: 11, color: '#444' }}>{isSubOpen ? '▲' : '▼'}</span>
+                        </div>
+
+                        {/* Sub-folder content */}
+                        {isSubOpen && (
+                          <div style={{ borderTop: `1px solid ${s.color}22`, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+                            {/* Progress bar */}
+                            <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
+                            </div>
+
+                            {/* Upload status */}
+                            <div style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center', background: uploadBg, color: uploadColor, border: `1px solid ${uploadBorder}` }}>
+                              {uploadText}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => setOpenSeries(s)} style={{ flex: 1, background: `${s.color}15`, border: `1px solid ${s.color}40`, color: s.color, borderRadius: 10, padding: '9px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                📋 Prompts
+                              </button>
+                              <button onClick={() => continueSeries(s)} disabled={continuing} style={{ flex: 1, background: '#1a1a1a', border: '1px solid #333', color: '#aaa', borderRadius: 10, padding: '9px', fontSize: 12, fontWeight: 700, cursor: continuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                {continuing ? <div className="spinner" style={{ width: 12, height: 12, borderTopColor: '#aaa' }} /> : '▶ Continue'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <button onClick={() => continueSeries(s)} disabled={continuing} style={{ background: `${s.color}15`, border: `1px solid ${s.color}40`, color: s.color, borderRadius: 20, padding: '6px 14px', fontSize: 11, fontWeight: 700, cursor: continuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                  {continuing ? <div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> : '▶ Continue'}
-                </button>
-              </div>
+              )}
             </div>
           );
         })}
@@ -624,16 +676,14 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
 
 // ── Title & Description Sub-Component ────────────────────
 function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
-  const [editing, setEditing]   = useState(false);
-  const [title, setTitle]       = useState(series.ytTitle || '');
-  const [desc, setDesc]         = useState(series.ytDescription || '');
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle]     = useState(series.ytTitle || '');
+  const [desc, setDesc]       = useState(series.ytDescription || '');
 
   useEffect(() => {
     setTitle(series.ytTitle || '');
     setDesc(series.ytDescription || '');
   }, [series.ytTitle, series.ytDescription]);
-
-  const isOpen = editing || hasTitleDesc;
 
   return (
     <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
@@ -645,42 +695,33 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
         </div>
         <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
       </div>
-
       {editing && (
         <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
-
           {!allPromptsDone && !hasTitleDesc && (
             <div style={{ background: 'rgba(255,170,0,0.07)', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#aa7700' }}>
               💡 Pehle saare prompts mark as done karo, phir title generate karo
             </div>
           )}
-
           <button onClick={onGenerate} disabled={genTD}
             style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
           </button>
-
           <div>
             <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 YouTube Title</div>
             <div style={{ position: 'relative' }}>
-              <input value={title} onChange={e => setTitle(e.target.value)}
-                placeholder="Video ka title..."
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
                 style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
               <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey==='ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey==='ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey==='ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey==='ytTitle' ? '✅' : '📋'}</button>
             </div>
           </div>
-
           <div>
             <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 YouTube Description</div>
             <div style={{ position: 'relative' }}>
-              <textarea value={desc} onChange={e => setDesc(e.target.value)}
-                placeholder="Video ki description..."
-                rows={4}
+              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
                 style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
               <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey==='ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey==='ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey==='ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey==='ytDesc' ? '✅' : '📋'}</button>
             </div>
           </div>
-
           <button onClick={() => { onSave(title, desc); setEditing(false); }}
             style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
             💾 Save Karo
