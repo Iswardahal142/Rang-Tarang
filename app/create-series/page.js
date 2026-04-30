@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import AuthWrapper from '../../components/AuthWrapper';
-
 import { ToastProvider, useToast } from '../../components/Toast';
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
@@ -41,14 +40,35 @@ function getSeriesType(seriesName) {
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
   if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
   if (n.includes('fruit')) return 'fruit';
-  if (n.includes('animal')) return 'animal';
+  if (n.includes('bird')) return 'animal';
+  if (n.includes('animal') || n.includes('wild') || n.includes('domestic') || n.includes('farm')) return 'animal';
+  if (n.includes('insect') || n.includes('bug')) return 'animal';
+  if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'animal';
   if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter')) return 'alphabet';
   if (n.includes('shape')) return 'shape';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi') || n.includes('sabziyon')) return 'vegetable';
-  if (n.includes('bird')) return 'animal';
-  if (n.includes('insect') || n.includes('bug')) return 'animal';
-  if (n.includes('fish') || n.includes('sea') || n.includes('ocean')) return 'animal';
   return 'general';
+}
+
+// ── Hindi category word for specific question ────────────
+function getHindiCategoryWord(seriesName) {
+  const n = (seriesName || '').toLowerCase();
+  if (n.includes('flower'))                                                                                    return 'flower';
+  if (n.includes('insect') || n.includes('bug'))                                                              return 'insect';
+  if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'water animal';
+  if (n.includes('bird'))                                                                                      return 'bird';
+  if (n.includes('wild') || n.includes('forest') || n.includes('domestic') || n.includes('pet') || n.includes('farm') || n.includes('animal')) return 'animal';
+  if (n.includes('fruit'))                                                                                     return 'fruit';
+  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi'))                                 return 'vegetable';
+  if (n.includes('color') || n.includes('colour'))                                                            return 'colour';
+  if (n.includes('shape'))                                                                                     return 'shape';
+  if (n.includes('alphabet') || n.includes('abc') || n.includes('letter'))                                    return 'letter';
+  if (n.includes('number') || n.includes('ginti'))                                                            return 'number';
+  if (n.includes('tree'))                                                                                      return 'tree';
+  if (n.includes('sport'))                                                                                     return 'sport';
+  if (n.includes('vehicle') || n.includes('transport'))                                                       return 'vehicle';
+  if (n.includes('food'))                                                                                      return 'food';
+  return 'चीज़';
 }
 
 // ── Folder config ────────────────────────────────────────
@@ -71,33 +91,6 @@ function groupSeriesByFolder(seriesList) {
     groups[type].push(s);
   });
   return groups;
-}
-
-function getQuestionText(type, forImage = false) {
-  switch(type) {
-    case 'number':    return forImage ? 'यह कौनसा नंबर है?' : 'तो बताओ.. यह कौनसा नंबर है?';
-    case 'counting':  return forImage ? 'यह कितने हैं?' : 'तो बताओ.. यह कितने हैं?';
-    case 'color':     return forImage ? 'कौनसा रंग है?' : 'तो बताओ.. कौनसा रंग है?';
-    case 'shape':     return forImage ? 'यह कौनसी आकृति है?' : 'तो बताओ.. यह कौनसी आकृति है?';
-    case 'alphabet':  return forImage ? 'यह कौनसा अक्षर है?' : 'तो बताओ.. यह कौनसा अक्षर है?';
-    case 'vegetable': return forImage ? 'यह कौनसी सब्ज़ी है?' : 'तो बताओ.. यह कौनसी सब्ज़ी है?';
-    case 'fruit':     return forImage ? 'यह कौनसा फल है?' : 'तो बताओ.. यह कौनसा फल है?';
-    case 'animal':    return forImage ? 'यह कौनसा जानवर है?' : 'तो बताओ.. यह कौनसा जानवर है?';
-    default:          return forImage ? 'यह क्या है?' : 'तो बताओ.. यह क्या है?';
-  }
-}
-function getQuestionTextPart2(type) {
-  switch(type) {
-    case 'number':    return 'अब बताओ.. यह कौनसा नंबर है?';
-    case 'counting':  return 'अब बताओ.. यह कितने हैं?';
-    case 'color':     return 'अब बताओ.. कौनसा रंग है?';
-    case 'shape':     return 'अब बताओ.. यह कौनसी आकृति है?';
-    case 'alphabet':  return 'अब बताओ.. यह कौनसा अक्षर है?';
-    case 'vegetable': return 'अब बताओ.. यह कौनसी सब्ज़ी है?';
-    case 'fruit':     return 'अब बताओ.. यह कौनसा फल है?';
-    case 'animal':    return 'अब बताओ.. यह कौनसा जानवर है?';
-    default:          return 'अब बताओ.. यह क्या है?';
-  }
 }
 
 function buildIntroImagePrompt(seriesName, items = []) {
@@ -124,16 +117,19 @@ function buildOutroVideoPrompt(items = []) {
 
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
-  const q = isFirstPart ? getQuestionText(type, false) : getQuestionTextPart2(type);
+  const categoryWord = getHindiCategoryWord(seriesName);
 
-  // ── NUMBER series ──
   if (type === 'number') {
     const num = item.name;
     const hindiNum = item.hindiName || num;
+    const q = isFirstPart ? `तो बताओ.. यह कौनसा ${categoryWord} है?` : `अब बताओ.. यह कौनसा ${categoryWord} है?`;
     return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
 
-  // ── Animal, Fruit, Vegetable, Color, Alphabet, General ──
+  const q = isFirstPart
+    ? `तो बताओ.. यह कौनसा ${categoryWord} है?`
+    : `अब बताओ.. यह कौनसा ${categoryWord} है?`;
+
   return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big Pixar 3D animated ${item.name} (${item.object}) floating in air at center-right of screen, gently bobbing up and down. Object is large and clearly visible — not small. No walking, no entry animation — object already floating when scene starts. Teacher points to the ${item.name} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${q}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
 }
 
@@ -184,26 +180,24 @@ Return ONLY a single most appropriate emoji for this topic. No explanation, no t
 
 function CreateSeriesPage({ user }) {
   const toast = useToast();
-  const [seriesList, setSeriesList]       = useState([]);
-  const [loadingList, setLoadingList]     = useState(true);
-  const [openSeries, setOpenSeries]       = useState(null);
-  const [openSection, setOpenSection]     = useState(null);
-  const [copiedKey, setCopiedKey]         = useState('');
-  const [ytVideos, setYtVideos]           = useState([]);
-  const [continuing, setContinuing]       = useState(false);
-  const [genTD, setGenTD]                 = useState(false);
-  const [openFolders, setOpenFolders]     = useState({});
-  const [openSubFolders, setOpenSubFolders] = useState({});
-
-  const [modal, setModal]                 = useState('none');
-  const [suggestions, setSuggestions]     = useState([]);
-  const [sugLoading, setSugLoading]       = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [customName, setCustomName]       = useState('');
-  const [selectedEmoji, setSelectedEmoji] = useState('🌟');
-  const [selectedColor, setSelectedColor] = useState('#ff4400');
-  const [generating, setGenerating]       = useState(false);
-  const [ytLoading, setYtLoading]         = useState(true);
+  const [seriesList, setSeriesList]         = useState([]);
+  const [loadingList, setLoadingList]       = useState(true);
+  const [openSeries, setOpenSeries]         = useState(null);
+  const [openSection, setOpenSection]       = useState(null);
+  const [copiedKey, setCopiedKey]           = useState('');
+  const [ytVideos, setYtVideos]             = useState([]);
+  const [continuing, setContinuing]         = useState(false);
+  const [genTD, setGenTD]                   = useState(false);
+  const [openFolders, setOpenFolders]       = useState({});
+  const [modal, setModal]                   = useState('none');
+  const [suggestions, setSuggestions]       = useState([]);
+  const [sugLoading, setSugLoading]         = useState(false);
+  const [selectedTopic, setSelectedTopic]   = useState(null);
+  const [customName, setCustomName]         = useState('');
+  const [selectedEmoji, setSelectedEmoji]   = useState('🌟');
+  const [selectedColor, setSelectedColor]   = useState('#ff4400');
+  const [generating, setGenerating]         = useState(false);
+  const [ytLoading, setYtLoading]           = useState(true);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -241,10 +235,6 @@ function CreateSeriesPage({ user }) {
     setOpenFolders(prev => ({ ...prev, [type]: !prev[type] }));
   }
 
-  function toggleSubFolder(id) {
-    setOpenSubFolders(prev => ({ ...prev, [id]: !prev[id] }));
-  }
-
   function openChoose() { setModal('choose'); }
 
   async function loadSuggestions() {
@@ -277,7 +267,7 @@ function CreateSeriesPage({ user }) {
     setGenerating(true);
     try {
       const existing = seriesList.map(s => s.name).join(', ');
-      const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] for Pixar 3D animation"}]`);
+      const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
       const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       if (getSeriesType(selectedTopic.name) === 'number') {
         items.forEach(item => {
@@ -338,8 +328,7 @@ Rules:
 - Title: Catchy, Hindi+English mix, under 70 chars, include "| Rang Tarang" at end
 - Description: 3-4 lines, fun, mentions what kids will learn, includes "Rang Tarang" channel name, ends with subscribe line
 
-Return ONLY JSON, no markdown: {"title":"...","description":"..."}
-`);
+Return ONLY JSON, no markdown: {"title":"...","description":"..."}`);
       const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
       const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
@@ -399,14 +388,13 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           <button onClick={() => setOpenSeries(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{s.emoji} {s.name}</span>
           {isUploaded ? (
-            <span style={{ fontSize: 18, opacity: 0.25, cursor: 'not-allowed' }} title="YouTube pe upload hai, delete nahi ho sakta">🗑</span>
+            <span style={{ fontSize: 18, opacity: 0.25, cursor: 'not-allowed' }}>🗑</span>
           ) : (
             <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
           )}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -417,19 +405,13 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
             </div>
           </div>
 
-          {/* Title & Description */}
           <TitleDescSection
-            series={s}
-            allPromptsDone={allPromptsDone}
-            hasTitleDesc={hasTitleDesc}
-            genTD={genTD}
-            onGenerate={() => generateTitleDesc(s)}
+            series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
+            genTD={genTD} onGenerate={() => generateTitleDesc(s)}
             onSave={(title, desc) => saveTitleDesc(s, title, desc)}
-            onCopy={copy}
-            copiedKey={copiedKey}
+            onCopy={copy} copiedKey={copiedKey}
           />
 
-          {/* Prompt sections */}
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -491,7 +473,6 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* MODALS */}
         {modal === 'choose' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -542,7 +523,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
-              <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Series ka naam (e.g. Animals, Body Parts...)" maxLength={30}
+              <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Series ka naam (e.g. Wild Animals, Flowers...)" maxLength={30}
                 style={{ width: '100%', background: '#1a001a', border: '1px solid #440044', color: '#eee', borderRadius: 10, padding: '12px 14px', fontSize: 14, outline: 'none', marginBottom: 14, fontFamily: 'inherit' }} />
               <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>EMOJI CHUNO</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
@@ -586,7 +567,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
             <div style={{ fontSize: 12, color: '#555' }}>Loading...</div>
           </div>
         ) : seriesList.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#444' }}>
+          <div style={{ textAlign: 'center', padding: 40 }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
@@ -594,73 +575,44 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}
         ) : folderOrder.filter(type => grouped[type]?.length > 0).map(type => {
           const folder = FOLDER_CONFIG[type];
           const seriesInFolder = grouped[type];
-          const isFolderOpen = openFolders[type] !== false; // default open
-          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
+          const isFolderOpen = openFolders[type] !== false;
 
           return (
             <div key={type} style={{ background: '#0d0d0d', border: `1px solid ${folder.color}33`, borderRadius: 14, overflow: 'hidden' }}>
 
-              {/* ── LEVEL 1: Category Folder Header ── */}
+              {/* Level 1: Category */}
               <div onClick={() => toggleFolder(type)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', cursor: 'pointer', background: `${folder.color}0d` }}>
                 <span style={{ fontSize: 22 }}>{folder.emoji}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: folder.color }}>{folder.label}</div>
-                  <div style={{ fontSize: 10, color: '#555', marginTop: 1 }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
+                  <div style={{ fontSize: 10, color: '#555', marginTop: 1 }}>{seriesInFolder.length} series</div>
                 </div>
-                <span style={{ fontSize: 12, color: '#444', fontWeight: 700 }}>{isFolderOpen ? '▲' : '▼'}</span>
+                <span style={{ fontSize: 12, color: '#555', fontWeight: 700 }}>{isFolderOpen ? '▲' : '▼'}</span>
               </div>
 
-              {/* ── LEVEL 2: Series as Sub-folders ── */}
+              {/* Level 2: Series */}
               {isFolderOpen && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, borderTop: `1px solid ${folder.color}22` }}>
+                <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${folder.color}22` }}>
                   {seriesInFolder.map(s => {
                     const total = (s.items || []).length + 2;
                     const uploaded = checkUploaded(s);
-                    const isSubOpen = openSubFolders[s.id] !== false; // default open
-
-                    const uploadBg = uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)' : uploaded==='private' ? 'rgba(204,136,255,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a';
                     const uploadColor = uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
-                    const uploadBorder = uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)' : uploaded==='private' ? 'rgba(204,136,255,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222';
-                    const uploadText = ytLoading ? '🔍 Checking...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled hai' : uploaded==='private' ? '🔒 Private hai' : '⏳ Upload baaki';
+                    const uploadText = ytLoading ? '🔍...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled' : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
 
                     return (
-                      <div key={s.id} style={{ background: '#111', borderLeft: `3px solid ${s.color}`, margin: '4px 8px', borderRadius: 10, overflow: 'hidden' }}>
-
-                        {/* Sub-folder header = Series name */}
-                        <div onClick={() => toggleSubFolder(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', cursor: 'pointer' }}>
-                          <span style={{ fontSize: 22 }}>{s.emoji}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: '#eee' }}>{s.name}</div>
-                            <div style={{ fontSize: 10, color: '#555', marginTop: 1 }}>{s.doneCount||0} / {total} done</div>
+                      <div key={s.id} onClick={() => setOpenSeries(s)} style={{ borderLeft: `3px solid ${s.color}`, margin: '4px 8px', borderRadius: 10, background: '#111', cursor: 'pointer', padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 20 }}>{s.emoji}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: '#eee', marginBottom: 2 }}>{s.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                            <span style={{ fontSize: 10, color: '#555' }}>{s.doneCount||0}/{total}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
                           </div>
-                          <span style={{ fontSize: 11, color: '#444' }}>{isSubOpen ? '▲' : '▼'}</span>
+                          <div style={{ height: 3, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 3 }} />
+                          </div>
                         </div>
-
-                        {/* Sub-folder content */}
-                        {isSubOpen && (
-                          <div style={{ borderTop: `1px solid ${s.color}22`, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-                            {/* Progress bar */}
-                            <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
-                            </div>
-
-                            {/* Upload status */}
-                            <div style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center', background: uploadBg, color: uploadColor, border: `1px solid ${uploadBorder}` }}>
-                              {uploadText}
-                            </div>
-
-                            {/* Action buttons */}
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button onClick={() => setOpenSeries(s)} style={{ flex: 1, background: `${s.color}15`, border: `1px solid ${s.color}40`, color: s.color, borderRadius: 10, padding: '9px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                📋 Prompts
-                              </button>
-                              <button onClick={() => continueSeries(s)} disabled={continuing} style={{ flex: 1, background: '#1a1a1a', border: '1px solid #333', color: '#aaa', borderRadius: 10, padding: '9px', fontSize: 12, fontWeight: 700, cursor: continuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                {continuing ? <div className="spinner" style={{ width: 12, height: 12, borderTopColor: '#aaa' }} /> : '▶ Continue'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        <span style={{ fontSize: 14, color: '#444' }}>›</span>
                       </div>
                     );
                   })}
