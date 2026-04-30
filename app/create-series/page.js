@@ -358,6 +358,7 @@ TITLE RULES:
 - End with "| Rang Tarang"
 - Use numbers or emojis if relevant
 - Example style: "🐄 10 Janwar Ke Naam | Animals Name in Hindi | Rang Tarang"
+- Title mein kam se kam 2-3 Hindi words zaroor ho (Devanagari script mein) like "जानवर", "सीखो", "बच्चों के लिए"
 
 DESCRIPTION RULES:
 - Line 1: Hook — what kids will learn (Hindi+English)
