@@ -455,7 +455,7 @@ RETURN ONLY JSON, no markdown:
             onCopy={copy} copiedKey={copiedKey}
           />
 
-          {sections.map(sec => {
+         {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
             return (
@@ -492,7 +492,6 @@ RETURN ONLY JSON, no markdown:
               </div>
             );
           })}
-
               
   // ══════════════════════════════════════════════
   // LEVEL 2: FOLDER VIEW
