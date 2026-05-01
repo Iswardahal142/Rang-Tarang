@@ -53,21 +53,22 @@ function getSeriesType(seriesName) {
 
 function getHindiCategoryWord(seriesName) {
   const n = (seriesName || '').toLowerCase();
-  if (n.includes('flower'))                                                                                    return 'flower';
-  if (n.includes('insect') || n.includes('bug'))                                                              return 'insect';
-  if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'water animal';
-  if (n.includes('bird'))                                                                                      return 'bird';
-  if (n.includes('wild') || n.includes('forest') || n.includes('domestic') || n.includes('pet') || n.includes('farm') || n.includes('animal')) return 'animal';
-  if (n.includes('fruit'))                                                                                     return 'fruit';
-  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi'))                                 return 'vegetable';
-  if (n.includes('color') || n.includes('colour'))                                                            return 'colour';
-  if (n.includes('shape'))                                                                                     return 'shape';
-  if (n.includes('alphabet') || n.includes('abc') || n.includes('letter'))                                    return 'letter';
-  if (n.includes('number') || n.includes('ginti'))                                                            return 'number';
-  if (n.includes('tree'))                                                                                      return 'tree';
-  if (n.includes('sport'))                                                                                     return 'sport';
-  if (n.includes('vehicle') || n.includes('transport'))                                                       return 'vehicle';
-  if (n.includes('food'))                                                                                      return 'food';
+  if (n.includes('flower'))                                          return 'Flower';
+  if (n.includes('insect') || n.includes('bug'))                     return 'Insect';
+  if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'Water Animal';
+  if (n.includes('bird'))                                            return 'Bird';
+  if (n.includes('wild') || n.includes('forest') || n.includes('domestic') || n.includes('pet') || n.includes('farm') || n.includes('animal')) return 'Animal';
+  if (n.includes('fruit'))                                           return 'Fruit';
+  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return 'Vegetable';
+  if (n.includes('color') || n.includes('colour'))                   return 'Colour';
+  if (n.includes('shape'))                                           return 'Shape';
+  if (n.includes('alphabet') || n.includes('abc') || n.includes('letter')) return 'Letter';
+  if (n.includes('number') || n.includes('ginti'))                   return 'Number';
+  if (n.includes('tree'))                                            return 'Tree';
+  if (n.includes('sport'))                                           return 'Sport';
+  if (n.includes('vehicle') || n.includes('transport'))              return 'Vehicle';
+  if (n.includes('food'))                                            return 'Food';
+  if (n.includes('body') || n.includes('body part'))                 return 'Body Part';  // ← ADD
   return 'चीज़';
 }
 
