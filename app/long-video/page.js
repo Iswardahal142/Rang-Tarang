@@ -37,31 +37,80 @@ async function deleteLongVideo(uid, id) {
 // ── Helpers ─────────────────────────────────────────────
 function getSeriesType(topic) {
   const n = (topic || '').toLowerCase();
+  if (n.includes('flower')) return 'flower';
   if (n.includes('number') || n.includes('counting') || n.includes('ginti')) return 'number';
   if (n.includes('alphabet') || n.includes('abc') || n.includes('letter')) return 'alphabet';
   if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
   if (n.includes('shape')) return 'shape';
   if (n.includes('fruit')) return 'fruit';
-  if (n.includes('animal')) return 'animal';
   if (n.includes('bird')) return 'bird';
+  if (n.includes('animal')) return 'animal';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return 'vegetable';
-  if (n.includes('body') || n.includes('body parts')) return 'body';
+  if (n.includes('body') || n.includes('body part')) return 'body';
+  if (n.includes('vehicle') || n.includes('transport')) return 'vehicle';
+  if (n.includes('food')) return 'food';
+  if (n.includes('sport')) return 'sport';
+  if (n.includes('instrument')) return 'instrument';
+  if (n.includes('space')) return 'space';
+  if (n.includes('weather')) return 'weather';
+  if (n.includes('tool')) return 'tool';
   return 'general';
 }
 
 function getQuestion(type) {
   switch(type) {
-    case 'number':    return 'यह कौनसा नंबर है?';
-    case 'alphabet':  return 'यह कौनसा Alphabet है?';
-    case 'color':     return 'कौनसा रंग है?';
-    case 'shape':     return 'यह कौनसी आकृति है?';
-    case 'fruit':     return 'यह कौनसा फल है?';
-    case 'animal':    return 'यह कौनसा जानवर है?';
-    case 'bird':      return 'यह कौनसा पक्षी है?';
-    case 'vegetable': return 'यह कौनसी सब्ज़ी है?';
-    case 'body':      return 'यह कौनसा body part है?';
-    default:          return 'यह क्या है?';
+    case 'number':     return 'यह कौनसा नंबर है?';
+    case 'alphabet':   return 'यह कौनसा Alphabet है?';
+    case 'color':      return 'कौनसा रंग है?';
+    case 'shape':      return 'यह कौनसी आकृति है?';
+    case 'fruit':      return 'यह कौनसा फल है?';
+    case 'flower':     return 'यह कौनसा फूल है?';
+    case 'animal':     return 'यह कौनसा जानवर है?';
+    case 'bird':       return 'यह कौनसा पक्षी है?';
+    case 'vegetable':  return 'यह कौनसी सब्ज़ी है?';
+    case 'body':       return 'यह कौनसा body part है?';
+    case 'vehicle':    return 'यह कौनसा वाहन है?';
+    case 'food':       return 'यह कौनसा खाना है?';
+    case 'sport':      return 'यह कौनसा खेल है?';
+    case 'instrument': return 'यह कौनसा वाद्य यंत्र है?';
+    case 'space':      return 'यह क्या है?';
+    case 'weather':    return 'यह कौनसा मौसम है?';
+    default:           return 'यह क्या है?';
   }
+}
+
+// ── Folder Config ────────────────────────────────────────
+const FOLDER_CONFIG = {
+  number:     { label: 'Numbers',     emoji: '🔢', color: '#4488ff' },
+  animal:     { label: 'Animals',     emoji: '🐾', color: '#ff8800' },
+  bird:       { label: 'Birds',       emoji: '🐦', color: '#ff6644' },
+  fruit:      { label: 'Fruits',      emoji: '🍎', color: '#ff4488' },
+  vegetable:  { label: 'Vegetables',  emoji: '🥦', color: '#44bb66' },
+  color:      { label: 'Colors',      emoji: '🌈', color: '#cc88ff' },
+  alphabet:   { label: 'Alphabets',   emoji: '🔤', color: '#00ccbb' },
+  shape:      { label: 'Shapes',      emoji: '🔷', color: '#ffcc00' },
+  flower:     { label: 'Flowers',     emoji: '🌺', color: '#ff88aa' },
+  vehicle:    { label: 'Vehicles',    emoji: '🚗', color: '#44ccff' },
+  food:       { label: 'Foods',       emoji: '🍕', color: '#ffaa44' },
+  sport:      { label: 'Sports',      emoji: '⚽', color: '#88ff44' },
+  body:       { label: 'Body Parts',  emoji: '🫀', color: '#ff6644' },
+  instrument: { label: 'Instruments', emoji: '🎵', color: '#aa88ff' },
+  space:      { label: 'Space',       emoji: '🚀', color: '#4444ff' },
+  weather:    { label: 'Weather',     emoji: '⛅', color: '#44bbff' },
+  tool:       { label: 'Tools',       emoji: '🔧', color: '#aaaaaa' },
+  general:    { label: 'General',     emoji: '✨', color: '#888888' },
+};
+
+const FOLDER_ORDER = ['number','alphabet','animal','bird','fruit','vegetable','flower','color','shape','vehicle','food','sport','body','instrument','space','weather','tool','general'];
+
+function groupByFolder(list) {
+  const groups = {};
+  list.forEach(v => {
+    const type = v.type || getSeriesType(v.topic);
+    if (!groups[type]) groups[type] = [];
+    groups[type].push(v);
+  });
+  return groups;
 }
 
 const BODY_PARTS_LIST = [
@@ -71,6 +120,14 @@ const BODY_PARTS_LIST = [
 ];
 
 // ── Prompt Builders ─────────────────────────────────────
+function buildIntroImagePrompt(topic, items = []) {
+  const first3 = items.slice(0, 3);
+  const positions = ['bottom left', 'bottom center', 'bottom right'];
+  const itemsDesc = first3.length > 0
+    ? first3.map((item, i) => `${item} at ${positions[i]}`).join(', ')
+    : 'colorful educational items at bottom';
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${topic}" floating center with colorful sparkles. Show 3 big Pixar 3D cartoon items at bottom: ${itemsDesc}. 16:9 horizontal. Pixar style. No other text.`;
+}
 
 function buildIntroVideoPrompt(topic) {
   return `Use reference scene exactly. 16:9 horizontal ratio.
@@ -132,11 +189,15 @@ function buildThumbnailPrompt(topic, type, items) {
   if (type === 'number')        leftObjects = 'Large colorful 3D numbers "1", "2", "3" stacked on left side';
   else if (type === 'alphabet') leftObjects = 'Large colorful 3D letters "A", "B", "C" stacked on left side';
   else if (type === 'fruit')    leftObjects = `Large colorful 3D fruits: ${items.slice(0,3).join(', ')} on left side`;
+  else if (type === 'flower')   leftObjects = `Large colorful 3D flowers: ${items.slice(0,3).join(', ')} on left side`;
   else if (type === 'animal')   leftObjects = `Large colorful 3D animals: ${items.slice(0,3).join(', ')} on left side`;
   else if (type === 'bird')     leftObjects = `Large colorful 3D birds: ${items.slice(0,3).join(', ')} on left side`;
   else if (type === 'vegetable')leftObjects = `Large colorful 3D vegetables: ${items.slice(0,3).join(', ')} on left side`;
   else if (type === 'color')    leftObjects = 'Large colorful 3D color circles and blobs on left side';
   else if (type === 'shape')    leftObjects = 'Large colorful 3D shapes: circle, square, triangle on left side';
+  else if (type === 'body')     leftObjects = 'Cute Pixar 3D body character with glowing body parts on left side';
+  else if (type === 'vehicle')  leftObjects = `Large colorful 3D vehicles: ${items.slice(0,3).join(', ')} on left side`;
+  else if (type === 'food')     leftObjects = `Large colorful 3D foods: ${items.slice(0,3).join(', ')} on left side`;
   else                          leftObjects = `Large colorful 3D objects related to "${topic}" on left side`;
 
   return `Create a YouTube kids thumbnail in this exact style:
@@ -193,6 +254,7 @@ const PRESETS = [
   { label: 'Veggies', topic: 'Vegetables',       type: 'vegetable',range: '' },
   { label: 'Colors',  topic: 'Colors',           type: 'color',    range: '' },
   { label: 'Shapes',  topic: 'Shapes',           type: 'shape',    range: '' },
+  { label: 'Flowers', topic: 'Flowers',          type: 'flower',   range: '' },
 ];
 
 const PER_PAGE = 10;
@@ -214,15 +276,16 @@ function getAvailablePresets(list) {
 // ── MAIN ────────────────────────────────────────────────
 function LongVideoPage({ user }) {
   const toast = useToast();
-  const [list, setList]           = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [openVideo, setOpenVideo] = useState(null);
-  const [modal, setModal]         = useState(false);
-  const [selPreset, setSelPreset] = useState(null);
-  const [customTopic, setCustom]  = useState('');
-  const [customRange, setRange]   = useState('');
-  const [creating, setCreating]   = useState(false);
-  const [ytVideos, setYtVideos]   = useState([]);
+  const [list, setList]             = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [openFolder, setOpenFolder] = useState(null);
+  const [openVideo, setOpenVideo]   = useState(null);
+  const [modal, setModal]           = useState(false);
+  const [selPreset, setSelPreset]   = useState(null);
+  const [customTopic, setCustom]    = useState('');
+  const [customRange, setRange]     = useState('');
+  const [creating, setCreating]     = useState(false);
+  const [ytVideos, setYtVideos]     = useState([]);
   const [ytChecking, setYtChecking] = useState(true);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
@@ -244,19 +307,19 @@ function LongVideoPage({ user }) {
   }
 
   function checkUploaded(video) {
-  if (ytChecking) return null;
-  if (!ytVideos.length) return false;
-  const matchStr = (video.ytTitle || '').toLowerCase().trim(); // sirf ytTitle se match karo, topic se nahi
-  if (!matchStr || matchStr.length < 5) return false; // ytTitle nahi hai toh false
-  const matched = ytVideos.find(v => {
-    const ytTitle = (v.title || '').toLowerCase().trim();
-    return ytTitle === matchStr; // exact match only
-  });
-  if (!matched) return false;
-  if (matched.isScheduled) return 'scheduled';
-  if (matched.privacyStatus === 'private') return 'private';
-  return true;
-}
+    if (ytChecking) return null;
+    if (!ytVideos.length) return false;
+    const matchStr = (video.ytTitle || '').toLowerCase().trim();
+    if (!matchStr || matchStr.length < 5) return false;
+    const matched = ytVideos.find(v => {
+      const ytTitle = (v.title || '').toLowerCase().trim();
+      return ytTitle === matchStr;
+    });
+    if (!matched) return false;
+    if (matched.isScheduled) return 'scheduled';
+    if (matched.privacyStatus === 'private') return 'private';
+    return true;
+  }
 
   async function createVideo() {
     const topic = selPreset ? selPreset.topic : customTopic.trim();
@@ -304,6 +367,7 @@ Generate 20 unique items.` }]);
     setCreating(false);
   }
 
+  // ── DETAIL VIEW ──
   if (openVideo) {
     const uploadedStatus = checkUploaded(openVideo);
     return (
@@ -326,6 +390,60 @@ Generate 20 unique items.` }]);
     );
   }
 
+  // ── FOLDER DETAIL VIEW ──
+  if (openFolder) {
+    const folder = FOLDER_CONFIG[openFolder];
+    const grouped = groupByFolder(list);
+    const videosInFolder = grouped[openFolder] || [];
+
+    return (
+      <div className="page-content" style={{ background: 'var(--void)' }}>
+        <div className="mini-topbar">
+          <button onClick={() => setOpenFolder(null)} style={{ background: 'none', border: 'none', color: '#ffaa00', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
+          <span style={{ fontSize: 13, fontWeight: 700, color: folder.color }}>{folder.emoji} {folder.label}</span>
+          <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{videosInFolder.length} videos</span>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 80, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {videosInFolder.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>{folder.emoji}</div>
+              <div style={{ fontSize: 13, color: '#555' }}>Koi video nahi hai</div>
+            </div>
+          ) : videosInFolder.map(v => {
+            const uploaded = checkUploaded(v);
+            const uploadColor = uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
+            const uploadText = ytChecking ? '🔄 Checking...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled' : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
+
+            return (
+              <div key={v.id} onClick={() => setOpenVideo(v)}
+                style={{ background: '#0f0f0f', border: '1px solid #2a2000', borderLeft: `4px solid ${v.isDone ? '#44bb66' : folder.color}`, borderRadius: 14, padding: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 28 }}>{folder.emoji}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>{v.topic}</div>
+                  {v.range && <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>Range: {v.range}</div>}
+                  <div style={{ fontSize: 11, color: '#555', marginBottom: 4 }}>{(v.items || []).length} items</div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
+                </div>
+                <span style={{ fontSize: 20, color: '#333' }}>›</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── FOLDER LIST VIEW ──
+  const grouped = groupByFolder(list);
+  const sortedFolders = FOLDER_ORDER
+    .filter(type => grouped[type]?.length > 0)
+    .sort((a, b) => {
+      const aLatest = grouped[a]?.[0]?.createdAt?.seconds || 0;
+      const bLatest = grouped[b]?.[0]?.createdAt?.seconds || 0;
+      return bLatest - aLatest;
+    });
+
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
@@ -338,6 +456,7 @@ Generate 20 unique items.` }]);
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 80, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
+        {/* ── MODAL ── */}
         {modal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d0d00', border: '1px solid #443300', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
@@ -352,7 +471,7 @@ Generate 20 unique items.` }]);
                 ))}
               </div>
               {!selPreset && <>
-                <input value={customTopic} onChange={e => setCustom(e.target.value)} placeholder="Custom topic e.g. Body Parts..."
+                <input value={customTopic} onChange={e => setCustom(e.target.value)} placeholder="Custom topic e.g. Flowers, Body Parts..."
                   style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: 10, padding: '11px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
                 <input value={customRange} onChange={e => setRange(e.target.value)} placeholder="Range (optional) e.g. 1 to 20"
                   style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: 10, padding: '11px 12px', fontSize: 13, color: '#eee', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
@@ -370,6 +489,7 @@ Generate 20 unique items.` }]);
           </div>
         )}
 
+        {/* ── FOLDER CARDS ── */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#ffaa00' }} /><div style={{ fontSize: 12, color: '#555' }}>Loading...</div></div>
         ) : list.length === 0 ? (
@@ -378,23 +498,23 @@ Generate 20 unique items.` }]);
             <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi video nahi hai</div>
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Naya" se banao</div>
           </div>
-        ) : list.map(v => {
-          const uploaded = checkUploaded(v);
+        ) : sortedFolders.map(type => {
+          const folder = FOLDER_CONFIG[type];
+          const videosInFolder = grouped[type];
+          const uploadedCount = videosInFolder.filter(v => checkUploaded(v) === true).length;
+
           return (
-            <div key={v.id} onClick={() => setOpenVideo(v)}
-              style={{ background: '#0f0f0f', border: '1px solid #2a2000', borderLeft: `3px solid ${v.isDone ? '#44bb66' : '#ffaa00'}`, borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}>
-              <div style={{ padding: 14 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>🎥 {v.topic}</div>
-                {v.range && <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>Range: {v.range}</div>}
-                <div style={{ fontSize: 11, color: '#555' }}>{(v.items || []).length} items</div>
-                {v.ytTitle && <div style={{ fontSize: 10, color: '#888', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📝 {v.ytTitle}</div>}
+            <div key={type} onClick={() => setOpenFolder(type)}
+              style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
+                {folder.emoji}
               </div>
-              <div style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 20, textAlign: 'center',
-                background: uploaded===true ? 'rgba(68,187,102,0.12)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.12)' : uploaded==='private' ? 'rgba(204,136,255,0.12)' : uploaded===false ? 'rgba(255,68,0,0.1)' : '#1a1a1a',
-                color: uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555',
-                border: `1px solid ${uploaded===true ? 'rgba(68,187,102,0.3)' : uploaded==='scheduled' ? 'rgba(68,136,255,0.3)' : uploaded==='private' ? 'rgba(204,136,255,0.3)' : uploaded===false ? 'rgba(255,68,0,0.2)' : '#222'}` }}>
-                {uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled hai' : uploaded==='private' ? '🔒 Private hai' : uploaded===false ? '⏳ Upload baaki' : '🔄 Checking...'}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
+                <div style={{ fontSize: 11, color: '#555' }}>{videosInFolder.length} videos • {uploadedCount} uploaded</div>
               </div>
+              <span style={{ fontSize: 22, color: `${folder.color}66` }}>›</span>
             </div>
           );
         })}
@@ -405,14 +525,14 @@ Generate 20 unique items.` }]);
 
 // ── DETAIL VIEW ─────────────────────────────────────────
 function DetailView({ video, user, toast, onBack, onDelete, onUpdate, isUploaded, ytChecking }) {
-  const [page, setPage]               = useState(0);
-  const [copiedKey, setCopied]        = useState('');
-  const [genTD, setGenTD]             = useState(false);
-  const [ytTitle, setYtTitle]         = useState(video.ytTitle || '');
-  const [ytDesc, setYtDesc]           = useState(video.ytDescription || '');
-  const [openSection, setOpenSection] = useState(null);
+  const [page, setPage]                 = useState(0);
+  const [copiedKey, setCopied]          = useState('');
+  const [genTD, setGenTD]               = useState(false);
+  const [ytTitle, setYtTitle]           = useState(video.ytTitle || '');
+  const [ytDesc, setYtDesc]             = useState(video.ytDescription || '');
+  const [openSection, setOpenSection]   = useState(null);
   const [doneSections, setDoneSections] = useState(video.doneSections || {});
-  const [isDone, setIsDone]           = useState(video.isDone || false);
+  const [isDone, setIsDone]             = useState(video.isDone || false);
 
   const type     = video.type || getSeriesType(video.topic);
   const question = getQuestion(type);
@@ -477,9 +597,9 @@ function DetailView({ video, user, toast, onBack, onDelete, onUpdate, isUploaded
   }
 
   async function generateTitleDesc() {
-  setGenTD(true);
-  try {
-    const text = await aiCall([{ role: 'user', content: `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
+    setGenTD(true);
+    try {
+      const text = await aiCall([{ role: 'user', content: `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
 
 Topic: "${video.topic}"
 Items: ${(video.items || []).slice(0, 10).join(', ')}
@@ -500,14 +620,14 @@ DESCRIPTION RULES:
 - Line 5: 10-12 hashtags like #RangTarang #HindiKids #${(video.topic || '').replace(/\s+/g, '')} #BacchonKeGaane #LearnHindi #EducationalVideo #KidsLearning #HindiRhymes
 
 Return ONLY JSON, no markdown: {"title":"...","description":"..."}` }]);
-    const p = JSON.parse(text.replace(/```json|```/g, '').trim());
-    setYtTitle(p.title); setYtDesc(p.description);
-    await updateLongVideo(user.uid, video.id, { ytTitle: p.title, ytDescription: p.description });
-    onUpdate({ ...video, ytTitle: p.title, ytDescription: p.description });
-    toast('✅ Ready!');
-  } catch (e) { toast('❌ ' + e.message); }
-  setGenTD(false);
-}
+      const p = JSON.parse(text.replace(/```json|```/g, '').trim());
+      setYtTitle(p.title); setYtDesc(p.description);
+      await updateLongVideo(user.uid, video.id, { ytTitle: p.title, ytDescription: p.description });
+      onUpdate({ ...video, ytTitle: p.title, ytDescription: p.description });
+      toast('✅ Ready!');
+    } catch (e) { toast('❌ ' + e.message); }
+    setGenTD(false);
+  }
 
   const isLastPage = page >= totalPages - 1;
 
@@ -565,6 +685,7 @@ Return ONLY JSON, no markdown: {"title":"...","description":"..."}` }]);
 
         {/* ── INTRO ── */}
         <SectionCard skey="intro" title="🎬 Intro" color="#4488ff" done={!!doneSections['intro']}>
+          <PromptBox label="🖼 IMAGE PROMPT" text={buildIntroImagePrompt(video.topic, items)} pkey="intro_img" color="#ff88aa" />
           <PromptBox label="🎬 VIDEO PROMPT" text={buildIntroVideoPrompt(video.topic)} pkey="intro_vid" color="#cc88ff" />
           <button onClick={() => markSectionDone('intro')} disabled={!!doneSections['intro']}
             style={{ background: doneSections['intro'] ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${doneSections['intro'] ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: doneSections['intro'] ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: doneSections['intro'] ? 'not-allowed' : 'pointer', width: '100%' }}>
