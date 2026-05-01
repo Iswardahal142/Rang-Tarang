@@ -37,6 +37,7 @@ async function deleteSeries(uid, id) {
 // ── Series type detect ───────────────────────────────────
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
+  if (n.includes('flower')) return 'flower';  // ← ADD
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
   if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
   if (n.includes('fruit')) return 'fruit';
