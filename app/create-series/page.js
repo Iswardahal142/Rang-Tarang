@@ -135,6 +135,43 @@ function buildOutroVideoPrompt(items = []) {
   const lastItem = items?.[items.length - 1]?.object || 'the object';
   return `Use reference image exactly as background scene. ${lastItem} floating on right side slowly fades out and disappears. Any text on screen also fades away completely. Screen is clean with only teacher visible. Teacher waves goodbye to camera with big smile, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 8 seconds. Smooth. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
+function getBodyPartAction(objectName) {
+  const o = (objectName || '').toLowerCase();
+  if (o.includes('head'))    return 'Teacher holds their head with both hands gently and shakes it slowly left and right';
+  if (o.includes('nose'))    return 'Teacher pinches their own nose with two fingers and wiggles it';
+  if (o.includes('eye') || o.includes('eyes'))   return 'Teacher points to both eyes with two fingers and blinks exaggeratedly';
+  if (o.includes('ear') || o.includes('ears'))   return 'Teacher cups both ears with both hands and leans forward';
+  if (o.includes('mouth'))   return 'Teacher opens mouth wide and points inside with one finger';
+  if (o.includes('lip') || o.includes('lips'))   return 'Teacher points to lips with one finger and moves lips exaggeratedly';
+  if (o.includes('teeth'))   return 'Teacher opens mouth wide and points to teeth with big smile';
+  if (o.includes('tongue'))  return 'Teacher sticks tongue out and points to it';
+  if (o.includes('hair'))    return 'Teacher runs both hands through their hair dramatically';
+  if (o.includes('cheek') || o.includes('cheeks')) return 'Teacher puffs both cheeks and pats them with both hands';
+  if (o.includes('chin'))    return 'Teacher holds chin with one hand and strokes it';
+  if (o.includes('neck'))    return 'Teacher wraps both hands around neck gently and tilts head side to side';
+  if (o.includes('shoulder') || o.includes('shoulders')) return 'Teacher shrugs both shoulders up and down exaggeratedly';
+  if (o.includes('arm') || o.includes('arms'))   return 'Teacher raises both arms up and flexes like a bodybuilder';
+  if (o.includes('elbow') || o.includes('elbows')) return 'Teacher bends both arms and points to both elbows alternately';
+  if (o.includes('hand') || o.includes('hands')) return 'Teacher holds both hands up facing camera and wiggles all fingers';
+  if (o.includes('finger') || o.includes('fingers')) return 'Teacher holds up one hand and wiggles all fingers one by one slowly';
+  if (o.includes('thumb'))   return 'Teacher holds up both thumbs toward camera and wiggles them';
+  if (o.includes('nail') || o.includes('nails')) return 'Teacher holds hands close to camera and points to fingernails one by one';
+  if (o.includes('chest'))   return 'Teacher taps chest with both hands repeatedly like a drum';
+  if (o.includes('stomach') || o.includes('tummy') || o.includes('belly')) return 'Teacher rubs tummy in circles with both hands and laughs';
+  if (o.includes('back'))    return 'Teacher turns sideways and pats their own back with one hand';
+  if (o.includes('leg') || o.includes('legs'))   return 'Teacher sits down quickly, stretches both legs out and pats them';
+  if (o.includes('knee') || o.includes('knees')) return 'Teacher bends down and taps both knees with both hands';
+  if (o.includes('foot') || o.includes('feet'))  return 'Teacher lifts one foot up toward camera and points to it';
+  if (o.includes('toe') || o.includes('toes'))   return 'Teacher sits down, removes shoe and wiggles toes toward camera';
+  if (o.includes('heel'))    return 'Teacher lifts foot and taps heel with one hand';
+  if (o.includes('ankle'))   return 'Teacher lifts foot and circles ankle with both hands';
+  if (o.includes('wrist'))   return 'Teacher holds up wrists toward camera and rotates them in circles';
+  if (o.includes('palm'))    return 'Teacher opens both palms flat toward camera and spreads fingers wide';
+  if (o.includes('eyebrow') || o.includes('eyebrows')) return 'Teacher points to eyebrows with both index fingers and raises them dramatically';
+  if (o.includes('forehead')) return 'Teacher taps forehead with two fingers repeatedly';
+  if (o.includes('face'))    return 'Teacher frames face with both hands like a picture frame';
+  return 'Teacher points to their own body part clearly with one finger and holds the pose';
+}
 
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
@@ -149,12 +186,13 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   }
 
   if (type === 'body') {
-    const q = isFirstPart
-      ? `तो बताओ.. यह कौनसा Body Part है?`
-      : `अब बताओ.. यह कौनसा Body Part है?`;
-    const qText = `यह कौनसा Body Part है?`;
-    return `Use reference image exactly as background scene. Teacher standing center facing camera. Teacher slowly raises one hand and points directly to their own ${item.object} with one finger, holding that pose. Teacher tilts head slightly and asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher now touches their own ${item.object} gently and says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up with the other hand. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
-  }
+  const action = getBodyPartAction(item.object);
+  const q = isFirstPart
+    ? `तो बताओ.. यह कौनसा Body Part है?`
+    : `अब बताओ.. यह कौनसा Body Part है?`;
+  const qText = `यह कौनसा Body Part है?`;
+  return `Use reference image exactly as background scene. Teacher standing center facing camera. ${action} while asking in Hindi: "${q}". Teacher keeps showing the body part the entire time during the question — do not stop. Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher still holds the pose. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
+}
 
   const q = isFirstPart
     ? `तो बताओ.. यह कौनसा ${categoryWord} है?`
