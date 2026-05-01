@@ -244,18 +244,19 @@ function LongVideoPage({ user }) {
   }
 
   function checkUploaded(video) {
-    if (ytChecking) return null;
-    if (!ytVideos.length) return false;
-    const matchStr = (video.ytTitle || video.topic || '').toLowerCase().trim();
-    const matched = ytVideos.find(v => {
-      const ytTitle = (v.title || '').toLowerCase().trim();
-      return ytTitle === matchStr || ytTitle.startsWith(matchStr + ' ') || ytTitle.endsWith(' ' + matchStr) || ytTitle.includes(' ' + matchStr + ' ');
-    });
-    if (!matched) return false;
-    if (matched.isScheduled) return 'scheduled';
-    if (matched.privacyStatus === 'private') return 'private';
-    return true;
-  }
+  if (ytChecking) return null;
+  if (!ytVideos.length) return false;
+  const matchStr = (video.ytTitle || '').toLowerCase().trim(); // sirf ytTitle se match karo, topic se nahi
+  if (!matchStr || matchStr.length < 5) return false; // ytTitle nahi hai toh false
+  const matched = ytVideos.find(v => {
+    const ytTitle = (v.title || '').toLowerCase().trim();
+    return ytTitle === matchStr; // exact match only
+  });
+  if (!matched) return false;
+  if (matched.isScheduled) return 'scheduled';
+  if (matched.privacyStatus === 'private') return 'private';
+  return true;
+}
 
   async function createVideo() {
     const topic = selPreset ? selPreset.topic : customTopic.trim();
@@ -476,21 +477,37 @@ function DetailView({ video, user, toast, onBack, onDelete, onUpdate, isUploaded
   }
 
   async function generateTitleDesc() {
-    setGenTD(true);
-    try {
-      const text = await aiCall([{ role: 'user', content: `YouTube SEO expert for Hindi kids channel "Rang Tarang".
-Generate title and description for: "${video.topic}"
-- Title: Catchy Hindi+English, under 70 chars, end with "| Rang Tarang". Add exactly 5 viral topic-related hashtags at the end.
-- Description: 3-4 lines, fun, what kids learn, includes "Rang Tarang", ends with subscribe line. Add exactly 10 viral topic-related hashtags on a new line after description.
-Return ONLY JSON: {"title":"...","description":"..."}` }]);
-      const p = JSON.parse(text.replace(/```json|```/g, '').trim());
-      setYtTitle(p.title); setYtDesc(p.description);
-      await updateLongVideo(user.uid, video.id, { ytTitle: p.title, ytDescription: p.description });
-      onUpdate({ ...video, ytTitle: p.title, ytDescription: p.description });
-      toast('✅ Ready!');
-    } catch (e) { toast('❌ ' + e.message); }
-    setGenTD(false);
-  }
+  setGenTD(true);
+  try {
+    const text = await aiCall([{ role: 'user', content: `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
+
+Topic: "${video.topic}"
+Items: ${(video.items || []).slice(0, 10).join(', ')}
+Target audience: Indian kids 2–6 years
+
+TITLE RULES:
+- Max 70 characters
+- Fun Hindi+English mix
+- Include main topic clearly
+- End with "| Rang Tarang"
+- Example: "🌸 Ten Flowers Name | Phoolon Ke Naam | Rang Tarang"
+
+DESCRIPTION RULES:
+- Line 1: Hook — what kids will learn (Hindi+English mix)
+- Line 2: "✅ Is video mein sikhenge: ${(video.items || []).slice(0, 5).join(', ')}..."
+- Line 3: Fun encouraging Hindi line for kids
+- Line 4: "🔔 Rang Tarang ko Subscribe karo aur Bell dabao!"
+- Line 5: 10-12 hashtags like #RangTarang #HindiKids #${(video.topic || '').replace(/\s+/g, '')} #BacchonKeGaane #LearnHindi #EducationalVideo #KidsLearning #HindiRhymes
+
+Return ONLY JSON, no markdown: {"title":"...","description":"..."}` }]);
+    const p = JSON.parse(text.replace(/```json|```/g, '').trim());
+    setYtTitle(p.title); setYtDesc(p.description);
+    await updateLongVideo(user.uid, video.id, { ytTitle: p.title, ytDescription: p.description });
+    onUpdate({ ...video, ytTitle: p.title, ytDescription: p.description });
+    toast('✅ Ready!');
+  } catch (e) { toast('❌ ' + e.message); }
+  setGenTD(false);
+}
 
   const isLastPage = page >= totalPages - 1;
 
