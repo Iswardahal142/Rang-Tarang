@@ -37,7 +37,7 @@ async function deleteSeries(uid, id) {
 // ── Series type detect ───────────────────────────────────
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
-  if (n.includes('flower')) return 'flower';  // ← ADD
+  if (n.includes('flower')) return 'flower';
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
   if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
   if (n.includes('fruit')) return 'fruit';
@@ -48,6 +48,7 @@ function getSeriesType(seriesName) {
   if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter')) return 'alphabet';
   if (n.includes('shape')) return 'shape';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi') || n.includes('sabziyon')) return 'vegetable';
+  if (n.includes('body') || n.includes('body part') || n.includes('sharir')) return 'body'; // ← ADD
   return 'general';
 }
 
