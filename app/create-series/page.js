@@ -71,20 +71,29 @@ function getHindiCategoryWord(seriesName) {
 }
 
 const FOLDER_CONFIG = {
-  number:    { label: 'Numbers',    emoji: '🔢', color: '#4488ff' },
-  animal:    { label: 'Animals',    emoji: '🐾', color: '#ff8800' },
-  fruit:     { label: 'Fruits',     emoji: '🍎', color: '#ff4488' },
-  vegetable: { label: 'Vegetables', emoji: '🥦', color: '#44bb66' },
-  color:     { label: 'Colors',     emoji: '🌈', color: '#cc88ff' },
-  alphabet:  { label: 'Alphabets',  emoji: '🔤', color: '#00ccbb' },
-  shape:     { label: 'Shapes',     emoji: '🔷', color: '#ffcc00' },
-  general:   { label: 'Flowers',    emoji: '🌺', color: '#ff88aa' },
+  number:     { label: 'Numbers',     emoji: '🔢', color: '#4488ff' },
+  animal:     { label: 'Animals',     emoji: '🐾', color: '#ff8800' },
+  fruit:      { label: 'Fruits',      emoji: '🍎', color: '#ff4488' },
+  vegetable:  { label: 'Vegetables',  emoji: '🥦', color: '#44bb66' },
+  color:      { label: 'Colors',      emoji: '🌈', color: '#cc88ff' },
+  alphabet:   { label: 'Alphabets',   emoji: '🔤', color: '#00ccbb' },
+  shape:      { label: 'Shapes',      emoji: '🔷', color: '#ffcc00' },
+  flower:     { label: 'Flowers',     emoji: '🌺', color: '#ff88aa' },
+  vehicle:    { label: 'Vehicles',    emoji: '🚗', color: '#44ccff' },
+  food:       { label: 'Foods',       emoji: '🍕', color: '#ffaa44' },
+  sport:      { label: 'Sports',      emoji: '⚽', color: '#88ff44' },
+  body:       { label: 'Body Parts',  emoji: '🫀', color: '#ff6644' },
+  instrument: { label: 'Instruments', emoji: '🎵', color: '#aa88ff' },
+  space:      { label: 'Space',       emoji: '🚀', color: '#4444ff' },
+  weather:    { label: 'Weather',     emoji: '⛅', color: '#44bbff' },
+  tool:       { label: 'Tools',       emoji: '🔧', color: '#aaaaaa' },
+  general:    { label: 'General',     emoji: '✨', color: '#888888' },
 };
 
 function groupSeriesByFolder(seriesList) {
   const groups = {};
   seriesList.forEach(s => {
-    const type = getSeriesType(s.name);
+    const type = s.type || getSeriesType(s.name);
     if (!groups[type]) groups[type] = [];
     groups[type].push(s);
   });
@@ -276,24 +285,31 @@ function CreateSeriesPage({ user }) {
   }
 
   async function generateSeries() {
-    if (!selectedTopic) return;
-    setGenerating(true);
-    try {
-      const existing = seriesList.map(s => s.name).join(', ');
-      const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
-      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-      if (getSeriesType(selectedTopic.name) === 'number') {
-        items.forEach(item => {
-          const n = parseInt(item.name);
-          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
-        });
-      }
-      await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '' });
-      toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
-      setModal('none'); setSelectedTopic(null); setCustomName('');
-      loadList();
-    } catch (e) { toast('❌ ' + e.message); }
-    setGenerating(false);
+  if (!selectedTopic) return;
+  setGenerating(true);
+  try {
+    const existing = seriesList.map(s => s.name).join(', ');
+
+    // AI se type detect karo
+    const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
+Choose ONLY one from: number, animal, fruit, vegetable, color, alphabet, shape, flower, vehicle, food, sport, body, instrument, space, weather, tool, general
+Return ONLY the single word, nothing else.`);
+    const detectedType = typeText.trim().toLowerCase().split(/\s/)[0] || 'general';
+
+    const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
+    const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+    if (getSeriesType(selectedTopic.name) === 'number') {
+      items.forEach(item => {
+        const n = parseInt(item.name);
+        if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
+      });
+    }
+    await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '', type: detectedType });
+    toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
+    setModal('none'); setSelectedTopic(null); setCustomName('');
+    loadList();
+  } catch (e) { toast('❌ ' + e.message); }
+  setGenerating(false);
   }
 
   async function continueSeries(e, series) {
@@ -315,7 +331,8 @@ function CreateSeriesPage({ user }) {
         name: `${baseName} Part ${newPart}`,
         emoji: series.emoji, color: series.color,
         items: newItems, doneSections: {}, doneCount: 0, progress: 0,
-        part: newPart, ytTitle: '', ytDescription: ''
+        part: newPart, ytTitle: '', ytDescription: '',
+        type: series.type || 'general'
       });
       toast(`🎉 Part ${newPart} ready!`);
       loadList();
@@ -565,8 +582,7 @@ RETURN ONLY JSON, no markdown:
   // LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
-  const folderOrder = ['number','animal','fruit','vegetable','color','alphabet','shape','general'];
-
+ const folderOrder = ['number','animal','fruit','vegetable','color','alphabet','shape','flower','vehicle','food','sport','body','instrument','space','weather','tool','general'];
   // Sort folders by most recently created series inside
   const sortedFolderOrder = folderOrder
     .filter(type => grouped[type]?.length > 0)
