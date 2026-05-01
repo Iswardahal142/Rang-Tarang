@@ -147,6 +147,14 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
     return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
 
+  if (type === 'body') {
+    const q = isFirstPart
+      ? `तो बताओ.. यह कौनसा Body Part है?`
+      : `अब बताओ.. यह कौनसा Body Part है?`;
+    const qText = `यह कौनसा Body Part है?`;
+    return `Use reference image exactly as background scene. Teacher standing center facing camera. Teacher slowly raises one hand and points directly to their own ${item.object} with one finger, holding that pose. Teacher tilts head slightly and asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher now touches their own ${item.object} gently and says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up with the other hand. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
+  }
+
   const q = isFirstPart
     ? `तो बताओ.. यह कौनसा ${categoryWord} है?`
     : `अब बताओ.. यह कौनसा ${categoryWord} है?`;
