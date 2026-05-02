@@ -324,6 +324,8 @@ const [customSugLoading, setCustomSugLoading] = useState(false); // ← ADD
     return u === true || u === 'private' || u === 'scheduled';
   }
 
+  function openChoose() { setModal('choose'); }
+
   async function loadSuggestions() {
   setModal('suggestions'); setSugLoading(true); setSuggestions([]);
   try {
