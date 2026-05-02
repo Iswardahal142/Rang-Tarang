@@ -41,25 +41,15 @@ function getSeriesType(seriesName) {
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
   if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
   if (n.includes('fruit')) return 'fruit';
+  if (n.includes('bird')) return 'animal';
+  if (n.includes('animal') || n.includes('wild') || n.includes('domestic') || n.includes('farm')) return 'animal';
+  if (n.includes('insect') || n.includes('bug')) return 'animal';
+  if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'animal';
   if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter')) return 'alphabet';
   if (n.includes('shape')) return 'shape';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi') || n.includes('sabziyon')) return 'vegetable';
-  if (n.includes('body') || n.includes('body part') || n.includes('sharir')) return 'body';
-  if (n.includes('vehicle') || n.includes('transport')) return 'vehicle';
-  if (n.includes('food')) return 'food';
-  if (n.includes('sport')) return 'sport';
-  if (n.includes('instrument') || n.includes('music')) return 'instrument';
-  if (n.includes('space') || n.includes('planet')) return 'space';
-  if (n.includes('weather') || n.includes('season')) return 'weather';
-  if (n.includes('tool')) return 'tool';
-  if (n.includes('sound')) return 'animal_sound';
-  if (n.includes('insect') || n.includes('bug')) return 'insect';
-  if (n.includes('bird') || n.includes('parrot') || n.includes('sparrow')) return 'bird';
-  if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'water_animal';
-  if (n.includes('wild') || n.includes('forest') || n.includes('jungle')) return 'wild_animal';
-  if (n.includes('domestic') || n.includes('pet') || n.includes('farm')) return 'domestic_animal';
-  if (n.includes('animal')) return 'wild_animal';
-  return 'other';
+  if (n.includes('body') || n.includes('body part') || n.includes('sharir')) return 'body'; // ← ADD
+  return 'general';
 }
 
 function getHindiCategoryWord(seriesName) {
@@ -84,28 +74,23 @@ function getHindiCategoryWord(seriesName) {
 }
 
 const FOLDER_CONFIG = {
-  number:          { label: 'Numbers',          emoji: '🔢', color: '#4488ff' },
-  wild_animal:     { label: 'Wild Animals',     emoji: '🦁', color: '#ff6600' },
-  domestic_animal: { label: 'Domestic Animals', emoji: '🐄', color: '#ffaa44' },
-  water_animal:    { label: 'Water Animals',    emoji: '🐟', color: '#44bbff' },
-  bird:            { label: 'Birds',            emoji: '🐦', color: '#ff6644' },
-  insect:          { label: 'Insects',          emoji: '🐛', color: '#88cc44' },
-  animal_sound:    { label: 'Animal Sounds',    emoji: '🔊', color: '#ffcc00' },
-  fruit:           { label: 'Fruits',           emoji: '🍎', color: '#ff4488' },
-  vegetable:       { label: 'Vegetables',       emoji: '🥦', color: '#44bb66' },
-  color:           { label: 'Colors',           emoji: '🌈', color: '#cc88ff' },
-  alphabet:        { label: 'Alphabets',        emoji: '🔤', color: '#00ccbb' },
-  shape:           { label: 'Shapes',           emoji: '🔷', color: '#ffcc00' },
-  flower:          { label: 'Flowers',          emoji: '🌺', color: '#ff88aa' },
-  vehicle:         { label: 'Vehicles',         emoji: '🚗', color: '#44ccff' },
-  food:            { label: 'Foods',            emoji: '🍕', color: '#ffaa44' },
-  sport:           { label: 'Sports',           emoji: '⚽', color: '#88ff44' },
-  body:            { label: 'Body Parts',       emoji: '🫀', color: '#ff6644' },
-  instrument:      { label: 'Instruments',      emoji: '🎵', color: '#aa88ff' },
-  space:           { label: 'Space',            emoji: '🚀', color: '#4444ff' },
-  weather:         { label: 'Weather',          emoji: '⛅', color: '#44bbff' },
-  tool:            { label: 'Tools',            emoji: '🔧', color: '#aaaaaa' },
-  other:           { label: 'Other',            emoji: '📦', color: '#666666' },
+  number:     { label: 'Numbers',     emoji: '🔢', color: '#4488ff' },
+  animal:     { label: 'Animals',     emoji: '🐾', color: '#ff8800' },
+  fruit:      { label: 'Fruits',      emoji: '🍎', color: '#ff4488' },
+  vegetable:  { label: 'Vegetables',  emoji: '🥦', color: '#44bb66' },
+  color:      { label: 'Colors',      emoji: '🌈', color: '#cc88ff' },
+  alphabet:   { label: 'Alphabets',   emoji: '🔤', color: '#00ccbb' },
+  shape:      { label: 'Shapes',      emoji: '🔷', color: '#ffcc00' },
+  flower:     { label: 'Flowers',     emoji: '🌺', color: '#ff88aa' },
+  vehicle:    { label: 'Vehicles',    emoji: '🚗', color: '#44ccff' },
+  food:       { label: 'Foods',       emoji: '🍕', color: '#ffaa44' },
+  sport:      { label: 'Sports',      emoji: '⚽', color: '#88ff44' },
+  body:       { label: 'Body Parts',  emoji: '🫀', color: '#ff6644' },
+  instrument: { label: 'Instruments', emoji: '🎵', color: '#aa88ff' },
+  space:      { label: 'Space',       emoji: '🚀', color: '#4444ff' },
+  weather:    { label: 'Weather',     emoji: '⛅', color: '#44bbff' },
+  tool:       { label: 'Tools',       emoji: '🔧', color: '#aaaaaa' },
+  general:    { label: 'General',     emoji: '✨', color: '#888888' },
 };
 
 function groupSeriesByFolder(seriesList) {
@@ -282,9 +267,6 @@ function CreateSeriesPage({ user }) {
   const [selectedColor, setSelectedColor] = useState('#ff4400');
   const [generating, setGenerating]       = useState(false);
   const [ytLoading, setYtLoading]         = useState(true);
-  const [aiSuggestions, setAiSuggestions] = useState([]);      // ← ADD
-const [customSugLoading, setCustomSugLoading] = useState(false); // ← ADD
-  
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -344,33 +326,12 @@ const [customSugLoading, setCustomSugLoading] = useState(false); // ← ADD
   }
 
   async function submitCustom() {
-  if (!customName.trim()) { toast('⚠️ Beech wala part likho!'); return; }
-  const fullName = `Ten ${customName.trim()} Name`;
-  const detectedEmoji = await detectEmoji(fullName);
-  setSelectedEmoji(detectedEmoji);
-  setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
-  setAiSuggestions([]);
-  setModal('picker');
-}
-  async function loadCustomSuggestions() {
-  setCustomSugLoading(true);
-  setAiSuggestions([]);
-  try {
-    const existing = seriesList.map(s => s.name).join(', ') || 'none';
-    const hint = customName.trim();
-    const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
-Already created series: ${existing}
-User hint: "${hint}" (can be empty)
-Suggest exactly 6 unique kids educational topics that have NOT been created yet.
-These will be used as: "Ten [topic] Name"
-Examples: "Flowers", "Wild Animals", "Insects", "Planets", "Body Parts", "Musical Instruments"
-Return ONLY a JSON array of single words or short phrases (max 2 words each), no markdown:
-["Flowers","Wild Animals","Insects","Planets","Body Parts","Musical Instruments"]`);
-    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-    setAiSuggestions(parsed);
-  } catch { toast('❌ Suggestions nahi aaye'); }
-  setCustomSugLoading(false);
-}
+    if (!customName.trim()) { toast('⚠️ Naam likho!'); return; }
+    const detectedEmoji = await detectEmoji(customName.trim());
+    setSelectedEmoji(detectedEmoji);
+    setSelectedTopic({ name: customName.trim(), emoji: detectedEmoji, description: '' });
+    setModal('picker');
+  }
 
   async function generateSeries() {
   if (!selectedTopic) return;
@@ -380,9 +341,9 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
 
     // AI se type detect karo
     const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
-Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, vehicle, food, sport, body, instrument, space, weather, tool, other
-Return ONLY the single word or phrase exactly as given, nothing else.`);
-const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
+Choose ONLY one from: number, animal, fruit, vegetable, color, alphabet, shape, flower, vehicle, food, sport, body, instrument, space, weather, tool, general
+Return ONLY the single word, nothing else.`);
+    const detectedType = typeText.trim().toLowerCase().split(/\s/)[0] || 'general';
 
     const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
     const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
@@ -671,7 +632,8 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
   // LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
-const folderOrder = ['number','wild_animal','domestic_animal','water_animal','bird','insect','animal_sound','fruit','vegetable','color','alphabet','shape','flower','vehicle','food','sport','body','instrument','space','weather','tool','other'];  // Sort folders by most recently created series inside
+ const folderOrder = ['number','animal','fruit','vegetable','color','alphabet','shape','flower','vehicle','food','sport','body','instrument','space','weather','tool','general'];
+  // Sort folders by most recently created series inside
   const sortedFolderOrder = folderOrder
     .filter(type => grouped[type]?.length > 0)
     .sort((a, b) => {
@@ -746,64 +708,22 @@ const folderOrder = ['number','wild_animal','domestic_animal','water_animal','bi
         )}
 
         {modal === 'custom' && (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
-    <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>TEN</span>
-        <input
-          value={customName}
-          onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }}
-          placeholder="flowers, wild animals..."
-          maxLength={30}
-          style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }}
-        />
-        <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>Name</span>
-      </div>
-
-      {customName.trim() && (
-        <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
-          👁 <span style={{ color: '#eee', fontWeight: 700 }}>Ten {customName.trim()} Name</span>
-        </div>
-      )}
-
-      <button
-        onClick={loadCustomSuggestions}
-        disabled={customSugLoading}
-        style={{ width: '100%', background: customSugLoading ? '#111' : 'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading ? '#555' : '#cc88ff', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: customSugLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
-        {customSugLoading
-          ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#cc88ff' }} />AI soch raha hai...</>
-          : '🤖 AI se Ideas Lo'}
-      </button>
-
-      {aiSuggestions.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {aiSuggestions.map((sug, i) => (
-              <button key={i} onClick={() => setCustomName(sug)}
-                style={{ background: customName === sug ? 'rgba(204,136,255,0.2)' : '#1a001a', border: `1px solid ${customName === sug ? '#cc88ff' : '#440044'}`, color: customName === sug ? '#cc88ff' : '#aaa', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                {sug}
-              </button>
-            ))}
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
+            <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
+              <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Series ka naam (e.g. Wild Animals, Flowers...)" maxLength={30}
+                style={{ width: '100%', background: '#1a001a', border: '1px solid #440044', color: '#eee', borderRadius: 10, padding: '12px 14px', fontSize: 14, outline: 'none', marginBottom: 14, fontFamily: 'inherit' }} />
+              <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>EMOJI CHUNO</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                {EMOJIS.map(e => <button key={e} onClick={() => setSelectedEmoji(e)} style={{ fontSize: 22, padding: '6px 8px', borderRadius: 10, cursor: 'pointer', background: selectedEmoji===e ? 'rgba(204,136,255,0.2)' : '#1a1a1a', border: `1px solid ${selectedEmoji===e ? '#cc88ff' : '#333'}` }}>{e}</button>)}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={submitCustom} style={{ flex: 2, background: 'linear-gradient(135deg,#550055,#330033)', border: '1px solid #660066', color: '#cc88ff', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Next →</button>
+                <button onClick={() => setModal('choose')} style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={submitCustom} disabled={!customName.trim()}
-          style={{ flex: 2, background: customName.trim() ? 'linear-gradient(135deg,#550055,#330033)' : '#111', border: '1px solid #660066', color: customName.trim() ? '#cc88ff' : '#444', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: customName.trim() ? 'pointer' : 'not-allowed' }}>
-          Next →
-        </button>
-        <button onClick={() => { setModal('choose'); setAiSuggestions([]); setCustomName(''); }}
-          style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          ← Back
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        )}
 
         {modal === 'picker' && selectedTopic && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
