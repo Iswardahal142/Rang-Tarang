@@ -408,33 +408,34 @@ Return ONLY the single word, nothing else.`);
     const itemNames = (series.items || []).map(i => i.name).join(', ');
     const partText = series.part > 1 ? ` Part ${series.part}` : '';
     
-    const text = await aiCall(`You are a YouTube SEO expert for Hindi kids educational channel "Rang Tarang" (@RangTarangHindi).
+    const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
 
 Series: "${series.name}${partText}"
-Items in this video: ${itemNames}
-Target audience: Indian kids aged 2-6 years
-Language: Hindi + English mix
+Items: ${itemNames}
+Format: YouTube SHORT (vertical 9:16)
+Target audience: Indian parents searching for kids learning content
 
-Generate an optimized YouTube title and description.
-
-TITLE RULES:
-- Max 70 characters
-- Start with the main topic in a fun way
-- Include Hindi words naturally
-- End with "| Rang Tarang"
-- Use numbers or emojis if relevant
-- Example style: "🐄 10 Janwar Ke Naam | Animals Name in Hindi | Rang Tarang"
+TITLE RULES (VERY IMPORTANT):
+- Max 60 characters
+- Must include BOTH Hindi words (Devanagari) AND English
+- Pattern: "[Emoji] [Hindi phrase] | [English phrase] | Rang Tarang"
+- Include item count if possible (10, 20 etc)
+- Use high-search Hindi words: के नाम, सीखो, बच्चों के लिए, नाम सीखें
+- Examples:
+  "🌸 10 फूलों के नाम | Flowers Name in Hindi | Rang Tarang"
+  "🥦 सब्ज़ियों के नाम सीखो | 10 Vegetables Name | Rang Tarang"
+  "🔢 1 से 10 तक सीखो | Numbers 1 to 10 | Rang Tarang"
 
 DESCRIPTION RULES:
-- Line 1: Hook — what kids will learn (Hindi+English)
-- Line 2: List top 5 items from the video like "✅ ${(series.items||[]).slice(0,3).map(i=>i.name).join(', ')}..."
-- Line 3: Fun encouraging line for kids in Hindi
-- Line 4: "🔔 Rang Tarang ko Subscribe karo aur Bell dabao — taaki koi video miss na ho!"
-- Line 5-6: 10-12 relevant hashtags like #HindiRhymes #KidsSongs #BacchonKeGaane #LearnHindi #${series.name.replace(/\s+/g,'')} #RangTarang #HindiKids #EducationalVideo
-- Title mein kam se kam 2-3 Hindi words zaroor ho (Devanagari script mein) like "जानवर", "सीखो", "बच्चों के लिए"
-RETURN ONLY JSON, no markdown:
-{"title":"...","description":"..."}`);
+- Line 1: Hook in Hindi — "बच्चों आज हम सीखेंगे [topic] के नाम! 🎉"
+- Line 2: "✅ इस video में: ${(series.items||[]).slice(0,5).map(i=>i.name).join(', ')}..."
+- Line 3: "👶 2-6 साल के बच्चों के लिए perfect learning video!"
+- Line 4: "🔔 Rang Tarang Subscribe karo — #Shorts #KidsLearning"
+- Line 5: Hashtags — mix of Hindi+English:
+  #Shorts #HindiKids #${series.name.replace(/\s+/g,'')} #बच्चोंकेलिए #LearnHindi #KidsSongs #RangTarang #EducationalShorts #HindiRhymes #BacchonKeGaane
 
+RETURN ONLY JSON: {"title":"...","description":"..."}
+`);
     const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
     await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
     const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
