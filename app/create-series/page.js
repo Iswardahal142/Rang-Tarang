@@ -324,17 +324,20 @@ const [customSugLoading, setCustomSugLoading] = useState(false); // ← ADD
     return u === true || u === 'private' || u === 'scheduled';
   }
 
-  function openChoose() { setModal('choose'); }
-
   async function loadSuggestions() {
-    setModal('suggestions'); setSugLoading(true); setSuggestions([]);
-    try {
-      const existing = seriesList.map(s => s.name).join(', ') || 'none';
-      const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".\nAlready created: ${existing}\nSuggest exactly 4 NEW unique educational series topics for kids aged 2-6.\nReturn ONLY JSON array, no markdown: [{"name":"Series Name","emoji":"🎯","description":"One line"}]`);
-      setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
-    } catch { toast('❌ Suggestions nahi aaye'); }
-    setSugLoading(false);
-  }
+  setModal('suggestions'); setSugLoading(true); setSuggestions([]);
+  try {
+    const existing = seriesList.map(s => s.name).join(', ') || 'none';
+    const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
+Already created: ${existing}
+Suggest exactly 4 NEW unique educational series topics for kids aged 2-6.
+IMPORTANT: Suggest easy daily-life topics that Indian kids see every day.
+Priority: home items, clothes, toys, common animals, vegetables, fruits — NOT space, instruments, weather yet.
+Return ONLY JSON array, no markdown: [{"name":"Ten Clothes Name","emoji":"👕","description":"One line"}]`);
+    setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
+  } catch { toast('❌ Suggestions nahi aaye'); }
+  setSugLoading(false);
+}
 
   async function selectSuggestion(topic) {
     const detectedEmoji = await detectEmoji(topic.name);
@@ -384,7 +387,7 @@ Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, 
 Return ONLY the single word or phrase exactly as given, nothing else.`);
 const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
 
-    const text = await aiCall(`Generate exactly 10 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
+    const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
     const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
     if (getSeriesType(selectedTopic.name) === 'number') {
       items.forEach(item => {
