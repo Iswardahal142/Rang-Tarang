@@ -7,15 +7,14 @@ const TABS = [
   { key: 'dashboard',     icon: '📺', label: 'Dashboard',  path: '/dashboard'     },
   { key: 'activity',      icon: '💬', label: 'Activity',   path: '/activity'      },
   { key: 'create-series', icon: '🎬', label: 'Series',     path: '/create-series' },
-  { key: 'compare-series', icon: '🎬', label: 'Compare-Series',     path: '/compare-action' },
+  { key: 'compare-series', icon: '🤼', label: 'Compare-Series',     path: '/compare-action' },
 ];
 
 export default function BottomNav({ userInitial }) {
   const pathname = usePathname();
   const router   = useRouter();
 
-  const COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff' };
-
+  const COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff', 'compare-series': '#ffaa00' };
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 998,
