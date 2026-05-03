@@ -386,7 +386,7 @@ Already created: ${existing}
 Suggest exactly 4 NEW unique educational series topics for kids aged 2-6.
 IMPORTANT: Suggest easy daily-life topics that Indian kids see every day.
 Priority: home items, clothes, toys, common animals, vegetables, fruits — NOT space, instruments, weather yet.
-Return ONLY JSON array, no markdown: [{"name":"Ten Clothes Name","emoji":"👕","description":"One line"}]`);
+Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕","description":"One line"}]`);
     setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
   } catch { toast('❌ Suggestions nahi aaye'); }
   setSugLoading(false);
@@ -401,7 +401,7 @@ Return ONLY JSON array, no markdown: [{"name":"Ten Clothes Name","emoji":"👕",
 
   async function submitCustom() {
   if (!customName.trim()) { toast('⚠️ Beech wala part likho!'); return; }
-  const fullName = `Ten ${customName.trim()} Name`;
+  const fullName = `Five ${customName.trim()} Name`;
   const detectedEmoji = await detectEmoji(fullName);
   setSelectedEmoji(detectedEmoji);
   setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
@@ -858,7 +858,7 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
       <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>TEN</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>FIVE</span>
         <input
           value={customName}
           onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }}
