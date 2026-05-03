@@ -850,7 +850,7 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
         ) : sortedFolderOrder.map(type => {
-          const folder = FOLDER_CONFIG[type];
+          const folder = getFolder(type);
           const seriesInFolder = grouped[type];
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
 
