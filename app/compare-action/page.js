@@ -35,45 +35,42 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_compare', id));
 }
 
-// ── Types ─────────────────────────────────────────────
-const KNOWN_FOLDERS = {
-  compare:  { label: 'Compare',  emoji: '⚖️', color: '#ff8800' },
-  action:   { label: 'Actions',  emoji: '🏃', color: '#44bb66' },
-  other:    { label: 'Other',    emoji: '📦', color: '#888888' },
-};
+// ── Folder Logic ──────────────────────────────────────
+// Compare: folderKey = slugified series base name (e.g. "big_small")
+// Action:  folderKey = "action" (always one folder)
 
-function getFolder(type) {
-  if (KNOWN_FOLDERS[type]) return KNOWN_FOLDERS[type];
-  const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  return { label, emoji: '📦', color: '#888888' };
+function nameToFolderKey(name) {
+  return name.replace(/ Part \d+$/i, '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+function getFolderMeta(folderKey, seriesList) {
+  if (folderKey === 'action') {
+    return { label: 'Actions', emoji: '🏃', color: '#44bb66' };
+  }
+  // For compare folders, get emoji+color from first series in that folder
+  const first = seriesList.find(s => s.folderKey === folderKey);
+  const label = folderKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return { label, emoji: first?.emoji || '⚖️', color: first?.color || '#ff8800' };
 }
 
 function groupByFolder(list) {
   const groups = {};
   list.forEach(s => {
-    const type = s.type || 'other';
-    if (!groups[type]) groups[type] = [];
-    groups[type].push(s);
+    const key = s.folderKey || 'other';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(s);
   });
   return groups;
 }
 
 function hasNextPart(series, allSeries) {
-  const baseName = series.name.replace(/ Part \d+$/, '').trim();
   const currentPart = series.part || 1;
-  const nextPart = currentPart + 1;
-  return allSeries.some(s => {
-    const sBase = s.name.replace(/ Part \d+$/, '').trim();
-    return sBase === baseName && (s.part || 1) === nextPart;
-  });
+  return allSeries.some(s => s.folderKey === series.folderKey && (s.part || 1) === currentPart + 1);
 }
 
-// ── Prompt Builders ──────────────────────────────────
+// ── Prompt Builders ───────────────────────────────────
 function buildIntroImagePrompt(seriesName, items = []) {
-  const first3 = items.slice(0, 3);
-  const itemsDesc = first3.length > 0
-    ? first3.map(item => item.name).join(', ')
-    : 'colorful educational items';
+  const itemsDesc = items.slice(0, 3).map(i => i.name).join(', ') || 'colorful educational items';
   return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show related items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
 }
 
@@ -112,7 +109,6 @@ No floating 3D objects. No "?" anywhere. No background music. 8 seconds total. S
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
-const EMOJIS = ['⚖️','🏃','🦁','🐘','🌡️','💨','⬆️','⬇️','😊','😢','🌞','🌙','🔥','❄️','🎯'];
 
 async function aiCall(prompt) {
   const res = await fetch('/api/ai', {
@@ -142,7 +138,6 @@ function CompareActionPage({ user }) {
   const [modal, setModal]             = useState('none');
   const [customName, setCustomName]   = useState('');
   const [seriesType, setSeriesType]   = useState('compare');
-  const [selectedEmoji, setSelectedEmoji] = useState('⚖️');
   const [selectedColor, setSelectedColor] = useState('#ff8800');
   const [generating, setGenerating]   = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
@@ -166,7 +161,9 @@ function CompareActionPage({ user }) {
     setSugLoading(true); setAiSuggestions([]);
     try {
       const existing = list.map(s => s.name).join(', ') || 'none';
-      const typeHint = seriesType === 'compare' ? 'comparison topics like Big/Small, Hot/Cold, Fast/Slow, Boy/Girl, Bird/Animal' : 'action topics like Jump, Run, Walk, Dance, Swim, Clap';
+      const typeHint = seriesType === 'compare'
+        ? 'comparison topics like Big/Small, Hot/Cold, Fast/Slow, Boy/Girl, Bird/Animal'
+        : 'action topics like Jump, Run, Walk, Dance, Swim, Clap';
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created: ${existing}
 Suggest exactly 6 NEW unique kids educational ${typeHint} that have NOT been created yet.
@@ -192,7 +189,7 @@ Return ONLY JSON array, no markdown:
   "name": "Elephant vs Ant",
   "question": "बड़ा",
   "label1": "Big",
-  "label2": "Small", 
+  "label2": "Small",
   "object1": "giant colorful Pixar 3D elephant standing proudly",
   "object2": "tiny cute Pixar 3D ant waving",
   "answer1object": "elephant on left",
@@ -213,13 +210,20 @@ Avoid overlap with: ${existing}`);
       }
 
       const emoji = await detectEmoji(customName);
+      const baseName = customName.trim();
+      const folderKey = seriesType === 'action' ? 'action' : nameToFolderKey(baseName);
+
       await saveSeries(user.uid, {
-        name: customName.trim(), emoji, color: selectedColor,
-        type: seriesType, items,
+        name: baseName,
+        emoji,
+        color: selectedColor,
+        type: seriesType,
+        folderKey,
+        items,
         doneSections: {}, doneCount: 0, progress: 0,
         part: 1, ytTitle: '', ytDescription: ''
       });
-      toast(`✅ "${customName}" ready!`);
+      toast(`✅ "${baseName}" ready!`);
       setModal('none'); setCustomName('');
       loadList();
     } catch (e) { toast('❌ ' + e.message); }
@@ -248,10 +252,12 @@ Return ONLY JSON array:
       }
 
       const newPart = (series.part || 1) + 1;
-      const baseName = series.name.replace(/ Part \d+$/, '').trim();
+      const baseName = series.name.replace(/ Part \d+$/i, '').trim();
+
       await saveSeries(user.uid, {
         name: `${baseName} Part ${newPart}`,
         emoji: series.emoji, color: series.color, type: series.type,
+        folderKey: series.folderKey,
         items: newItems, doneSections: {}, doneCount: 0, progress: 0,
         part: newPart, ytTitle: '', ytDescription: ''
       });
@@ -301,12 +307,11 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
     toast('🗑 Deleted!'); setOpenSeries(null); loadList();
   }
 
-  // ── LEVEL 3: SERIES DETAIL ──────────────────────
+  // ── LEVEL 3: SERIES DETAIL ──────────────────────────
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
     const total = (s.items || []).length + 2;
-    const allPromptsDone = Object.keys(done).length >= total;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
 
     const sections = [
@@ -316,7 +321,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
       ]},
       ...(s.items || []).map((item, i) => ({
         key: `item_${i}`,
-        title: `${i+1}. ${item.name}`,
+        title: `${i + 1}. ${item.name}`,
         color: s.color,
         prompts: [{ type: '🎬 VIDEO', text: s.type === 'compare' ? buildCompareVideoPrompt(item, i === 0) : buildActionVideoPrompt(item, i === 0) }]
       })),
@@ -334,13 +339,14 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
-              <span style={{ fontSize: 12, color: s.color, fontWeight: 800 }}>{s.doneCount||0} / {total}</span>
+              <span style={{ fontSize: 12, color: s.color, fontWeight: 800 }}>{s.doneCount || 0} / {total}</span>
             </div>
             <div style={{ height: 6, background: '#1a1a1a', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 6 }} />
+              <div style={{ height: '100%', width: (s.progress || 0) + '%', background: s.color, borderRadius: 6 }} />
             </div>
           </div>
 
@@ -364,6 +370,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
             )}
           </div>
 
+          {/* Sections */}
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -386,8 +393,8 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
                           <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>{p.type}</div>
                           <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>{p.text}</div>
                           <button onClick={() => copy(bck, p.text)}
-                            style={{ background: copiedKey===bck ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey===bck ? '#4488ff' : '#223355'}`, color: copiedKey===bck ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%', marginTop: 6 }}>
-                            {copiedKey===bck ? '✅ Copied!' : `📋 Copy ${p.type}`}
+                            style={{ background: copiedKey === bck ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey === bck ? '#4488ff' : '#223355'}`, color: copiedKey === bck ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%', marginTop: 6 }}>
+                            {copiedKey === bck ? '✅ Copied!' : `📋 Copy ${p.type}`}
                           </button>
                         </div>
                       );
@@ -406,45 +413,48 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
     );
   }
 
-  // ── LEVEL 2: FOLDER VIEW ────────────────────────
+  // ── LEVEL 2: FOLDER VIEW ────────────────────────────
   if (openFolder) {
-    const folder = getFolder(openFolder);
+    const folderMeta = getFolderMeta(openFolder, list);
     const grouped = groupByFolder(list);
-    const seriesInFolder = grouped[openFolder] || [];
+    const seriesInFolder = (grouped[openFolder] || []).sort((a, b) => (a.part || 1) - (b.part || 1));
 
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
           <button onClick={() => setOpenFolder(null)} style={{ background: 'none', border: 'none', color: '#ff8800', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
-          <span style={{ fontSize: 13, fontWeight: 700, color: folder.color }}>{folder.emoji} {folder.label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: folderMeta.color }}>{folderMeta.emoji} {folderMeta.label}</span>
           <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{seriesInFolder.length} series</span>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {seriesInFolder.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>{folder.emoji}</div>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>{folderMeta.emoji}</div>
               <div style={{ fontSize: 13, color: '#555' }}>Koi series nahi hai</div>
             </div>
           ) : seriesInFolder.map(s => {
             const total = (s.items || []).length + 2;
-            const nextPartExists = hasNextPart(s, list);
+            const nextExists = hasNextPart(s, list);
             const isContinuing = continuing === s.id;
 
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
-                style={{ background: '#0f0f0f', borderRadius: 14, border: `1px solid #1e1e1e`, borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                style={{ background: '#0f0f0f', borderRadius: 14, border: '1px solid #1e1e1e', borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 28 }}>{s.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>{s.doneCount||0}/{total} done</div>
+                  <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>{s.doneCount || 0}/{total} done</div>
                   <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
+                    <div style={{ height: '100%', width: (s.progress || 0) + '%', background: s.color, borderRadius: 4 }} />
                   </div>
-                  {!nextPartExists && (
+                  {/* Continue button — only if next part does NOT exist */}
+                  {!nextExists && (
                     <button onClick={(e) => continueSeries(e, s)} disabled={isContinuing}
                       style={{ marginTop: 10, background: isContinuing ? '#111' : `${s.color}18`, border: `1px solid ${s.color}55`, color: isContinuing ? '#555' : s.color, borderRadius: 8, padding: '7px 12px', fontSize: 11, fontWeight: 700, cursor: isContinuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
-                      {isContinuing ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</> : `➕ Continue → Part ${(s.part || 1) + 1}`}
+                      {isContinuing
+                        ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</>
+                        : `➕ Continue → Part ${(s.part || 1) + 1}`}
                     </button>
                   )}
                 </div>
@@ -457,9 +467,12 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
     );
   }
 
-  // ── LEVEL 1: FOLDER LIST ────────────────────────
+  // ── LEVEL 1: FOLDER LIST ────────────────────────────
   const grouped = groupByFolder(list);
   const sortedFolders = Object.keys(grouped).sort((a, b) => {
+    // Action folder first, then compare folders by latest
+    if (a === 'action') return -1;
+    if (b === 'action') return 1;
     const aLatest = grouped[a]?.[0]?.createdAt?.seconds || 0;
     const bLatest = grouped[b]?.[0]?.createdAt?.seconds || 0;
     return bLatest - aLatest;
@@ -468,7 +481,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
-        <span style={{ color: '#ff8800', fontSize: 14, fontWeight: 700 }}>⚖️ Compare & Action</span>
+        <span style={{ color: '#ff8800', fontSize: 14, fontWeight: 700 }}>⚔️ Compare & Action</span>
         <button onClick={() => setModal('create')} style={{ background: '#ff8800', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Naya</button>
       </div>
 
@@ -478,7 +491,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
         {modal === 'create' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d0800', border: '1px solid #443300', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#ff8800', marginBottom: 14, textAlign: 'center' }}>⚖️ Naya Series Banao</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#ff8800', marginBottom: 14, textAlign: 'center' }}>⚔️ Naya Series Banao</div>
 
               {/* Type selector */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -494,7 +507,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
 
               {/* Series naam */}
               <input value={customName} onChange={e => setCustomName(e.target.value)}
-                placeholder={seriesType === 'compare' ? 'e.g. Big Small, Hot Cold, Boy Girl...' : 'e.g. Jump Run, Dance Walk...'}
+                placeholder={seriesType === 'compare' ? 'e.g. Big Small, Hot Cold...' : 'e.g. Jump Run, Dance Walk...'}
                 maxLength={40}
                 style={{ width: '100%', background: '#1a1000', border: '1px solid #443300', color: '#eee', borderRadius: 10, padding: '12px 14px', fontSize: 14, outline: 'none', marginBottom: 10, fontFamily: 'inherit', boxSizing: 'border-box' }} />
 
@@ -523,7 +536,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {COLORS.map(c => (
                   <div key={c} onClick={() => setSelectedColor(c)}
-                    style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: `3px solid ${selectedColor===c ? '#fff' : 'transparent'}`, transform: selectedColor===c ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.15s' }} />
+                    style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: `3px solid ${selectedColor === c ? '#fff' : 'transparent'}`, transform: selectedColor === c ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.15s' }} />
                 ))}
               </div>
 
@@ -547,25 +560,31 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
           </div>
         ) : list.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⚖️</div>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⚔️</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Naya" se banao</div>
           </div>
-        ) : sortedFolders.map(type => {
-          const folder = getFolder(type);
-          const seriesInFolder = grouped[type];
+        ) : sortedFolders.map(folderKey => {
+          const meta = getFolderMeta(folderKey, list);
+          const seriesInFolder = grouped[folderKey];
+          // For compare folders: show series count (parts)
+          // For action folder: show series count
+          const countLabel = folderKey === 'action'
+            ? `${seriesInFolder.length} series`
+            : `${seriesInFolder.length} part${seriesInFolder.length > 1 ? 's' : ''}`;
+
           return (
-            <div key={type} onClick={() => setOpenFolder(type)}
-              style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
-                {folder.emoji}
+            <div key={folderKey} onClick={() => setOpenFolder(folderKey)}
+              style={{ background: '#0d0d0d', border: `1px solid ${meta.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${meta.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${meta.color}1a`, border: `1px solid ${meta.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
+                {meta.emoji}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
-                <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: meta.color, marginBottom: 3 }}>{meta.label}</div>
+                <div style={{ fontSize: 11, color: '#555' }}>{countLabel}</div>
               </div>
-              <span style={{ fontSize: 22, color: `${folder.color}66` }}>›</span>
+              <span style={{ fontSize: 22, color: `${meta.color}66` }}>›</span>
             </div>
           );
         })}
