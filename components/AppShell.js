@@ -7,13 +7,14 @@ import { useState, useEffect, useRef } from 'react';
 const LOGO = 'https://yt3.ggpht.com/f-njPL99xOnQaXJYUPNkxJQTyH3SLRlhQIWwSpAlgrkySuGcBvQLAFTqllWrfQI42KIFx678=s800-c-k-c0x00ffffff-no-rj';
 
 const TABS = [
-  { key: 'dashboard',      icon: '📺', label: 'Dashboard',  path: '/dashboard'      },
-  { key: 'activity',       icon: '💬', label: 'Activity',   path: '/activity'       },
-  { key: 'create-series',  icon: '🎬', label: 'Series',     path: '/create-series'  },
-  { key: 'compare-series', icon: '⚔️', label: 'Compare',    path: '/compare-action' },
-  { key: 'long-video',     icon: '🎥', label: 'Long Video', path: '/long-video'     },
+  { key: 'dashboard',      icon: '📺', label: 'Dashboard',   path: '/dashboard'      },
+  { key: 'activity',       icon: '💬', label: 'Activity',    path: '/activity'       },
+  { key: 'create-series',  icon: '🎬', label: 'Series',      path: '/create-series'  },
+  { key: 'compare-series', icon: '⚔️', label: 'Compare',     path: '/compare-action' },
+  { key: 'long-video',     icon: '🎥', label: 'Long Video',  path: '/long-video'     },
+  { key: 'trending',       icon: '🔥', label: 'Trending',    path: '/trending'       },
 ];
-const TAB_COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff', 'compare-series': '#ffaa00', 'long-video': '#4488ff' };
+const TAB_COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff', 'compare-series': '#ffaa00', 'long-video': '#4488ff', trending: '#ff4400' };
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
