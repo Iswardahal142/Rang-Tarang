@@ -7,13 +7,18 @@ import { useState, useEffect, useRef } from 'react';
 const LOGO = 'https://yt3.ggpht.com/f-njPL99xOnQaXJYUPNkxJQTyH3SLRlhQIWwSpAlgrkySuGcBvQLAFTqllWrfQI42KIFx678=s800-c-k-c0x00ffffff-no-rj';
 
 const TABS = [
-  { key: 'dashboard',     icon: '📺', label: 'Dashboard',  path: '/dashboard'     },
-  { key: 'activity',      icon: '💬', label: 'Activity',   path: '/activity'      },
-  { key: 'create-series', icon: '🎬', label: 'Series',     path: '/create-series' },
-  { key: 'long-video',    icon: '🎥', label: 'Long Video', path: '/long-video'    },
+  { key: 'dashboard',      icon: '📺', label: 'Dashboard',  path: '/dashboard'      },
+  { key: 'activity',       icon: '💬', label: 'Activity',   path: '/activity'       },
+  { key: 'create-series',  icon: '🎬', label: 'Series',     path: '/create-series'  },
+  { key: 'compare-series', icon: '🤼', label: 'Compare',    path: '/compare-action' }, // ← ADD KAR
 ];
-const TAB_COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff', 'long-video': '#ffaa00' };
 
+const TAB_COLORS = { 
+  dashboard: '#ff4400', 
+  activity: '#44bb66', 
+  'create-series': '#cc88ff', 
+  'compare-series': '#ffaa00' // ← ADD KAR
+};
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const router   = useRouter();
