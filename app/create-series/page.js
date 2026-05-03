@@ -461,7 +461,7 @@ const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^
     setContinuing(series.id);
     try {
       const done = (series.items || []).map(i => i.name).join(', ');
-      const text = await aiCall(`Generate 10 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
+     const text = await aiCall(`Generate 5 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       if (getSeriesType(series.name) === 'number') {
         newItems.forEach(item => {
@@ -517,9 +517,9 @@ TITLE RULES (VERY IMPORTANT):
 - Include item count if possible (10, 20 etc)
 - Use high-search Hindi words: के नाम, सीखो, बच्चों के लिए, नाम सीखें
 - Examples:
-  "🌸 10 फूलों के नाम | Flowers Name in Hindi | Rang Tarang"
-  "🥦 सब्ज़ियों के नाम सीखो | 10 Vegetables Name | Rang Tarang"
-  "🔢 1 से 10 तक सीखो | Numbers 1 to 10 | Rang Tarang"
+  "🌸 5 फूलों के नाम | Flowers Name in Hindi | Rang Tarang"
+  "🥦 सब्ज़ियों के नाम सीखो | 5 Vegetables Name | Rang Tarang"
+  "🔢 1 से 5 तक सीखो | Numbers 1 to 5 | Rang Tarang"
 
 DESCRIPTION RULES:
 - Line 1: Hook in Hindi — "बच्चों आज हम सीखेंगे [topic] के नाम! 🎉"
@@ -871,7 +871,7 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
 
       {customName.trim() && (
         <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
-          👁 <span style={{ color: '#eee', fontWeight: 700 }}>Ten {customName.trim()} Name</span>
+          👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span>
         </div>
       )}
 
