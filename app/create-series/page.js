@@ -778,7 +778,9 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
   }
 
   // ══════════════════════════════════════════════
-  // LEVEL 1: FOLDER LIST
+
+
+// LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
 const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
@@ -791,6 +793,16 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
+
+        <button onClick={() => {
+          const names = seriesList.map(s => s.name).join('\n');
+          const msg = `Ye series already bani hain:\n${names}\n\nAur kya banau?`;
+          navigator.clipboard.writeText(msg);
+          toast('📋 Copied!');
+        }} style={{ background: 'none', border: '1px solid #cc88ff55', color: '#cc88ff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          📋 Copy
+        </button>
+
         {ytLoading ? (
           <button disabled style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.5 }}>+ Nayi</button>
         ) : (() => {
@@ -804,6 +816,7 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
 
         {/* ── MODALS ── */}
         {modal === 'choose' && (
@@ -971,6 +984,7 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
     </div>
   );
 }
+
 
 // ── Title & Description Sub-Component ────────────────────
 function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
