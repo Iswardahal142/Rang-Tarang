@@ -146,11 +146,51 @@ function buildIntroImagePrompt(seriesName, items = []) {
   return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show 3 big Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
 }
 
-function buildIntroVideoPrompt(n, part = 1, items = []) {
+const INTRO_ANIMATIONS = [
+  { id: 'slide_right',    label: 'Slide Right',        emoji: '👉', desc: 'Teacher grabs title and slides it off screen to the right dramatically.' },
+  { id: 'slide_left',     label: 'Slide Left',         emoji: '👈', desc: 'Teacher grabs title and slides it off screen to the left with a spin.' },
+  { id: 'slide_up',       label: 'Slide Up',           emoji: '⬆️', desc: 'Teacher pushes title upward with both hands — it flies off screen to the top.' },
+  { id: 'slide_down',     label: 'Slide Down',         emoji: '⬇️', desc: 'Teacher pushes title downward — it slides off screen to the bottom.' },
+  { id: 'jump_push',      label: 'Jump Push',          emoji: '🦘', desc: 'Teacher does a big jump and pushes the title upward — title flies off screen.' },
+  { id: 'kick',           label: 'Big Kick',           emoji: '🦵', desc: 'Teacher runs toward title, does a big kick and sends it flying off screen.' },
+  { id: 'pullup',         label: 'Pull Up Swing',      emoji: '🤸', desc: 'Teacher grabs title with one hand, does a funny pull-up swinging on it, then flings it off screen.' },
+  { id: 'spin_fling',     label: 'Spin & Fling',       emoji: '🌀', desc: 'Teacher grabs title and spins around holding it, then lets go — it flies off screen.' },
+  { id: 'blow_away',      label: 'Blow Away',          emoji: '💨', desc: 'Teacher blows a big puff of air toward title — it wobbles and flies off screen like wind.' },
+  { id: 'shatter',        label: 'Shatter',            emoji: '💥', desc: 'Teacher taps title with one finger — it shatters into colorful pieces and disappears.' },
+  { id: 'shrink',         label: 'Shrink Away',        emoji: '🔍', desc: 'Teacher pinches title with fingers — it shrinks smaller and smaller until it disappears.' },
+  { id: 'bounce_off',     label: 'Bounce Off',         emoji: '🏀', desc: 'Teacher bounces title like a basketball — it bounces off screen.' },
+  { id: 'fold_paper',     label: 'Fold Like Paper',    emoji: '📄', desc: 'Title folds itself like origami paper and disappears into a tiny dot.' },
+  { id: 'crumple',        label: 'Crumple',            emoji: '🗞️', desc: 'Teacher crumples title like paper into a ball and throws it off screen.' },
+  { id: 'melt',           label: 'Melt Away',          emoji: '🌡️', desc: 'Title slowly melts downward like ice cream and disappears.' },
+  { id: 'black_hole',     label: 'Black Hole',         emoji: '🕳️', desc: 'A small black hole appears and sucks the title into it — poof!' },
+  { id: 'backflip',       label: 'Teacher Backflip',   emoji: '🤾', desc: 'Teacher does a dramatic backflip and knocks the title off screen with feet.' },
+  { id: 'magic_wand',     label: 'Magic Wand',         emoji: '🪄', desc: 'Teacher waves a magic wand — title sparkles and disappears in a poof of stars.' },
+  { id: 'scissors',       label: 'Scissors Cut',       emoji: '✂️', desc: 'Teacher uses giant scissors to cut the title in half — both pieces fall off screen.' },
+  { id: 'lasso',          label: 'Lasso Pull',         emoji: '🤠', desc: 'Teacher throws a lasso around title, pulls hard — title flies toward teacher and off screen.' },
+  { id: 'slide_ride',     label: 'Slide Ride',         emoji: '🎢', desc: 'Teacher sits on top of title and rides it like a slide off screen.' },
+  { id: 'bat_hit',        label: 'Bat Hit',            emoji: '⚾', desc: 'Teacher swings a giant bat and hits title like a baseball — it flies off screen.' },
+  { id: 'rope_pull',      label: 'Rope Pull',          emoji: '🪢', desc: 'Teacher ties rope around title and pulls with all strength — title zips off screen.' },
+  { id: 'tug_of_war',     label: 'Tug of War',         emoji: '💪', desc: 'Teacher and title do tug of war — teacher wins and title flies off screen.' },
+  { id: 'vacuum',         label: 'Vacuum Suck',        emoji: '🌪️', desc: 'Teacher uses a giant vacuum cleaner — title gets sucked into it and disappears.' },
+  { id: 'sneeze',         label: 'Sneeze Away',        emoji: '🤧', desc: 'Teacher does a giant sneeze — title flies off screen from the force.' },
+  { id: 'banana_slip',    label: 'Banana Slip',        emoji: '🍌', desc: 'Teacher slips on banana peel toward title — crashes into it and sends it flying off screen.' },
+  { id: 'rocket',         label: 'Rocket Launch',      emoji: '🚀', desc: 'Teacher attaches tiny rocket to title — it launches off screen with fire trail.' },
+  { id: 'soap_bubble',    label: 'Soap Bubble Pop',    emoji: '🫧', desc: 'Title inflates like a soap bubble getting bigger and bigger — then pops and disappears.' },
+  { id: 'random',         label: 'Random',             emoji: '🎲', desc: 'Different animation every time — surprise!' },
+];
+
+function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') {
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
   const objectLine = firstItem ? `Teacher bends down, picks up a big ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
-  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${n}" with hand and slides it off screen to the right. ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${items.length} ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
+
+  let anim = INTRO_ANIMATIONS.find(a => a.id === animationId);
+  if (!anim || anim.id === 'random') {
+    const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
+    anim = nonRandom[Math.floor(Math.random() * nonRandom.length)];
+  }
+
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${n}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${items.length} ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildOutroVideoPrompt(items = []) {
@@ -253,6 +293,7 @@ const hindiNumbers = {
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
+const ANIM_PER_PAGE = 6; // ← ADD
 
 async function aiCall(prompt) {
   const res = await fetch('/api/ai', {
@@ -290,7 +331,10 @@ function CreateSeriesPage({ user }) {
   const [generating, setGenerating]       = useState(false);
   const [ytLoading, setYtLoading]         = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState([]);      // ← ADD
-const [customSugLoading, setCustomSugLoading] = useState(false); // ← ADD
+const [customSugLoading, setCustomSugLoading] = useState(false); // already hai
+const [animModal, setAnimModal]         = useState(false);    // ← ADD
+const [animPage, setAnimPage]           = useState(0);        // ← ADD
+const [chosenAnim, setChosenAnim]       = useState('random'); // ← ADD
   
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
@@ -516,7 +560,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
   }
 
   // ══════════════════════════════════════════════
-  // LEVEL 3: SERIES DETAIL VIEW
+// LEVEL 3: SERIES DETAIL VIEW
   // ══════════════════════════════════════════════
   if (openSeries) {
     const s = openSeries;
@@ -529,7 +573,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
         { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
-        { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || []) }
+        { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || [], chosenAnim) }
       ]},
       ...(s.items || []).map((item, i) => ({
         key: `item_${i}`,
@@ -586,6 +630,60 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                 </div>
                 {isOpen && (
                   <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                    {/* Animation selector — sirf intro ke liye */}
+                    {sec.key === 'intro' && (
+                      <>
+                        <button onClick={() => { setAnimModal(true); setAnimPage(0); }}
+                          style={{ background: '#0a0a1a', border: '1px solid #334', borderRadius: 10, padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#88aaff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span>🎬 Animation Chuno</span>
+                          <span style={{ color: '#4488ff' }}>
+                            {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.emoji} {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.label}
+                          </span>
+                        </button>
+
+                        {animModal && (
+                          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
+                            <div style={{ background: '#0a0a1a', border: '1px solid #334', borderRadius: 20, padding: 20, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
+                              <div style={{ fontSize: 14, fontWeight: 800, color: '#88aaff', marginBottom: 4, textAlign: 'center' }}>🎬 Animation Chuno</div>
+                              <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 16 }}>
+                                Page {animPage + 1} / {Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE)}
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                                {INTRO_ANIMATIONS.slice(animPage * ANIM_PER_PAGE, (animPage + 1) * ANIM_PER_PAGE).map(anim => (
+                                  <button key={anim.id} onClick={() => setChosenAnim(anim.id)}
+                                    style={{ background: chosenAnim === anim.id ? 'rgba(68,136,255,0.2)' : '#0f0f0f', border: `1px solid ${chosenAnim === anim.id ? '#4488ff' : '#222'}`, borderRadius: 12, padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+                                    <span style={{ fontSize: 24 }}>{anim.emoji}</span>
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 700, color: chosenAnim === anim.id ? '#4488ff' : '#eee', marginBottom: 2 }}>{anim.label}</div>
+                                      <div style={{ fontSize: 10, color: '#666', lineHeight: 1.4 }}>{anim.desc}</div>
+                                    </div>
+                                    {chosenAnim === anim.id && <span style={{ fontSize: 16 }}>✅</span>}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => setAnimPage(p => Math.max(0, p - 1))} disabled={animPage === 0}
+                                  style={{ flex: 1, background: animPage === 0 ? '#111' : '#1a1a2a', border: `1px solid ${animPage === 0 ? '#222' : '#334'}`, color: animPage === 0 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage === 0 ? 'not-allowed' : 'pointer' }}>
+                                  ← Prev
+                                </button>
+                                <button onClick={() => setAnimModal(false)}
+                                  style={{ flex: 2, background: 'linear-gradient(135deg,#1a2255,#0a1133)', border: '1px solid #4488ff', color: '#4488ff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                                  ✅ Select Karo
+                                </button>
+                                <button onClick={() => setAnimPage(p => Math.min(Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1, p + 1))} disabled={animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1}
+                                  style={{ flex: 1, background: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#111' : '#1a1a2a', border: `1px solid ${animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#222' : '#334'}`, color: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? 'not-allowed' : 'pointer' }}>
+                                  Next →
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     {sec.prompts.map((p, pi) => {
                       const bck = `bottom_${sec.key}_${pi}`;
                       return (
