@@ -38,6 +38,7 @@ async function deleteSeries(uid, id) {
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
   if (n.includes('flower')) return 'flower';
+  if (n.includes('festival') || n.includes('tyohar') || n.includes('celebration')) return 'festival';
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
   if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
   if (n.includes('fruit')) return 'fruit';
@@ -390,11 +391,11 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
     const existing = seriesList.map(s => s.name).join(', ');
 
     // AI se type detect karo
-    const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
-Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, vehicle, food, sport, body, instrument, space, weather, tool, other
-Return ONLY the single word or phrase exactly as given, nothing else.`);
+   const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
+Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
+If none match, create a simple one or two word category using underscores (e.g. fairy_tale, emotions, science).
+Return ONLY the single word or phrase, nothing else.`);
 const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
-
     const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
     const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
     if (getSeriesType(selectedTopic.name) === 'number') {
