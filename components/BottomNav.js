@@ -7,6 +7,7 @@ const TABS = [
   { key: 'dashboard',     icon: '📺', label: 'Dashboard',  path: '/dashboard'     },
   { key: 'activity',      icon: '💬', label: 'Activity',   path: '/activity'      },
   { key: 'create-series', icon: '🎬', label: 'Series',     path: '/create-series' },
+  { key: 'compare-series', icon: '🎬', label: 'Compare-Series',     path: '/compare-action' },
 ];
 
 export default function BottomNav({ userInitial }) {
