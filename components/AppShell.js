@@ -6,24 +6,39 @@ import { useState, useEffect, useRef } from 'react';
 
 const LOGO = 'https://yt3.ggpht.com/f-njPL99xOnQaXJYUPNkxJQTyH3SLRlhQIWwSpAlgrkySuGcBvQLAFTqllWrfQI42KIFx678=s800-c-k-c0x00ffffff-no-rj';
 
-const TABS = [
+// ── Bottom Nav Tabs (5 only) ──────────────────────────────────
+const BOTTOM_TABS = [
   { key: 'dashboard',      icon: '📺', label: 'Dashboard',   path: '/dashboard'      },
   { key: 'activity',       icon: '💬', label: 'Activity',    path: '/activity'       },
   { key: 'create-series',  icon: '🎬', label: 'Series',      path: '/create-series'  },
   { key: 'compare-series', icon: '⚔️', label: 'Compare',     path: '/compare-action' },
-  { key: 'long-video',     icon: '🎥', label: 'Long Video',  path: '/long-video'     },
-  { key: 'trending',       icon: '🔥', label: 'Trending',    path: '/trending'       },
+  { key: 'shorts-creator', icon: '🩳', label: 'Shorts',      path: '/shorts-creator' },
 ];
-const TAB_COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff', 'compare-series': '#ffaa00', 'long-video': '#4488ff', trending: '#ff4400' };
 
-// ✅ FIX: type string se check karo, emoji se nahi
+// ── Sidebar Only Tabs ─────────────────────────────────────────
+const SIDEBAR_ONLY_TABS = [
+  { key: 'long-video', icon: '🎥', label: 'Long Video', path: '/long-video' },
+  { key: 'trending',   icon: '🔥', label: 'Trending',   path: '/trending'   },
+];
+
+const ALL_TABS = [...BOTTOM_TABS, ...SIDEBAR_ONLY_TABS];
+
+const TAB_COLORS = {
+  dashboard:        '#ff4400',
+  activity:         '#44bb66',
+  'create-series':  '#cc88ff',
+  'compare-series': '#ffaa00',
+  'shorts-creator': '#ff4488',
+  'long-video':     '#4488ff',
+  trending:         '#ff4400',
+};
+
 function getNotifStyle(n) {
   const type = (n.type || '').toLowerCase();
   if (type === 'like')       return { accent: '#ff4488', icon: '❤️' };
   if (type === 'comment')    return { accent: '#4488ff', icon: '💬' };
   if (type === 'subscriber') return { accent: '#44bb66', icon: '👥' };
   if (type === 'milestone')  return { accent: '#ff8800', icon: '👁' };
-  // fallback — icon jo API ne bheja wahi use karo
   return { accent: '#ff4400', icon: n.icon || '🔔' };
 }
 
@@ -75,20 +90,13 @@ export default function AppShell({ children }) {
     try {
       const res = await fetch('/api/notifications');
       const data = await res.json();
-      // ✅ server se fresh data lo, read state local mein hai
       if (!data.error) setNotifications(data.notifications || []);
     } catch {}
   }
 
-  function markRead(id) {
-    setReadIds(prev => new Set([...prev, id]));
-  }
-  function markAllRead() {
-    setReadIds(prev => new Set([...prev, ...notifications.map(n => n.id)]));
-  }
-  function isRead(n) {
-    return readIds.has(n.id) || !!n.read;
-  }
+  function markRead(id) { setReadIds(prev => new Set([...prev, id])); }
+  function markAllRead() { setReadIds(prev => new Set([...prev, ...notifications.map(n => n.id)])); }
+  function isRead(n) { return readIds.has(n.id) || !!n.read; }
 
   function copyLink() {
     navigator.clipboard.writeText(`https://www.youtube.com/channel/${ytData?.channelId || ''}`).then(() => {
@@ -98,9 +106,9 @@ export default function AppShell({ children }) {
 
   function fmtNum(n) {
     n = parseInt(n || 0);
-    if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
-    if (n >= 100000)  return (n/100000).toFixed(1)+'L';
-    if (n >= 1000)    return (n/1000).toFixed(1)+'K';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 100000)  return (n / 100000).toFixed(1) + 'L';
+    if (n >= 1000)    return (n / 1000).toFixed(1) + 'K';
     return n.toString();
   }
 
@@ -154,7 +162,6 @@ export default function AppShell({ children }) {
                 )}
               </button>
 
-              {/* Bell Dropdown */}
               {showBell && (
                 <div style={{ position: 'absolute', top: 44, right: 0, zIndex: 9999, background: '#0f0f0f', border: '1px solid #2a2a2a', borderRadius: 16, width: 290, maxHeight: 420, overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.9)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid #1a1a1a', position: 'sticky', top: 0, background: '#0f0f0f', zIndex: 1 }}>
@@ -168,16 +175,7 @@ export default function AppShell({ children }) {
                         const { accent, icon } = getNotifStyle(n);
                         return (
                           <div key={n.id} onClick={() => markRead(n.id)}
-                            style={{
-                              padding: '11px 14px',
-                              borderBottom: '1px solid #111',
-                              borderLeft: `3px solid ${read ? 'transparent' : accent}`,
-                              background: read ? 'transparent' : `${accent}11`,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              gap: 10,
-                              alignItems: 'flex-start',
-                            }}>
+                            style={{ padding: '11px 14px', borderBottom: '1px solid #111', borderLeft: `3px solid ${read ? 'transparent' : accent}`, background: read ? 'transparent' : `${accent}11`, cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                             <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{icon}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 12, fontWeight: 700, color: read ? '#555' : '#eee', marginBottom: 2 }}>{n.title}</div>
@@ -199,7 +197,6 @@ export default function AppShell({ children }) {
                 <img src={LOGO} alt="" style={{ width: 32, height: 32, borderRadius: '50%', border: `2px solid ${showChannel ? '#ff4400' : '#333'}`, objectFit: 'cover', display: 'block' }} />
               </button>
 
-              {/* Channel Dropdown */}
               {showChannel && (
                 <div style={{ position: 'absolute', top: 42, right: 0, zIndex: 9999, background: '#0f0f0f', border: '1px solid #2a2a2a', borderRadius: 16, width: 240, padding: 16, boxShadow: '0 8px 30px rgba(0,0,0,0.9)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -237,15 +234,23 @@ export default function AppShell({ children }) {
           transition: 'width 0.25s ease',
         }}>
           <div style={{ width: 220, padding: '16px 0', opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.15s' }}>
+
+            {/* All tabs in sidebar */}
             <div style={{ fontSize: 10, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, padding: '0 16px', marginBottom: 12 }}>Menu</div>
-            {TABS.map(tab => {
+            {ALL_TABS.map(tab => {
               const active = pathname.startsWith(tab.path);
               const color  = TAB_COLORS[tab.key];
+              const isSidebarOnly = SIDEBAR_ONLY_TABS.some(t => t.key === tab.key);
               return (
                 <button key={tab.key} onClick={() => { router.push(tab.path); setSidebarOpen(false); }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: active ? `${color}12` : 'none', border: 'none', borderLeft: active ? `3px solid ${color}` : '3px solid transparent', cursor: 'pointer', textAlign: 'left' }}>
                   <span style={{ fontSize: 20 }}>{tab.icon}</span>
-                  <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? color : '#666' }}>{tab.label}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? color : '#666' }}>{tab.label}</span>
+                    {isSidebarOnly && (
+                      <span style={{ marginLeft: 6, fontSize: 8, background: '#1a1a2a', color: '#444', border: '1px solid #333', borderRadius: 4, padding: '1px 5px', fontWeight: 700, verticalAlign: 'middle' }}>MENU</span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -269,7 +274,7 @@ export default function AppShell({ children }) {
           height: 58,
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}>
-          {TABS.map(tab => {
+          {BOTTOM_TABS.map(tab => {
             const active = pathname.startsWith(tab.path);
             const color  = TAB_COLORS[tab.key];
             return (
