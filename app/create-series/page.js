@@ -343,7 +343,6 @@ const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
 const ANIM_PER_PAGE = 6; // ← ADD
 
-
 async function aiCall(prompt) {
   const res = await fetch('/api/ai', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -384,8 +383,6 @@ const [customSugLoading, setCustomSugLoading] = useState(false); // already hai
 const [animModal, setAnimModal]         = useState(false);    // ← ADD
 const [animPage, setAnimPage]           = useState(0);        // ← ADD
 const [chosenAnim, setChosenAnim]       = useState('random'); // ← ADD
-  const [scheduleSlot, setScheduleSlot] = useState(null);
-const [slotVisible, setSlotVisible]   = useState(null); // series id
   
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
@@ -397,52 +394,15 @@ const [slotVisible, setSlotVisible]   = useState(null); // series id
   }
 
   async function fetchYT() {
-  setYtLoading(true);
-  try {
-    const r = await fetch('/api/youtube');
-    const d = await r.json();
-    if (!d.error) {
-      setYtVideos(d.videos || []);
-      const slot = getNextScheduleSlot(d.videos || []);
-      setScheduleSlot(slot);
-    }
-  } catch {}
-  setYtLoading(false);
-}
+    setYtLoading(true);
+    try {
+      const r = await fetch('/api/youtube');
+      const d = await r.json();
+      if (!d.error) setYtVideos(d.videos || []);
+    } catch {}
+    setYtLoading(false);
+  }
 
-  // ── Next Schedule Slot Calculator ────────────────────────
-function getNextScheduleSlot(ytVideos, hour = 18, minute = 0) {
-  if (!ytVideos.length) return null;
-
-  // Sabse latest date nikalo — scheduled ya published
-  const dates = ytVideos
-    .map(v => {
-      const d = v.scheduledAt || v.publishedAt;
-      return d ? new Date(d) : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => b - a); // latest first
-
-  if (!dates.length) return null;
-
-  const latest = dates[0];
-  const next = new Date(latest);
-  next.setDate(next.getDate() + 1);
-  next.setHours(hour, minute, 0, 0);
-  return next;
-}
-
-function formatSlot(date) {
-  if (!date) return null;
-  return date.toLocaleString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: true
-  });
-}
-
-  // ended
-
-  
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
     const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
@@ -872,71 +832,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                     </button>
                   )}
                 </div>
-                  {/* Auto Schedule Button */}
-{scheduleSlot && (
-  <div style={{ marginTop: 6 }}>
-    {slotVisible === s.id ? (
-      <div style={{
-        background: 'rgba(68,136,255,0.1)',
-        border: '1px solid #4488ff55',
-        borderRadius: 10, padding: '10px 12px',
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', gap: 8
-      }}>
-        <div>
-          <div style={{ fontSize: 9, color: '#4488ff', fontWeight: 700, marginBottom: 2 }}>
-            📅 NEXT SLOT
-          </div>
-          <div style={{ fontSize: 12, color: '#eee', fontWeight: 700 }}>
-            {formatSlot(scheduleSlot)}
-          </div>
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            // ISO format copy karo — YouTube Studio ke liye
-            const iso = scheduleSlot.toISOString();
-            navigator.clipboard.writeText(iso);
-            toast('📋 Schedule time copied!');
-            setSlotVisible(null);
-          }}
-          style={{
-            background: '#4488ff',
-            border: 'none',
-            color: '#fff',
-            borderRadius: 8,
-            padding: '7px 12px',
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: 'pointer',
-            flexShrink: 0
-          }}>
-          📋 Copy
-        </button>
-      </div>
-    ) : (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setSlotVisible(s.id);
-        }}
-        style={{
-          background: 'rgba(68,136,255,0.08)',
-          border: '1px solid #4488ff44',
-          color: '#4488ff',
-          borderRadius: 8,
-          padding: '7px 12px',
-          fontSize: 11,
-          fontWeight: 700,
-          cursor: 'pointer',
-          width: '100%',
-          textAlign: 'center'
-        }}>
-        📅 Next Schedule Slot Dekho
-      </button>
-    )}
-  </div>
-)}
                 <span style={{ fontSize: 20, color: '#333', alignSelf: 'flex-start', marginTop: 4 }}>›</span>
               </div>
             );
