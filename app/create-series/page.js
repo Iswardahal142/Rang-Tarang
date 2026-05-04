@@ -253,6 +253,20 @@ function getBodyPartAction(objectName) {
   return 'Teacher points to their own body part clearly with one finger and holds the pose';
 }
 
+function cleanObjectDesc(obj) {
+  // Remove scene/location phrases — keep only item description
+  return (obj || '')
+    .replace(/lounging\s+under.*$/i, '')
+    .replace(/standing\s+in\s+.*$/i, '')
+    .replace(/sitting\s+on\s+.*$/i, '')
+    .replace(/in\s+the\s+(jungle|savanna|ocean|forest|sky|field|farm|desert|river|lake|sea|grass|meadow|kitchen|room|park).*/i, '')
+    .replace(/on\s+(a\s+)?(table|chair|ground|floor|branch|tree|rock|hill|mountain|grass).*/i, '')
+    .replace(/under\s+(a\s+)?\w+.*/i, '')
+    .replace(/near\s+.*$/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
   const categoryWord = getHindiCategoryWord(seriesName);
@@ -279,20 +293,21 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const qText = `यह कौनसा ${categoryWord} है?`;
 
   // Detect object type for placement
-  const objLower = (item.object || item.name || '').toLowerCase();
+  const objLower = cleanObjectDesc(item.object || item.name || '').toLowerCase();
+  const cleanObj = cleanObjectDesc(item.object) || item.name;
   const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => objLower.includes(w));
   const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => objLower.includes(w));
   const isHeavyVehicle = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep'].some(w => objLower.includes(w));
 
   let placementDesc = '';
   if (isBird) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) sitting on a small wooden perch or branch at center-right of screen at eye level. Bird is large and clearly visible — not small. Bird sits still, looking at camera curiously, feathers gently ruffling. No floating. No flying.`;
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting on a small wooden perch or branch at center-right of screen at eye level. Bird is large and clearly visible — not small. Bird sits still, looking at camera curiously, feathers gently ruffling. No floating. No flying.`;
   } else if (isAnimal) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible — not small. Animal looks toward camera curiously. No floating. Not jumping.`;
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible — not small. Animal looks toward camera curiously. No floating. Not jumping.`;
   } else if (isHeavyVehicle) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) parked on the floor at center-right of screen. Object is large and clearly visible — not small. No floating.`;
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) parked on the floor at center-right of screen. Object is large and clearly visible — not small. No floating.`;
   } else {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) placed on the floor at center-right of screen. Object is large and clearly visible — not small. No floating. Object is completely still.`;
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Object is large and clearly visible — not small. No floating. Object is completely still.`;
   }
 
   return `Use reference image exactly as background scene. Teacher standing on left side. ${placementDesc} Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher keeps hand softly on the ${item.name}. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects at any point. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
@@ -473,7 +488,15 @@ Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, 
 If none match, create a simple one or two word category using underscores (e.g. fairy_tale, emotions, science).
 Return ONLY the single word or phrase, nothing else.`);
 const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
-    const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".\nAvoid overlap with: ${existing}\nReturn ONLY JSON array, no markdown: [{"name":"English Name","object":"One [adjective] [item] description for Pixar 3D animation"}]`);
+    const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
+Avoid overlap with: ${existing}
+Return ONLY JSON array, no markdown:
+[{"name":"Lion","object":"golden lion with fluffy mane"}]
+RULES for "object" field:
+- Describe ONLY the animal/object itself — no location, no background, no scene
+- Example GOOD: "golden lion with fluffy mane", "red apple with a leaf", "colorful parrot with green feathers"
+- Example BAD: "lion lounging under a tree in savanna", "apple on a table in kitchen"
+- Max 6 words, just the item appearance`);
     const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
     if (getSeriesType(selectedTopic.name) === 'number') {
       items.forEach(item => {
@@ -494,7 +517,15 @@ const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^
     setContinuing(series.id);
     try {
       const done = (series.items || []).map(i => i.name).join(', ');
-     const text = await aiCall(`Generate 5 MORE unique items for English learning kids series "${series.name}".\nAlready done (DO NOT repeat): ${done}\nReturn ONLY JSON array: [{"name":"English","object":"Pixar 3D description"}]`);
+     const text = await aiCall(`Generate 5 MORE unique items for English learning kids series "${series.name}".
+Already done (DO NOT repeat): ${done}
+Return ONLY JSON array:
+[{"name":"Tiger","object":"orange tiger with black stripes"}]
+RULES for "object" field:
+- Describe ONLY the animal/object itself — no location, no background, no scene
+- Example GOOD: "orange tiger with black stripes", "yellow banana", "blue school bag"
+- Example BAD: "tiger in jungle", "banana on table", "bag near door"
+- Max 6 words, just the item appearance`);
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       if (getSeriesType(series.name) === 'number') {
         newItems.forEach(item => {
