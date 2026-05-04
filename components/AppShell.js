@@ -16,12 +16,27 @@ const TABS = [
 ];
 const TAB_COLORS = { dashboard: '#ff4400', activity: '#44bb66', 'create-series': '#cc88ff', 'compare-series': '#ffaa00', 'long-video': '#4488ff', trending: '#ff4400' };
 
+// Notification type → color/icon
+function getNotifStyle(n) {
+  const t = (n.type || n.icon || '').toLowerCase();
+  if (t.includes('like') || t === '❤️' || t === '👍')
+    return { accent: '#ff4488', icon: '❤️' };
+  if (t.includes('comment') || t === '💬')
+    return { accent: '#4488ff', icon: '💬' };
+  if (t.includes('sub') || t === '👥' || t === '🔔')
+    return { accent: '#44bb66', icon: '🔔' };
+  if (t.includes('view') || t === '👁')
+    return { accent: '#ff8800', icon: '👁' };
+  return { accent: '#ff4400', icon: n.icon || '🔔' };
+}
+
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const router   = useRouter();
 
   const [sidebarOpen, setSidebarOpen]     = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [readIds, setReadIds]             = useState(new Set()); // ✅ FIX: track read locally
   const [showBell, setShowBell]           = useState(false);
   const [showChannel, setShowChannel]     = useState(false);
   const [ytData, setYtData]               = useState(null);
@@ -64,16 +79,24 @@ export default function AppShell({ children }) {
       const res = await fetch('/api/notifications');
       const data = await res.json();
       if (!data.error) {
-        setNotifications(prev => {
-          const prevMap = Object.fromEntries(prev.map(n => [n.id, n]));
-          return (data.notifications || []).map(n => prevMap[n.id] || n);
-        });
+        // ✅ FIX: server se sirf fresh notifications lo, read state local rakho
+        setNotifications(data.notifications || []);
       }
     } catch {}
   }
 
-  function markRead(id) { setNotifications(n => n.map(x => x.id === id ? { ...x, read: true } : x)); }
-  function markAllRead() { setNotifications(n => n.map(x => ({ ...x, read: true }))); }
+  // ✅ FIX: read state sirf local Set mein track hoga — server poll se overwrite nahi hoga
+  function markRead(id) {
+    setReadIds(prev => new Set([...prev, id]));
+  }
+  function markAllRead() {
+    setReadIds(prev => new Set([...prev, ...notifications.map(n => n.id)]));
+  }
+
+  // Merge: notification read hai agar readIds mein hai YA server ne read:true bheji
+  function isRead(n) {
+    return readIds.has(n.id) || !!n.read;
+  }
 
   function copyLink() {
     navigator.clipboard.writeText(`https://www.youtube.com/channel/${ytData?.channelId || ''}`).then(() => {
@@ -89,7 +112,7 @@ export default function AppShell({ children }) {
     return n.toString();
   }
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !isRead(n)).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#080008' }}>
@@ -141,24 +164,28 @@ export default function AppShell({ children }) {
 
               {/* Bell Dropdown */}
               {showBell && (
-                <div style={{ position: 'absolute', top: 44, right: 0, zIndex: 9999, background: '#0f0f0f', border: '1px solid #2a2a2a', borderRadius: 16, width: 280, maxHeight: 380, overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.9)' }}>
+                <div style={{ position: 'absolute', top: 44, right: 0, zIndex: 9999, background: '#0f0f0f', border: '1px solid #2a2a2a', borderRadius: 16, width: 290, maxHeight: 400, overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.9)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid #1a1a1a' }}>
                     <span style={{ fontSize: 13, fontWeight: 800, color: '#eee' }}>🔔 Notifications</span>
                     <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Sab Read</button>
                   </div>
                   {notifications.length === 0
                     ? <div style={{ padding: 24, textAlign: 'center', color: '#444', fontSize: 12 }}>Koi notification nahi</div>
-                    : notifications.map(n => (
-                      <div key={n.id} onClick={() => markRead(n.id)}
-                        style={{ padding: '12px 14px', borderBottom: '1px solid #111', background: n.read ? 'transparent' : '#1a0a00', cursor: 'pointer', display: 'flex', gap: 10 }}>
-                        <span style={{ fontSize: 20, flexShrink: 0 }}>{n.icon}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: n.read ? '#555' : '#eee', marginBottom: 2 }}>{n.title}</div>
-                          <div style={{ fontSize: 11, color: '#555', lineHeight: 1.4 }}>{n.body}</div>
-                        </div>
-                        {!n.read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff4400', marginTop: 4, flexShrink: 0 }} />}
-                      </div>
-                    ))
+                    : notifications.map(n => {
+                        const read = isRead(n);
+                        const { accent, icon } = getNotifStyle(n);
+                        return (
+                          <div key={n.id} onClick={() => markRead(n.id)}
+                            style={{ padding: '12px 14px', borderBottom: '1px solid #111', background: read ? 'transparent' : `${accent}11`, cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: read ? '3px solid transparent' : `3px solid ${accent}` }}>
+                            <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: read ? '#555' : '#eee', marginBottom: 2 }}>{n.title}</div>
+                              <div style={{ fontSize: 11, color: '#555', lineHeight: 1.4 }}>{n.body}</div>
+                            </div>
+                            {!read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: accent, marginTop: 4, flexShrink: 0 }} />}
+                          </div>
+                        );
+                      })
                   }
                 </div>
               )}
@@ -249,7 +276,6 @@ export default function AppShell({ children }) {
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
                 {active && <span style={{ position: 'absolute', top: 0, left: '20%', right: '20%', height: 2, background: color, borderRadius: '0 0 3px 3px' }} />}
                 <span style={{ fontSize: 22, lineHeight: 1, transform: active ? 'translateY(-1px)' : 'none', transition: 'transform 0.15s' }}>{tab.icon}</span>
-
               </button>
             );
           })}
