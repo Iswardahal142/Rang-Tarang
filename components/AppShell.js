@@ -235,22 +235,16 @@ export default function AppShell({ children }) {
         }}>
           <div style={{ width: 220, padding: '16px 0', opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.15s' }}>
 
-            {/* All tabs in sidebar */}
+            {/* Sidebar only tabs */}
             <div style={{ fontSize: 10, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, padding: '0 16px', marginBottom: 12 }}>Menu</div>
-            {ALL_TABS.map(tab => {
+            {SIDEBAR_ONLY_TABS.map(tab => {
               const active = pathname.startsWith(tab.path);
               const color  = TAB_COLORS[tab.key];
-              const isSidebarOnly = SIDEBAR_ONLY_TABS.some(t => t.key === tab.key);
               return (
                 <button key={tab.key} onClick={() => { router.push(tab.path); setSidebarOpen(false); }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: active ? `${color}12` : 'none', border: 'none', borderLeft: active ? `3px solid ${color}` : '3px solid transparent', cursor: 'pointer', textAlign: 'left' }}>
                   <span style={{ fontSize: 20 }}>{tab.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? color : '#666' }}>{tab.label}</span>
-                    {isSidebarOnly && (
-                      <span style={{ marginLeft: 6, fontSize: 8, background: '#1a1a2a', color: '#444', border: '1px solid #333', borderRadius: 4, padding: '1px 5px', fontWeight: 700, verticalAlign: 'middle' }}>MENU</span>
-                    )}
-                  </div>
+                  <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? color : '#666' }}>{tab.label}</span>
                 </button>
               );
             })}
