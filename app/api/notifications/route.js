@@ -61,7 +61,6 @@ export async function GET() {
     for (const video of statsData.items || []) {
       const title        = video.snippet?.title?.substring(0, 45) || '';
       const commentCount = parseInt(video.statistics?.commentCount || 0);
-      const views        = parseInt(video.statistics?.viewCount    || 0);
       const likeCount    = likeMap[video.id] ?? parseInt(video.statistics?.likeCount || 0);
       const publishedAt  = video.snippet?.publishedAt;
 
@@ -93,19 +92,7 @@ export async function GET() {
         });
       }
 
-      // ── View notification — har video ke liye ──────
-      if (views > 0) {
-        notifications.push({
-          id:      `views_${video.id}`,
-          type:    'milestone',
-          icon:    '👁',
-          title:   `${views >= 1000 ? (views/1000).toFixed(1)+'K' : views} Views`,
-          body:    `"${title}..." pe ${views >= 1000 ? (views/1000).toFixed(1)+'K' : views} views aa gaye!`,
-          videoId: video.id,
-          time:    publishedAt,
-          read:    false,
-        });
-      }
+      // Views notification removed
     }
 
     // ── Subscriber count ───────────────────────────
