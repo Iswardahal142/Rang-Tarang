@@ -36,6 +36,9 @@ async function deleteShort(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_shorts', id));
 }
 
+// ── Voice constant — har prompt mein same rahega ─────────────
+const VOICE_DESC = `13 year old Indian boy voice — medium-deep, confident, clear Hindi diction, same consistent voice in every scene. Pure Hindi Indian accent. No background music.`;
+
 // ── Category & Type detect ───────────────────────────────────
 const CATEGORY_MAP = {
   fruit:           { label: 'Fruits',           emoji: '🍎', color: '#ff4488', bg: 'a colorful fruit basket on a wooden kitchen counter with soft morning light' },
@@ -105,10 +108,6 @@ const CONCEPT_MAP = {
   },
 };
 
-function getShortType(categoryKey) {
-  return categoryKey || 'other';
-}
-
 function getCategory(type) {
   if (CATEGORY_MAP[type]) return CATEGORY_MAP[type];
   const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -153,6 +152,7 @@ function getObjectVisual(objectName, type) {
   return visuals[objectName] || `${objectName.toLowerCase()}`;
 }
 
+// ── 1. INTRO IMAGE PROMPT ─────────────────────────────────────
 function buildIntroImagePrompt(short) {
   const bg = getBackground(short.type, short.objectName);
   const visual = getObjectVisual(short.objectName, short.type);
@@ -161,19 +161,12 @@ function buildIntroImagePrompt(short) {
     short.concept === 'fayde' ? 'big confident smile, chest puffed out, arms wide' :
     'big happy smile, waving hand at camera';
 
-  return `Pixar 3D style vertical 9:16 image. Background: ${bg}. Center of image: one big cute animated ${visual} character — chubby Pixar body, tiny arms and legs, very expressive face with ${emotion}. Bold glowing rainbow text "${short.objectName}" floating above the character with colorful sparkles. Bottom text: "${concept.label}" in bold Hindi font. Bright colorful lighting. No teacher. No other characters. Studio quality render.`;
+  return `Pixar 3D style vertical 9:16 image. Background: ${bg}. Center of image: one big cute animated ${visual} character — chubby Pixar body, tiny arms and legs, very expressive face with ${emotion}. Bold glowing rainbow text "${short.objectName}" floating above the character with colorful sparkles. Bottom text: "${concept.label}" in bold Hindi font. Bright colorful lighting. No teacher. No other characters. Studio quality render. THIS IS THE REFERENCE IMAGE — all video scenes must match this exact background and character style.`;
 }
 
+// ── 2. INTRO VIDEO PROMPT ─────────────────────────────────────
 function buildIntroVideoPrompt(short) {
-  const bg = getBackground(short.type, short.objectName);
   const visual = getObjectVisual(short.objectName, short.type);
-  const concept = CONCEPT_MAP[short.concept];
-
-  const entryStyle = short.concept === 'dukh'
-    ? `${short.objectName} slowly walks in from the left side, shoulders drooped, head down, tears rolling from eyes`
-    : short.concept === 'fayde'
-    ? `${short.objectName} bounces in energetically from the bottom with a "boing" sound, lands confidently and strikes a proud pose`
-    : `${short.objectName} slides in cheerfully from the right side, waving both tiny hands at the camera`;
 
   const greeting = short.concept === 'dukh'
     ? `"हैलो बच्चों... मैं हूँ ${short.objectName}..." (sad, slow voice, sniffling)`
@@ -181,11 +174,11 @@ function buildIntroVideoPrompt(short) {
     ? `"हैलो बच्चों! मैं हूँ ${short.objectName}! आज मैं बताऊँगा — मैं कितना ज़रूरी हूँ!" (loud, proud, excited)`
     : `"हैलो बच्चों! मैं हूँ ${short.objectName}! आओ मुझसे दोस्ती करो!" (cheerful, warm, friendly)`;
 
-  return `Use this exact background: ${bg}. Pixar 3D animated ${visual} character — chubby body, tiny arms and legs, very expressive anime-style eyes. ${entryStyle}. Character says in pure Hindi Indian accent: ${greeting}. Bold glowing text "${short.objectName}" appears at top. 8 seconds. Smooth entry animation. Perfect lip sync. No teacher. No other characters. No background music. Pure Hindi audio only.`;
+  return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting in any way. Same Pixar 3D animated ${visual} character already standing at center of screen — chubby body, tiny arms and legs, very expressive anime-style eyes. NO entry animation — character is already present when video starts, do not walk in or fly in. Character says: ${greeting}. Bold glowing text "${short.objectName}" appears at top with sparkles. 8 seconds. Perfect lip sync. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
 }
 
+// ── 3. SCENE PROMPT ───────────────────────────────────────────
 function buildScenePrompt(short, sceneIndex) {
-  const bg = getBackground(short.type, short.objectName);
   const visual = getObjectVisual(short.objectName, short.type);
   const concept = CONCEPT_MAP[short.concept];
   const scene = concept.scenes[sceneIndex];
@@ -193,10 +186,10 @@ function buildScenePrompt(short, sceneIndex) {
   const sceneDialogues = {
     dukh: [
       `"बच्चों... कोई मुझे नहीं खाता... मैं बहुत उदास हूँ!" (wiping tears with tiny hand, lip trembling)`,
-      `"देखो... मैं यहाँ रखा रहता हूँ... कोई मेरी तरफ देखता भी नहीं!" (pointing to shelf, more tears)`,
-      `"मैंने सोचा था आज कोई मुझे खाएगा... पर नहीं!" (sits down on floor, crying harder)`,
-      `"अकेला हूँ मैं... बहुत अकेला..." (curled up in corner, sobbing quietly, no one around)`,
-      `"शायद मैं काम का नहीं हूँ किसी के..." (last tear rolls down, slow fade, still sad — no happy ending)`,
+      `"देखो... मैं यहाँ रखा रहता हूँ... कोई मेरी तरफ देखता भी नहीं!" (pointing to self, more tears)`,
+      `"मैंने सोचा था आज कोई मुझे खाएगा... पर नहीं!" (sits down, crying harder)`,
+      `"अकेला हूँ मैं... बहुत अकेला..." (curled up, sobbing quietly)`,
+      `"शायद मैं काम का नहीं हूँ किसी के..." (last tear rolls down, slow fade, still sad)`,
     ],
     fayde: [
       `"सुनो बच्चों! मेरा पहला फायदा — मैं तुम्हारी आँखें तेज़ करता हूँ! 👁️" (pointing to eyes excitedly, bouncing)`,
@@ -207,7 +200,7 @@ function buildScenePrompt(short, sceneIndex) {
     ],
     intro: [
       `"मैं हूँ ${short.objectName}! और मैं ${getCategory(short.type).label} family से हूँ!" (pointing to self proudly, big smile)`,
-      `"मेरा घर है ${bg.split(' with')[0]}! यहीं रहता हूँ मैं!" (gesturing around at background)`,
+      `"मेरा घर बहुत सुंदर है! यहीं रहता हूँ मैं!" (gesturing around at background)`,
       `"मेरी सबसे ख़ास बात? मैं बहुत colorful और cute हूँ!" (doing a little spin to show off)`,
       `"बच्चों, क्या आप मुझे पहचानते हो? मैं ${short.objectName} हूँ!" (leaning toward camera curiously)`,
       `"आओ दोस्त बनो मेरे! Rang Tarang पर मिलते रहेंगे!" (big wave, hearts floating around)`,
@@ -223,19 +216,18 @@ function buildScenePrompt(short, sceneIndex) {
 
   const dialogue = sceneDialogues[short.concept][sceneIndex];
 
-  return `Use this exact background: ${bg}. Same Pixar 3D animated ${visual} character from previous scene — same style, same size, same colors. Scene: "${scene.title}". Character says in pure Hindi Indian accent: ${dialogue}. Very expressive face — emotions clearly visible. Perfect lip sync. 8-10 seconds. Smooth animation. No glitch. No teacher. No other characters. No background music. Pure Hindi audio only. Continue from previous scene seamlessly.`;
+  return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Continue directly from the last frame of the previous scene — same Pixar 3D animated ${visual} character, exact same style, same size, same colors, no jump cut, seamless continuation. Scene ${sceneIndex + 1}: "${scene.title}". Character says: ${dialogue}. Very expressive face — emotions clearly visible. Perfect lip sync. 8-10 seconds. Smooth animation. No glitch. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
 }
 
+// ── 4. OUTRO VIDEO PROMPT ─────────────────────────────────────
 function buildOutroVideoPrompt(short) {
-  const bg = getBackground(short.type, short.objectName);
   const visual = getObjectVisual(short.objectName, short.type);
-  const concept = CONCEPT_MAP[short.concept];
 
   const outroLine = short.concept === 'dukh'
-    ? `${short.objectName} still sitting sadly in corner. Slowly looks up at camera with watery eyes and says: "बच्चों... अगली बार मिलेंगे... Rang Tarang subscribe करना मत भूलना..." then looks back down sadly.`
+    ? `${short.objectName} still sitting sadly. Slowly looks up at camera with watery eyes and says: "बच्चों... अगली बार मिलेंगे... Rang Tarang subscribe करना मत भूलना..." then looks back down sadly.`
     : `${short.objectName} does a happy little dance and says: "तो बच्चों — आज के लिए बस इतना ही! Rang Tarang subscribe करो और bell दबाओ! टाटा! 👋" waves enthusiastically at camera.`;
 
-  return `Use this exact background: ${bg}. Same Pixar 3D animated ${visual} character. ${outroLine} Bold text appears: "Rang Tarang Subscribe Karo! 🔔" with colorful sparkles. 8 seconds. Smooth. No glitch. Perfect lip sync. Pure Hindi audio only.`;
+  return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Continue directly from the last frame of the previous scene — same Pixar 3D animated ${visual} character, seamless continuation. ${outroLine} Bold glowing text "Rang Tarang Subscribe Karo! 🔔" appears with colorful sparkles. 8 seconds. Smooth. No glitch. Perfect lip sync. VOICE: ${VOICE_DESC}`;
 }
 
 // ── AI Call ───────────────────────────────────────────────────
@@ -267,9 +259,6 @@ TITLE RULES:
 - Max 60 characters
 - Must include Hindi (Devanagari) AND English
 - Pattern: "[Emoji] [Hindi] | [English] | Rang Tarang"
-- Examples:
-  "🍎 सेब का दुख | Apple Ki Kahani | Rang Tarang"
-  "🦁 शेर के फायदे | Lion Facts for Kids | Rang Tarang"
 
 DESCRIPTION RULES:
 - Line 1: Hindi hook — "बच्चों आज मिलो ${short.objectName} से! 🎉"
@@ -298,14 +287,12 @@ function ShortsCreatorPage({ user }) {
   const [generating, setGenerating]       = useState(false);
   const [genTD, setGenTD]                 = useState(false);
 
-  // New short form state
-  const [step, setStep]                   = useState(1); // 1=category, 2=object, 3=concept
+  const [step, setStep]                   = useState(1);
   const [selectedType, setSelectedType]   = useState(null);
   const [aiObjects, setAiObjects]         = useState([]);
   const [aiLoading, setAiLoading]         = useState(false);
   const [selectedObject, setSelectedObject] = useState('');
   const [customObject, setCustomObject]   = useState('');
-  const [showCustom, setShowCustom]       = useState(false);
   const [selectedConcept, setSelectedConcept] = useState('dukh');
   const [selectedColor, setSelectedColor] = useState('#ff4488');
 
@@ -348,7 +335,6 @@ function ShortsCreatorPage({ user }) {
     return u === true || u === 'private' || u === 'scheduled';
   }
 
-  // ── Load AI objects for category ──
   async function loadAiObjects(type) {
     setAiLoading(true);
     setAiObjects([]);
@@ -356,37 +342,20 @@ function ShortsCreatorPage({ user }) {
     try {
       const text = await aiCall(`List exactly 12 common ${cat.label} items that Indian kids aged 2-6 know well.
 Already created shorts: ${shortsList.map(s => s.objectName).join(', ') || 'none'}
-Return ONLY a JSON array of English names, no markdown, no explanation:
-["Apple","Banana","Mango"]
-Make them fun, easy, familiar to Indian kids.`);
+Return ONLY a JSON array of English names, no markdown:
+["Apple","Banana","Mango"]`);
       setAiObjects(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ AI se nahi aaya'); }
     setAiLoading(false);
   }
 
   function openNewModal() {
-    setModal('new');
-    setStep(1);
-    setSelectedType(null);
-    setAiObjects([]);
-    setSelectedObject('');
-    setCustomObject('');
-    setShowCustom(false);
-    setSelectedConcept('dukh');
-    setSelectedColor('#ff4488');
+    setModal('new'); setStep(1); setSelectedType(null); setAiObjects([]);
+    setSelectedObject(''); setCustomObject(''); setSelectedConcept('dukh'); setSelectedColor('#ff4488');
   }
 
-  async function selectCategory(type) {
-    setSelectedType(type);
-    setStep(2);
-    await loadAiObjects(type);
-  }
-
-  function selectObject(obj) {
-    setSelectedObject(obj);
-    setCustomObject(obj);
-    setStep(3);
-  }
+  async function selectCategory(type) { setSelectedType(type); setStep(2); await loadAiObjects(type); }
+  function selectObject(obj) { setSelectedObject(obj); setCustomObject(obj); setStep(3); }
 
   async function generateShort() {
     const finalObject = customObject.trim() || selectedObject;
@@ -395,20 +364,12 @@ Make them fun, easy, familiar to Indian kids.`);
     try {
       const cat = getCategory(selectedType);
       await saveShort(user.uid, {
-        objectName: finalObject,
-        type: selectedType,
-        concept: selectedConcept,
-        color: selectedColor,
-        emoji: cat.emoji,
-        doneSections: {},
-        doneCount: 0,
-        progress: 0,
-        ytTitle: '',
-        ytDescription: '',
+        objectName: finalObject, type: selectedType, concept: selectedConcept,
+        color: selectedColor, emoji: cat.emoji,
+        doneSections: {}, doneCount: 0, progress: 0, ytTitle: '', ytDescription: '',
       });
       toast(`${cat.emoji} "${finalObject}" short ready!`);
-      setModal('none');
-      loadList();
+      setModal('none'); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setGenerating(false);
   }
@@ -416,7 +377,6 @@ Make them fun, easy, familiar to Indian kids.`);
   async function markDone(short, key, wasDone) {
     const doneSections = { ...(short.doneSections || {}) };
     if (wasDone) delete doneSections[key]; else doneSections[key] = true;
-    const total = 7; // intro_img + intro_vid + 5 scenes + outro = 8? No: intro_img, intro_vid, scene0-4, outro = 8
     const doneCount = Object.keys(doneSections).length;
     const progress = Math.round((doneCount / 8) * 100);
     await updateShort(user.uid, short.id, { doneSections, doneCount, progress });
@@ -449,23 +409,17 @@ Make them fun, easy, familiar to Indian kids.`);
 
   function copy(key, text) {
     navigator.clipboard.writeText(text).then(() => {
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey(''), 2000);
-      toast('📋 Copied!');
+      setCopiedKey(key); setTimeout(() => setCopiedKey(''), 2000); toast('📋 Copied!');
     });
   }
 
   async function handleDelete(short) {
     if (!confirm(`"${short.objectName}" delete karein?`)) return;
     await deleteShort(user.uid, short.id);
-    toast('🗑 Deleted!');
-    setOpenShort(null);
-    loadList();
+    toast('🗑 Deleted!'); setOpenShort(null); loadList();
   }
 
-  // ══════════════════════════════════════════════
-  // LEVEL 3: SHORT DETAIL VIEW
-  // ══════════════════════════════════════════════
+  // ── LEVEL 3: SHORT DETAIL ────────────────────────────────────
   if (openShort) {
     const s = openShort;
     const done = s.doneSections || {};
@@ -476,35 +430,13 @@ Make them fun, easy, familiar to Indian kids.`);
     const deleteDisabled = isDeleteDisabled(s);
 
     const sections = [
-      {
-        key: 'intro_img',
-        title: '🖼 Intro Image',
-        color: '#4488ff',
-        type: '🖼 IMAGE',
-        prompt: buildIntroImagePrompt(s),
-      },
-      {
-        key: 'intro_vid',
-        title: '🎬 Intro Video',
-        color: '#4488ff',
-        type: '🎬 VIDEO',
-        prompt: buildIntroVideoPrompt(s),
-      },
+      { key: 'intro_img', title: '🖼 Intro Image', color: '#4488ff', type: '🖼 IMAGE', prompt: buildIntroImagePrompt(s) },
+      { key: 'intro_vid', title: '🎬 Intro Video', color: '#4488ff', type: '🎬 VIDEO', prompt: buildIntroVideoPrompt(s) },
       ...concept.scenes.map((scene, i) => ({
-        key: `scene_${i}`,
-        title: `🎬 Scene ${i + 1} — ${scene.title}`,
-        color: s.color,
-        type: '🎬 VIDEO',
-        prompt: buildScenePrompt(s, i),
-        hint: scene.hint,
+        key: `scene_${i}`, title: `🎬 Scene ${i + 1} — ${scene.title}`,
+        color: s.color, type: '🎬 VIDEO', prompt: buildScenePrompt(s, i), hint: scene.hint,
       })),
-      {
-        key: 'outro',
-        title: '🎤 Outro',
-        color: '#cc88ff',
-        type: '🎬 VIDEO',
-        prompt: buildOutroVideoPrompt(s),
-      },
+      { key: 'outro', title: '🎤 Outro', color: '#cc88ff', type: '🎬 VIDEO', prompt: buildOutroVideoPrompt(s) },
     ];
 
     return (
@@ -512,16 +444,13 @@ Make them fun, easy, familiar to Indian kids.`);
         <div className="mini-topbar">
           <button onClick={() => setOpenShort(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{cat.emoji} {s.objectName}</span>
-          {deleteDisabled ? (
-            <span style={{ fontSize: 18, opacity: 0.2, cursor: 'not-allowed' }}>🗑</span>
-          ) : (
-            <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
-          )}
+          {deleteDisabled
+            ? <span style={{ fontSize: 18, opacity: 0.2, cursor: 'not-allowed' }}>🗑</span>
+            : <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
+          }
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-          {/* Concept badge */}
           <div style={{ background: '#0f0f0f', border: `1px solid ${s.color}44`, borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>{cat.emoji}</span>
             <div>
@@ -530,7 +459,12 @@ Make them fun, easy, familiar to Indian kids.`);
             </div>
           </div>
 
-          {/* Progress */}
+          {/* Voice info card */}
+          <div style={{ background: '#0a0a14', border: '1px solid #2233aa44', borderRadius: 12, padding: '10px 14px' }}>
+            <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 4 }}>🎙 VOICE (sab scenes mein same)</div>
+            <div style={{ fontSize: 11, color: '#666', lineHeight: 1.5 }}>{VOICE_DESC}</div>
+          </div>
+
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -541,7 +475,6 @@ Make them fun, easy, familiar to Indian kids.`);
             </div>
           </div>
 
-          {/* Title & Desc */}
           <TitleDescSection
             short={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
             genTD={genTD} onGenerate={() => generateTitleDesc(s)}
@@ -549,7 +482,6 @@ Make them fun, easy, familiar to Indian kids.`);
             onCopy={copy} copiedKey={copiedKey}
           />
 
-          {/* Sections */}
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -566,9 +498,7 @@ Make them fun, easy, familiar to Indian kids.`);
                 {isOpen && (
                   <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 2 }}>{sec.type}</div>
-                    <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>
-                      {sec.prompt}
-                    </div>
+                    <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>{sec.prompt}</div>
                     <button onClick={() => copy(sec.key, sec.prompt)}
                       style={{ background: copiedKey === sec.key ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey === sec.key ? '#4488ff' : '#223355'}`, color: copiedKey === sec.key ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
                       {copiedKey === sec.key ? '✅ Copied!' : `📋 Copy ${sec.type}`}
@@ -587,9 +517,7 @@ Make them fun, easy, familiar to Indian kids.`);
     );
   }
 
-  // ══════════════════════════════════════════════
-  // LEVEL 2: FOLDER VIEW
-  // ══════════════════════════════════════════════
+  // ── LEVEL 2: FOLDER VIEW ─────────────────────────────────────
   if (openFolder) {
     const cat = getCategory(openFolder);
     const grouped = groupShortsByFolder(shortsList);
@@ -602,19 +530,12 @@ Make them fun, easy, familiar to Indian kids.`);
           <span style={{ fontSize: 13, fontWeight: 700, color: cat.color }}>{cat.emoji} {cat.label}</span>
           <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{shortsInFolder.length} shorts</span>
         </div>
-
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {shortsInFolder.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>{cat.emoji}</div>
-              <div style={{ fontSize: 13, color: '#555' }}>Koi short nahi hai</div>
-            </div>
-          ) : shortsInFolder.map(s => {
+          {shortsInFolder.map(s => {
             const uploaded = checkUploaded(s);
             const uploadColor = uploaded === true ? '#44bb66' : uploaded === 'scheduled' ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : uploaded === false ? '#ff8866' : '#555';
             const uploadText = ytLoading ? '🔍...' : uploaded === true ? '✅ YouTube pe hai' : uploaded === 'scheduled' ? '📅 Scheduled' : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki';
             const concept = CONCEPT_MAP[s.concept] || CONCEPT_MAP.dukh;
-
             return (
               <div key={s.id} onClick={() => setOpenShort(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: '1px solid #1e1e1e', borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -639,9 +560,7 @@ Make them fun, easy, familiar to Indian kids.`);
     );
   }
 
-  // ══════════════════════════════════════════════
-  // LEVEL 1: FOLDER LIST
-  // ══════════════════════════════════════════════
+  // ── LEVEL 1: FOLDER LIST ─────────────────────────────────────
   const grouped = groupShortsByFolder(shortsList);
   const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
     const aLatest = grouped[a]?.[0]?.createdAt?.seconds || 0;
@@ -653,27 +572,17 @@ Make them fun, easy, familiar to Indian kids.`);
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#ff4488', fontSize: 14, fontWeight: 700 }}>🎬 Shorts Creator</span>
-        <button onClick={() => {
-          const names = shortsList.map(s => `${s.objectName} (${s.concept})`).join('\n');
-          navigator.clipboard.writeText(names);
-          toast('📋 Copied!');
-        }} style={{ background: 'none', border: '1px solid #ff448855', color: '#ff4488', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-          📋 Copy
-        </button>
-        <button onClick={openNewModal}
-          style={{ background: '#ff4488', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-          + Naya
-        </button>
+        <button onClick={() => { const names = shortsList.map(s => `${s.objectName} (${s.concept})`).join('\n'); navigator.clipboard.writeText(names); toast('📋 Copied!'); }}
+          style={{ background: 'none', border: '1px solid #ff448855', color: '#ff4488', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📋 Copy</button>
+        <button onClick={openNewModal} style={{ background: '#ff4488', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Naya</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* ── NEW SHORT MODAL ── */}
         {modal === 'new' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d0008', border: '1px solid #440022', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
 
-              {/* Step 1: Category */}
               {step === 1 && (
                 <>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 16, textAlign: 'center' }}>📁 Category Chuno</div>
@@ -690,14 +599,10 @@ Make them fun, easy, familiar to Indian kids.`);
                 </>
               )}
 
-              {/* Step 2: Object */}
               {step === 2 && selectedType && (
                 <>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 4, textAlign: 'center' }}>
-                    {getCategory(selectedType).emoji} Object Chuno
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 4, textAlign: 'center' }}>{getCategory(selectedType).emoji} Object Chuno</div>
                   <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 14 }}>{getCategory(selectedType).label}</div>
-
                   {aiLoading ? (
                     <div style={{ textAlign: 'center', padding: 30 }}>
                       <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#ff4488' }} />
@@ -713,32 +618,23 @@ Make them fun, easy, familiar to Indian kids.`);
                           </button>
                         ))}
                       </div>
-                      <button onClick={() => loadAiObjects(selectedType)} style={{ width: '100%', background: 'linear-gradient(135deg,#1a0010,#0d0008)', border: '1px solid #660033', color: '#ff4488', borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 8 }}>
-                        🔄 Nayi List Lo
-                      </button>
+                      <button onClick={() => loadAiObjects(selectedType)} style={{ width: '100%', background: 'linear-gradient(135deg,#1a0010,#0d0008)', border: '1px solid #660033', color: '#ff4488', borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 8 }}>🔄 Nayi List Lo</button>
                     </>
                   )}
-
-                  {/* Custom input */}
                   <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                     <input value={customObject} onChange={e => setCustomObject(e.target.value)} placeholder="Ya khud likho..."
                       style={{ flex: 1, background: '#0a0a1a', border: '1px solid #334', borderRadius: 8, padding: '8px 10px', fontSize: 12, color: '#eee', outline: 'none', fontFamily: 'inherit' }} />
                     <button onClick={() => { if (customObject.trim()) { setSelectedObject(customObject.trim()); setStep(3); } }}
                       style={{ background: '#ff4488', border: 'none', color: '#fff', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>→</button>
                   </div>
-
                   <button onClick={() => setStep(1)} style={{ width: '100%', background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
                 </>
               )}
 
-              {/* Step 3: Concept + Color */}
               {step === 3 && (
                 <>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 4, textAlign: 'center' }}>
-                    {getCategory(selectedType).emoji} {selectedObject || customObject}
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 4, textAlign: 'center' }}>{getCategory(selectedType).emoji} {selectedObject || customObject}</div>
                   <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 14 }}>Concept aur color chuno</div>
-
                   <div style={{ fontSize: 10, color: '#777', marginBottom: 8, fontWeight: 700, letterSpacing: 1 }}>CONCEPT CHUNO</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
                     {Object.entries(CONCEPT_MAP).map(([id, concept]) => (
@@ -753,7 +649,6 @@ Make them fun, easy, familiar to Indian kids.`);
                       </button>
                     ))}
                   </div>
-
                   <div style={{ fontSize: 10, color: '#777', marginBottom: 8, fontWeight: 700, letterSpacing: 1 }}>COLOR CHUNO</div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                     {COLORS.map(c => (
@@ -761,14 +656,12 @@ Make them fun, easy, familiar to Indian kids.`);
                         style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: `3px solid ${selectedColor === c ? '#fff' : 'transparent'}`, transform: selectedColor === c ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.15s' }} />
                     ))}
                   </div>
-
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={generateShort} disabled={generating}
                       style={{ flex: 2, background: generating ? '#1a0010' : 'linear-gradient(135deg,#550022,#330011)', border: '1px solid #ff4488', color: '#ff4488', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: generating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       {generating ? <><div className="spinner" style={{ borderTopColor: '#ff4488', width: 16, height: 16 }} />Saving...</> : '🎬 Banao!'}
                     </button>
-                    <button onClick={() => setStep(2)}
-                      style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
+                    <button onClick={() => setStep(2)} style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
                   </div>
                 </>
               )}
@@ -776,7 +669,6 @@ Make them fun, easy, familiar to Indian kids.`);
           </div>
         )}
 
-        {/* ── FOLDER CARDS ── */}
         {loadingList ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
             <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#ff4488' }} />
@@ -792,14 +684,11 @@ Make them fun, easy, familiar to Indian kids.`);
           const cat = getCategory(type);
           const shortsInFolder = grouped[type];
           const uploadedCount = shortsInFolder.filter(s => checkUploaded(s) === true).length;
-
           return (
             <div key={type} onClick={() => setOpenFolder(type)}
               style={{ background: '#0d0d0d', border: `1px solid ${cat.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${cat.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${cat.color}1a`, border: `1px solid ${cat.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
-                {cat.emoji}
-              </div>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${cat.color}1a`, border: `1px solid ${cat.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{cat.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: cat.color, marginBottom: 3 }}>{cat.label}</div>
                 <div style={{ fontSize: 11, color: '#555' }}>{shortsInFolder.length} shorts • {uploadedCount} uploaded</div>
@@ -813,16 +702,12 @@ Make them fun, easy, familiar to Indian kids.`);
   );
 }
 
-// ── Title & Description Sub-Component ────────────────────────
 function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle]     = useState(short.ytTitle || '');
   const [desc, setDesc]       = useState(short.ytDescription || '');
 
-  useEffect(() => {
-    setTitle(short.ytTitle || '');
-    setDesc(short.ytDescription || '');
-  }, [short.ytTitle, short.ytDescription]);
+  useEffect(() => { setTitle(short.ytTitle || ''); setDesc(short.ytDescription || ''); }, [short.ytTitle, short.ytDescription]);
 
   return (
     <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
