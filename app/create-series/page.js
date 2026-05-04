@@ -194,8 +194,26 @@ function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') 
 }
 
 function buildOutroVideoPrompt(items = []) {
-  const lastItem = items?.[items.length - 1]?.object || 'the object';
-  return `Use reference image exactly as background scene. ${lastItem} floating on right side slowly fades out and disappears. Any text on screen also fades away completely. Screen is clean with only teacher visible. Teacher waves goodbye to camera with big smile, says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 8 seconds. Smooth. No glitch. Hindi audio only. Teacher must lip sync.`;
+  const last = items?.[items.length - 1];
+  const lastName = last?.name || 'the object';
+  const lastObj  = (last?.object || last?.name || '').toLowerCase();
+
+  const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => lastObj.includes(w));
+  const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => lastObj.includes(w));
+  const isHeavy = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep'].some(w => lastObj.includes(w));
+
+  let outroAction = '';
+  if (isBird) {
+    outroAction = `Teacher gently picks up the last ${lastName} with both hands carefully, lifts it toward the open window, and softly releases it — the bird flaps its wings and flies away off screen. Teacher watches it fly away with a warm smile.`;
+  } else if (isAnimal) {
+    outroAction = `Teacher gives the last ${lastName} a gentle friendly push from behind — the animal happily walks away and exits the screen. Teacher waves goodbye to the animal with a big smile.`;
+  } else if (isHeavy) {
+    outroAction = `Teacher gives the last ${lastName} a big push with both hands — it rolls or drives away slowly and exits the screen. Teacher dusts hands off and smiles at camera.`;
+  } else {
+    outroAction = `Teacher picks up the last ${lastName} with both hands, carries it to the side, and places it neatly off screen. Teacher comes back to center, dusts hands and smiles at camera.`;
+  }
+
+  return `Use reference image exactly as background scene. Any text on screen fades away completely. ${outroAction} Screen is clean with only teacher visible at center. Teacher waves goodbye to camera with big smile and says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 10 seconds. Smooth. No floating objects. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 function getBodyPartAction(objectName) {
   const o = (objectName || '').toLowerCase();
@@ -255,15 +273,30 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const qText = `यह कौनसा Body Part है?`;
   return `Use reference image exactly as background scene. Teacher standing center facing camera. ${action} while asking in Hindi: "${q}". Teacher keeps showing the body part the entire time during the question — do not stop. Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher still holds the pose. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
 }
-
   const q = isFirstPart
     ? `तो बताओ.. यह कौनसा ${categoryWord} है?`
     : `अब बताओ.. यह कौनसा ${categoryWord} है?`;
   const qText = `यह कौनसा ${categoryWord} है?`;
 
-  return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big Pixar 3D animated ${item.name} (${item.object}) floating in air at center-right of screen, gently bobbing up and down. Object is large and clearly visible — not small. No walking, no entry animation — object already floating when scene starts. Teacher points to the ${item.name} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
-}
+  // Detect object type for placement
+  const objLower = (item.object || item.name || '').toLowerCase();
+  const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => objLower.includes(w));
+  const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => objLower.includes(w));
+  const isHeavyVehicle = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep'].some(w => objLower.includes(w));
 
+  let placementDesc = '';
+  if (isBird) {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) sitting on a small wooden perch or branch at center-right of screen at eye level. Bird is large and clearly visible — not small. Bird sits still, looking at camera curiously, feathers gently ruffling. No floating. No flying.`;
+  } else if (isAnimal) {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible — not small. Animal looks toward camera curiously. No floating. Not jumping.`;
+  } else if (isHeavyVehicle) {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) parked on the floor at center-right of screen. Object is large and clearly visible — not small. No floating.`;
+  } else {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${item.object}) placed on the floor at center-right of screen. Object is large and clearly visible — not small. No floating. Object is completely still.`;
+  }
+
+  return `Use reference image exactly as background scene. Teacher standing on left side. ${placementDesc} Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher keeps hand softly on the ${item.name}. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects at any point. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
+}
 const hindiNumbers = {
   1:'वन',2:'टू',3:'थ्री',4:'फोर',5:'फाइव',
   6:'सिक्स',7:'सेवन',8:'एट',9:'नाइन',10:'टेन',
