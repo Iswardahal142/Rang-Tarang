@@ -237,7 +237,7 @@ const INTRO_ANIMATIONS = [
 function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') {
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
-  const objectLine = firstItem ? `Teacher bends down, picks up a big ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
+  const objectLine = firstItem ? `Teacher bends down, touch a big ${firstItem} from the bottom sofly.` : '';
   let anim = INTRO_ANIMATIONS.find(a => a.id === animationId);
   if (!anim || anim.id === 'random') {
     const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
