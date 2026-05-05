@@ -243,7 +243,7 @@ function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') 
     const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
     anim = nonRandom[Math.floor(Math.random() * nonRandom.length)];
   }
-  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${n}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${items.length} ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${n}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildOutroVideoPrompt(items = []) {
