@@ -34,54 +34,34 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
-// ── Series type detect ───────────────────────────────────
+// ── Series type detect — now uses AI-detected type stored on series ───────────
+// Fallback only if type not stored
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
-  if (n.includes('flower')) return 'flower';
-  if (n.includes('festival') || n.includes('tyohar') || n.includes('celebration')) return 'festival';
+  if (n.includes('flower'))                                                                    return 'flower';
+  if (n.includes('festival') || n.includes('tyohar') || n.includes('celebration'))            return 'festival';
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
-  if (n.includes('color') || n.includes('colour') || n.includes('rang')) return 'color';
-  if (n.includes('fruit')) return 'fruit';
-  if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter')) return 'alphabet';
-  if (n.includes('shape')) return 'shape';
+  if (n.includes('color') || n.includes('colour') || n.includes('rang'))                      return 'color';
+  if (n.includes('fruit'))                                                                     return 'fruit';
+  if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter'))                   return 'alphabet';
+  if (n.includes('shape'))                                                                     return 'shape';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi') || n.includes('sabziyon')) return 'vegetable';
-  if (n.includes('body') || n.includes('body part') || n.includes('sharir')) return 'body';
-  if (n.includes('vehicle') || n.includes('transport')) return 'vehicle';
-  if (n.includes('food')) return 'food';
-  if (n.includes('sport')) return 'sport';
-  if (n.includes('instrument') || n.includes('music')) return 'instrument';
-  if (n.includes('space') || n.includes('planet')) return 'space';
-  if (n.includes('weather') || n.includes('season')) return 'weather';
-  if (n.includes('tool')) return 'tool';
-  if (n.includes('sound')) return 'animal_sound';
-  if (n.includes('insect') || n.includes('bug')) return 'insect';
-  if (n.includes('bird') || n.includes('parrot') || n.includes('sparrow')) return 'bird';
+  if (n.includes('body') || n.includes('body part') || n.includes('sharir'))                  return 'body';
+  if (n.includes('vehicle') || n.includes('transport'))                                        return 'vehicle';
+  if (n.includes('food'))                                                                      return 'food';
+  if (n.includes('sport'))                                                                     return 'sport';
+  if (n.includes('instrument') || n.includes('music'))                                         return 'instrument';
+  if (n.includes('space') || n.includes('planet'))                                             return 'space';
+  if (n.includes('weather') || n.includes('season'))                                           return 'weather';
+  if (n.includes('tool') || n.includes('computer') || n.includes('part'))                     return 'tool';
+  if (n.includes('sound'))                                                                      return 'animal_sound';
+  if (n.includes('insect') || n.includes('bug'))                                               return 'insect';
+  if (n.includes('bird') || n.includes('parrot') || n.includes('sparrow'))                    return 'bird';
   if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'water_animal';
-  if (n.includes('wild') || n.includes('forest') || n.includes('jungle')) return 'wild_animal';
-  if (n.includes('domestic') || n.includes('pet') || n.includes('farm')) return 'domestic_animal';
-  if (n.includes('animal')) return 'wild_animal';
+  if (n.includes('wild') || n.includes('forest') || n.includes('jungle'))                     return 'wild_animal';
+  if (n.includes('domestic') || n.includes('pet') || n.includes('farm'))                      return 'domestic_animal';
+  if (n.includes('animal'))                                                                     return 'wild_animal';
   return 'other';
-}
-
-function getHindiCategoryWord(seriesName) {
-  const n = (seriesName || '').toLowerCase();
-  if (n.includes('flower'))                                          return 'Flower';
-  if (n.includes('insect') || n.includes('bug'))                     return 'Insect';
-  if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'Water Animal';
-  if (n.includes('bird'))                                            return 'Bird';
-  if (n.includes('wild') || n.includes('forest') || n.includes('domestic') || n.includes('pet') || n.includes('farm') || n.includes('animal')) return 'Animal';
-  if (n.includes('fruit'))                                           return 'Fruit';
-  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return 'Vegetable';
-  if (n.includes('color') || n.includes('colour'))                   return 'Colour';
-  if (n.includes('shape'))                                           return 'Shape';
-  if (n.includes('alphabet') || n.includes('abc') || n.includes('letter')) return 'Letter';
-  if (n.includes('number') || n.includes('ginti'))                   return 'Number';
-  if (n.includes('tree'))                                            return 'Tree';
-  if (n.includes('sport'))                                           return 'Sport';
-  if (n.includes('vehicle') || n.includes('transport'))              return 'Vehicle';
-  if (n.includes('food'))                                            return 'Food';
-  if (n.includes('body') || n.includes('body part'))                 return 'Body Part';  // ← ADD
-  return 'चीज़';
 }
 
 const KNOWN_FOLDERS = {
@@ -106,18 +86,24 @@ const KNOWN_FOLDERS = {
   instrument:      { label: 'Instruments',      emoji: '🎵', color: '#aa88ff' },
   space:           { label: 'Space',            emoji: '🚀', color: '#4444ff' },
   weather:         { label: 'Weather',          emoji: '⛅', color: '#44bbff' },
-  tool:            { label: 'Tools',            emoji: '🔧', color: '#aaaaaa' },
+  tool:            { label: 'Tools & Objects',  emoji: '🔧', color: '#aaaaaa' },
 };
 
+// ── getFolder — AI-detected type se match karo, unknown types ke liye dynamic folder ──
 function getFolder(type) {
   if (KNOWN_FOLDERS[type]) return KNOWN_FOLDERS[type];
+  // Dynamic folder for AI-detected types not in KNOWN_FOLDERS
   const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  return { label, emoji: '📦', color: '#888888' };
+  // Pick a color based on type string hash
+  const colors = ['#ff6644','#44bbff','#ffaa44','#cc88ff','#44bb66','#ff4488','#4488ff','#ffcc00'];
+  const idx = type.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
+  return { label, emoji: '📦', color: colors[idx] };
 }
 
 function groupSeriesByFolder(seriesList) {
   const groups = {};
   seriesList.forEach(s => {
+    // Use AI-detected type stored on series first, fallback to name-based detect
     const type = s.type || getSeriesType(s.name);
     if (!groups[type]) groups[type] = [];
     groups[type].push(s);
@@ -125,7 +111,6 @@ function groupSeriesByFolder(seriesList) {
   return groups;
 }
 
-// Check if next part already exists for a series
 function hasNextPart(series, allSeries) {
   const baseName = series.name.replace(/ Part \d+$/, '').trim();
   const currentPart = series.part || 1;
@@ -215,6 +200,7 @@ function buildOutroVideoPrompt(items = []) {
 
   return `Use reference image exactly as background scene. Any text on screen fades away completely. ${outroAction} Screen is clean with only teacher visible at center. Teacher waves goodbye to camera with big smile and says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 10 seconds. Smooth. No floating objects. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
+
 function getBodyPartAction(objectName) {
   const o = (objectName || '').toLowerCase();
   if (o.includes('head'))    return 'Teacher holds their head with both hands gently and shakes it slowly left and right';
@@ -244,7 +230,7 @@ function getBodyPartAction(objectName) {
   if (o.includes('foot') || o.includes('feet'))  return 'Teacher lifts one foot up toward camera and points to it';
   if (o.includes('toe') || o.includes('toes'))   return 'Teacher sits down, removes shoe and wiggles toes toward camera';
   if (o.includes('heel'))    return 'Teacher lifts foot and taps heel with one hand';
-  if (o.includes('ankle'))   return 'Teacher lifts foot and circles ankle with both hands';
+  if (o.includes('ankle'))   return 'Teacher circles ankle with both hands';
   if (o.includes('wrist'))   return 'Teacher holds up wrists toward camera and rotates them in circles';
   if (o.includes('palm'))    return 'Teacher opens both palms flat toward camera and spreads fingers wide';
   if (o.includes('eyebrow') || o.includes('eyebrows')) return 'Teacher points to eyebrows with both index fingers and raises them dramatically';
@@ -254,7 +240,6 @@ function getBodyPartAction(objectName) {
 }
 
 function cleanObjectDesc(obj) {
-  // Remove scene/location phrases — keep only item description
   return (obj || '')
     .replace(/lounging\s+under.*$/i, '')
     .replace(/standing\s+in\s+.*$/i, '')
@@ -267,51 +252,82 @@ function cleanObjectDesc(obj) {
     .trim();
 }
 
+// ── Check if object is "large" — should be on floor, not in hand ──
+function isLargeObject(objectName) {
+  const o = (objectName || '').toLowerCase();
+  return ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep',
+    'airplane','plane','helicopter','elephant','giraffe','horse','cow','camel','lion',
+    'tiger','bear','zebra','rhino','hippo','sofa','table','chair','cupboard','refrigerator',
+    'washing machine','bicycle','bike','motorcycle','scooter','cycle'].some(w => o.includes(w));
+}
+
+// ── Build IMAGE prompt for each item ──
+function buildItemImagePrompt(item, seriesName) {
+  const cleanObj = cleanObjectDesc(item.object) || item.name;
+  const large = isLargeObject(item.object || item.name);
+  const placement = large
+    ? `Big Pixar 3D cartoon ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Large and clearly visible.`
+    : `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, showing it clearly. Object is large and clearly visible.`;
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center-left, smiling excitedly. ${placement} Bold glowing rainbow text "${item.name.toUpperCase()}" at very bottom center with sparkles. 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
+}
+
+// ── MAIN VIDEO PROMPT ──
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
-  const categoryWord = getHindiCategoryWord(seriesName);
 
+  // ── Numbers ──
   if (type === 'number') {
     const num = item.name;
     const hindiNum = item.hindiName || num;
-    const q = isFirstPart ? `तो बताओ.. यह कौनसा ${categoryWord} है?` : `अब बताओ.. यह कौनसा ${categoryWord} है?`;
-    const qText = `यह कौनसा ${categoryWord} है?`;
+    const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
+    const qText = `यह क्या है?`;
     return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
 
+  // ── Body Parts ──
   if (type === 'body') {
-  const action = getBodyPartAction(item.object);
-  const q = isFirstPart
-    ? `तो बताओ.. यह कौनसा Body Part है?`
-    : `अब बताओ.. यह कौनसा Body Part है?`;
-  const qText = `यह कौनसा Body Part है?`;
-  return `Use reference image exactly as background scene. Teacher standing center facing camera. ${action} while asking in Hindi: "${q}". Teacher keeps showing the body part the entire time during the question — do not stop. Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher still holds the pose. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
-}
-  const q = isFirstPart
-    ? `तो बताओ.. यह कौनसा ${categoryWord} है?`
-    : `अब बताओ.. यह कौनसा ${categoryWord} है?`;
-  const qText = `यह कौनसा ${categoryWord} है?`;
-
-  // Detect object type for placement
-  const objLower = cleanObjectDesc(item.object || item.name || '').toLowerCase();
-  const cleanObj = cleanObjectDesc(item.object) || item.name;
-  const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => objLower.includes(w));
-  const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => objLower.includes(w));
-  const isHeavyVehicle = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep'].some(w => objLower.includes(w));
-
-  let placementDesc = '';
-  if (isBird) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting on a small wooden perch or branch at center-right of screen at eye level. Bird is large and clearly visible — not small. Bird sits still, looking at camera curiously, feathers gently ruffling. No floating. No flying.`;
-  } else if (isAnimal) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible — not small. Animal looks toward camera curiously. No floating. Not jumping.`;
-  } else if (isHeavyVehicle) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) parked on the floor at center-right of screen. Object is large and clearly visible — not small. No floating.`;
-  } else {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Object is large and clearly visible — not small. No floating. Object is completely still.`;
+    const action = getBodyPartAction(item.object);
+    const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
+    const qText = `यह क्या है?`;
+    return `Use reference image exactly as background scene. Teacher standing center facing camera. ${action} while asking in Hindi: "${q}". Teacher keeps showing the body part the entire time during the question — do not stop. Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher still holds the pose. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
   }
 
-  return `Use reference image exactly as background scene. Teacher standing on left side. ${placementDesc} Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher keeps hand softly on the ${item.name}. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects at any point. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
+  // ── All other types ──
+  const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
+  const qText = `यह क्या है?`;
+
+  const objLower = cleanObjectDesc(item.object || item.name || '').toLowerCase();
+  const cleanObj = cleanObjectDesc(item.object) || item.name;
+
+  const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => objLower.includes(w));
+  const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => objLower.includes(w));
+  const isHeavyVehicle = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep','airplane','plane','helicopter','bicycle','bike','motorcycle','scooter'].some(w => objLower.includes(w));
+  const isSmall = !isBird && !isAnimal && !isHeavyVehicle && !isLargeObject(item.object || item.name);
+
+  let placementDesc = '';
+  let teacherAction = '';
+
+  if (isBird) {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting on a small wooden perch or branch at center-right of screen at eye level. Bird is large and clearly visible — not small. Bird sits still, looking at camera curiously, feathers gently ruffling. No floating. No flying.`;
+    teacherAction = `Teacher points to the ${item.name} with one finger curiously while asking`;
+  } else if (isAnimal) {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible — not small. Animal looks toward camera curiously. No floating. Not jumping.`;
+    teacherAction = `Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking`;
+  } else if (isHeavyVehicle) {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) parked on the floor at center-right of screen. Object is large and clearly visible — not small. No floating.`;
+    teacherAction = `Teacher walks to the ${item.name}, places hand on it proudly while asking`;
+  } else if (isSmall) {
+    // Small objects — teacher holds in hand
+    placementDesc = `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, clearly showing it. Object fills most of the frame and is large and clearly visible.`;
+    teacherAction = `Teacher holds the ${item.name} up toward camera and looks at it curiously while asking`;
+  } else {
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Object is large and clearly visible — not small. No floating. Object is completely still.`;
+    teacherAction = `Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking`;
+  }
+
+  return `Use reference image exactly as background scene. Teacher standing on left side. ${placementDesc} ${teacherAction} in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher keeps interacting with the ${item.name}. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects at any point. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
 }
+
 const hindiNumbers = {
   1:'वन',2:'टू',3:'थ्री',4:'फोर',5:'फाइव',
   6:'सिक्स',7:'सेवन',8:'एट',9:'नाइन',10:'टेन',
@@ -341,7 +357,7 @@ const hindiNumbers = {
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 const EMOJIS = ['🍎','🔢','🌈','🐾','🥦','🚗','🎵','🏠','🌟','🦁','📚','⚽','🌺','🦋','🍕'];
-const ANIM_PER_PAGE = 6; // ← ADD
+const ANIM_PER_PAGE = 6;
 
 async function aiCall(prompt) {
   const res = await fetch('/api/ai', {
@@ -367,7 +383,7 @@ function CreateSeriesPage({ user }) {
   const [openSection, setOpenSection]     = useState(null);
   const [copiedKey, setCopiedKey]         = useState('');
   const [ytVideos, setYtVideos]           = useState([]);
-  const [continuing, setContinuing]       = useState(null); // series id being continued
+  const [continuing, setContinuing]       = useState(null);
   const [genTD, setGenTD]                 = useState(false);
   const [modal, setModal]                 = useState('none');
   const [suggestions, setSuggestions]     = useState([]);
@@ -378,12 +394,11 @@ function CreateSeriesPage({ user }) {
   const [selectedColor, setSelectedColor] = useState('#ff4400');
   const [generating, setGenerating]       = useState(false);
   const [ytLoading, setYtLoading]         = useState(true);
-  const [aiSuggestions, setAiSuggestions] = useState([]);      // ← ADD
-const [customSugLoading, setCustomSugLoading] = useState(false); // already hai
-const [animModal, setAnimModal]         = useState(false);    // ← ADD
-const [animPage, setAnimPage]           = useState(0);        // ← ADD
-const [chosenAnim, setChosenAnim]       = useState('random'); // ← ADD
-  
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [customSugLoading, setCustomSugLoading] = useState(false);
+  const [animModal, setAnimModal]         = useState(false);
+  const [animPage, setAnimPage]           = useState(0);
+  const [chosenAnim, setChosenAnim]       = useState('random');
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -417,7 +432,6 @@ const [chosenAnim, setChosenAnim]       = useState('random'); // ← ADD
     return true;
   }
 
-  // Delete disabled if uploaded, private, or scheduled
   function isDeleteDisabled(series) {
     const u = checkUploaded(series);
     return u === true || u === 'private' || u === 'scheduled';
@@ -426,19 +440,19 @@ const [chosenAnim, setChosenAnim]       = useState('random'); // ← ADD
   function openChoose() { setModal('choose'); }
 
   async function loadSuggestions() {
-  setModal('suggestions'); setSugLoading(true); setSuggestions([]);
-  try {
-    const existing = seriesList.map(s => s.name).join(', ') || 'none';
-    const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
+    setModal('suggestions'); setSugLoading(true); setSuggestions([]);
+    try {
+      const existing = seriesList.map(s => s.name).join(', ') || 'none';
+      const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created: ${existing}
 Suggest exactly 4 NEW unique educational series topics for kids aged 2-6.
 IMPORTANT: Suggest easy daily-life topics that Indian kids see every day.
 Priority: home items, clothes, toys, common animals, vegetables, fruits — NOT space, instruments, weather yet.
 Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕","description":"One line"}]`);
-    setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
-  } catch { toast('❌ Suggestions nahi aaye'); }
-  setSugLoading(false);
-}
+      setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
+    } catch { toast('❌ Suggestions nahi aaye'); }
+    setSugLoading(false);
+  }
 
   async function selectSuggestion(topic) {
     const detectedEmoji = await detectEmoji(topic.name);
@@ -448,47 +462,50 @@ Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕"
   }
 
   async function submitCustom() {
-  if (!customName.trim()) { toast('⚠️ Beech wala part likho!'); return; }
-  const fullName = `Five ${customName.trim()} Name`;
-  const detectedEmoji = await detectEmoji(fullName);
-  setSelectedEmoji(detectedEmoji);
-  setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
-  setAiSuggestions([]);
-  setModal('picker');
-}
+    if (!customName.trim()) { toast('⚠️ Beech wala part likho!'); return; }
+    const fullName = `Five ${customName.trim()} Name`;
+    const detectedEmoji = await detectEmoji(fullName);
+    setSelectedEmoji(detectedEmoji);
+    setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
+    setAiSuggestions([]);
+    setModal('picker');
+  }
+
   async function loadCustomSuggestions() {
-  setCustomSugLoading(true);
-  setAiSuggestions([]);
-  try {
-    const existing = seriesList.map(s => s.name).join(', ') || 'none';
-    const hint = customName.trim();
-    const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
+    setCustomSugLoading(true);
+    setAiSuggestions([]);
+    try {
+      const existing = seriesList.map(s => s.name).join(', ') || 'none';
+      const hint = customName.trim();
+      const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created series: ${existing}
 User hint: "${hint}" (can be empty)
 Suggest exactly 6 unique kids educational topics that have NOT been created yet.
-These will be used as: "Ten [topic] Name"
+These will be used as: "Five [topic] Name"
 Examples: "Flowers", "Wild Animals", "Insects", "Planets", "Body Parts", "Musical Instruments"
 Return ONLY a JSON array of single words or short phrases (max 2 words each), no markdown:
 ["Flowers","Wild Animals","Insects","Planets","Body Parts","Musical Instruments"]`);
-    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-    setAiSuggestions(parsed);
-  } catch { toast('❌ Suggestions nahi aaye'); }
-  setCustomSugLoading(false);
-}
+      const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+      setAiSuggestions(parsed);
+    } catch { toast('❌ Suggestions nahi aaye'); }
+    setCustomSugLoading(false);
+  }
 
   async function generateSeries() {
-  if (!selectedTopic) return;
-  setGenerating(true);
-  try {
-    const existing = seriesList.map(s => s.name).join(', ');
+    if (!selectedTopic) return;
+    setGenerating(true);
+    try {
+      const existing = seriesList.map(s => s.name).join(', ');
 
-    // AI se type detect karo
-   const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
+      // AI se type detect karo — yahi folder determine karega
+      const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
 Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
-If none match, create a simple one or two word category using underscores (e.g. fairy_tale, emotions, science).
+If none match exactly, return the closest 1-2 word lowercase category using underscores (e.g. clothing, computer_part, stationery, toy, furniture).
+IMPORTANT: "computer parts" → "computer_part", "clothes" → "clothing", "toys" → "toy"
 Return ONLY the single word or phrase, nothing else.`);
-const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
-    const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
+      const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
+
+      const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
 [{"name":"Lion","object":"golden lion with fluffy mane"}]
@@ -497,27 +514,31 @@ RULES for "object" field:
 - Example GOOD: "golden lion with fluffy mane", "red apple with a leaf", "colorful parrot with green feathers"
 - Example BAD: "lion lounging under a tree in savanna", "apple on a table in kitchen"
 - Max 6 words, just the item appearance`);
-    const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-    if (getSeriesType(selectedTopic.name) === 'number') {
-      items.forEach(item => {
-        const n = parseInt(item.name);
-        if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
+      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      if (getSeriesType(selectedTopic.name) === 'number') {
+        items.forEach(item => {
+          const n = parseInt(item.name);
+          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
+        });
+      }
+      await saveSeries(user.uid, {
+        name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor,
+        items, doneSections: {}, doneCount: 0, progress: 0,
+        part: 1, ytTitle: '', ytDescription: '', type: detectedType
       });
-    }
-    await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '', type: detectedType });
-    toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
-    setModal('none'); setSelectedTopic(null); setCustomName('');
-    loadList();
-  } catch (e) { toast('❌ ' + e.message); }
-  setGenerating(false);
+      toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
+      setModal('none'); setSelectedTopic(null); setCustomName('');
+      loadList();
+    } catch (e) { toast('❌ ' + e.message); }
+    setGenerating(false);
   }
 
   async function continueSeries(e, series) {
-    e.stopPropagation(); // prevent card click
+    e.stopPropagation();
     setContinuing(series.id);
     try {
       const done = (series.items || []).map(i => i.name).join(', ');
-     const text = await aiCall(`Generate 5 MORE unique items for English learning kids series "${series.name}".
+      const text = await aiCall(`Generate 5 MORE unique items for English learning kids series "${series.name}".
 Already done (DO NOT repeat): ${done}
 Return ONLY JSON array:
 [{"name":"Tiger","object":"orange tiger with black stripes"}]
@@ -540,7 +561,7 @@ RULES for "object" field:
         emoji: series.emoji, color: series.color,
         items: newItems, doneSections: {}, doneCount: 0, progress: 0,
         part: newPart, ytTitle: '', ytDescription: '',
-        type: series.type || 'general'
+        type: series.type || 'other'
       });
       toast(`🎉 Part ${newPart} ready!`);
       loadList();
@@ -562,12 +583,11 @@ RULES for "object" field:
   }
 
   async function generateTitleDesc(series) {
-  setGenTD(true);
-  try {
-    const itemNames = (series.items || []).map(i => i.name).join(', ');
-    const partText = series.part > 1 ? ` Part ${series.part}` : '';
-    
-    const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
+    setGenTD(true);
+    try {
+      const itemNames = (series.items || []).map(i => i.name).join(', ');
+      const partText = series.part > 1 ? ` Part ${series.part}` : '';
+      const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
 
 Series: "${series.name}${partText}"
 Items: ${itemNames}
@@ -595,15 +615,15 @@ DESCRIPTION RULES:
 
 RETURN ONLY JSON: {"title":"...","description":"..."}
 `);
-    const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
-    await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
-    const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
-    setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
-    setOpenSeries(updated);
-    toast('✅ Title & Description ready!');
-  } catch (e) { toast('❌ ' + e.message); }
-  setGenTD(false);
-}
+      const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
+      const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
+      setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+      setOpenSeries(updated);
+      toast('✅ Title & Description ready!');
+    } catch (e) { toast('❌ ' + e.message); }
+    setGenTD(false);
+  }
 
   async function saveTitleDesc(series, title, desc) {
     await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc });
@@ -624,7 +644,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
   }
 
   // ══════════════════════════════════════════════
-// LEVEL 3: SERIES DETAIL VIEW
+  // LEVEL 3: SERIES DETAIL VIEW
   // ══════════════════════════════════════════════
   if (openSeries) {
     const s = openSeries;
@@ -643,7 +663,11 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
         key: `item_${i}`,
         title: `${i+1}. ${item.name}`,
         color: s.color,
-        prompts: [{ type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }]
+        // ← CHANGE: ab IMAGE prompt bhi har item mein hai
+        prompts: [
+          { type: '🖼 IMAGE', text: buildItemImagePrompt(item, s.name) },
+          { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }
+        ]
       })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [
         { type: '🎬 VIDEO', text: buildOutroVideoPrompt(s.items || []) }
@@ -713,7 +737,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                               <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 16 }}>
                                 Page {animPage + 1} / {Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE)}
                               </div>
-
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
                                 {INTRO_ANIMATIONS.slice(animPage * ANIM_PER_PAGE, (animPage + 1) * ANIM_PER_PAGE).map(anim => (
                                   <button key={anim.id} onClick={() => setChosenAnim(anim.id)}
@@ -727,7 +750,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                                   </button>
                                 ))}
                               </div>
-
                               <div style={{ display: 'flex', gap: 8 }}>
                                 <button onClick={() => setAnimPage(p => Math.max(0, p - 1))} disabled={animPage === 0}
                                   style={{ flex: 1, background: animPage === 0 ? '#111' : '#1a1a2a', border: `1px solid ${animPage === 0 ? '#222' : '#334'}`, color: animPage === 0 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage === 0 ? 'not-allowed' : 'pointer' }}>
@@ -780,9 +802,8 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
   // LEVEL 2: FOLDER VIEW
   // ══════════════════════════════════════════════
   if (openFolder) {
-   const folder = getFolder(openFolder);
+    const folder = getFolder(openFolder);
     const grouped = groupSeriesByFolder(seriesList);
-    // Recent created first (already sorted by createdAt desc from Firestore)
     const seriesInFolder = grouped[openFolder] || [];
 
     return (
@@ -817,10 +838,9 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                     <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount||0}/{total} done</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
                   </div>
-                  <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden', marginBottom: nextPartExists ? 0 : 0 }}>
+                  <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
                   </div>
-                  {/* Continue button — only if next part does NOT exist */}
                   {!nextPartExists && (
                     <button
                       onClick={(e) => continueSeries(e, s)}
@@ -842,16 +862,14 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
   }
 
   // ══════════════════════════════════════════════
-
-
-// LEVEL 1: FOLDER LIST
+  // LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
-const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
-  const aLatest = grouped[a]?.[0]?.createdAt?.seconds || 0;
-  const bLatest = grouped[b]?.[0]?.createdAt?.seconds || 0;
-  return bLatest - aLatest;
-});
+  const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
+    const aLatest = grouped[a]?.[0]?.createdAt?.seconds || 0;
+    const bLatest = grouped[b]?.[0]?.createdAt?.seconds || 0;
+    return bLatest - aLatest;
+  });
 
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
@@ -880,7 +898,6 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
 
         {/* ── MODALS ── */}
         {modal === 'choose' && (
@@ -930,64 +947,64 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
         )}
 
         {modal === 'custom' && (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
-    <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
+            <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>FIVE</span>
-        <input
-          value={customName}
-          onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }}
-          placeholder="flowers, wild animals..."
-          maxLength={30}
-          style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }}
-        />
-        <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>Name</span>
-      </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>FIVE</span>
+                <input
+                  value={customName}
+                  onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }}
+                  placeholder="flowers, wild animals..."
+                  maxLength={30}
+                  style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }}
+                />
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>Name</span>
+              </div>
 
-      {customName.trim() && (
-        <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
-          👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span>
-        </div>
-      )}
+              {customName.trim() && (
+                <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
+                  👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span>
+                </div>
+              )}
 
-      <button
-        onClick={loadCustomSuggestions}
-        disabled={customSugLoading}
-        style={{ width: '100%', background: customSugLoading ? '#111' : 'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading ? '#555' : '#cc88ff', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: customSugLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
-        {customSugLoading
-          ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#cc88ff' }} />AI soch raha hai...</>
-          : '🤖 AI se Ideas Lo'}
-      </button>
-
-      {aiSuggestions.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {aiSuggestions.map((sug, i) => (
-              <button key={i} onClick={() => setCustomName(sug)}
-                style={{ background: customName === sug ? 'rgba(204,136,255,0.2)' : '#1a001a', border: `1px solid ${customName === sug ? '#cc88ff' : '#440044'}`, color: customName === sug ? '#cc88ff' : '#aaa', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                {sug}
+              <button
+                onClick={loadCustomSuggestions}
+                disabled={customSugLoading}
+                style={{ width: '100%', background: customSugLoading ? '#111' : 'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading ? '#555' : '#cc88ff', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: customSugLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
+                {customSugLoading
+                  ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#cc88ff' }} />AI soch raha hai...</>
+                  : '🤖 AI se Ideas Lo'}
               </button>
-            ))}
-          </div>
-        </div>
-      )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={submitCustom} disabled={!customName.trim()}
-          style={{ flex: 2, background: customName.trim() ? 'linear-gradient(135deg,#550055,#330033)' : '#111', border: '1px solid #660066', color: customName.trim() ? '#cc88ff' : '#444', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: customName.trim() ? 'pointer' : 'not-allowed' }}>
-          Next →
-        </button>
-        <button onClick={() => { setModal('choose'); setAiSuggestions([]); setCustomName(''); }}
-          style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          ← Back
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+              {aiSuggestions.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {aiSuggestions.map((sug, i) => (
+                      <button key={i} onClick={() => setCustomName(sug)}
+                        style={{ background: customName === sug ? 'rgba(204,136,255,0.2)' : '#1a001a', border: `1px solid ${customName === sug ? '#cc88ff' : '#440044'}`, color: customName === sug ? '#cc88ff' : '#aaa', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={submitCustom} disabled={!customName.trim()}
+                  style={{ flex: 2, background: customName.trim() ? 'linear-gradient(135deg,#550055,#330033)' : '#111', border: '1px solid #660066', color: customName.trim() ? '#cc88ff' : '#444', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: customName.trim() ? 'pointer' : 'not-allowed' }}>
+                  Next →
+                </button>
+                <button onClick={() => { setModal('choose'); setAiSuggestions([]); setCustomName(''); }}
+                  style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  ← Back
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {modal === 'picker' && selectedTopic && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
@@ -1048,7 +1065,6 @@ const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
     </div>
   );
 }
-
 
 // ── Title & Description Sub-Component ────────────────────
 function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
