@@ -34,8 +34,6 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
-// ── Series type detect — now uses AI-detected type stored on series ───────────
-// Fallback only if type not stored
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
   if (n.includes('flower'))                                                                    return 'flower';
@@ -89,12 +87,9 @@ const KNOWN_FOLDERS = {
   tool:            { label: 'Tools & Objects',  emoji: '🔧', color: '#aaaaaa' },
 };
 
-// ── getFolder — AI-detected type se match karo, unknown types ke liye dynamic folder ──
 function getFolder(type) {
   if (KNOWN_FOLDERS[type]) return KNOWN_FOLDERS[type];
-  // Dynamic folder for AI-detected types not in KNOWN_FOLDERS
   const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  // Pick a color based on type string hash
   const colors = ['#ff6644','#44bbff','#ffaa44','#cc88ff','#44bb66','#ff4488','#4488ff','#ffcc00'];
   const idx = type.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
   return { label, emoji: '📦', color: colors[idx] };
@@ -103,7 +98,6 @@ function getFolder(type) {
 function groupSeriesByFolder(seriesList) {
   const groups = {};
   seriesList.forEach(s => {
-    // Use AI-detected type stored on series first, fallback to name-based detect
     const type = s.type || getSeriesType(s.name);
     if (!groups[type]) groups[type] = [];
     groups[type].push(s);
@@ -119,6 +113,60 @@ function hasNextPart(series, allSeries) {
     const sBase = s.name.replace(/ Part \d+$/, '').trim();
     return sBase === baseName && (s.part || 1) === nextPart;
   });
+}
+
+// ── Schedule helpers ──────────────────────────────────────
+// Saturday → 1:00 PM | Sunday → 10:00 AM | Mon-Fri → 3:00 PM
+function getTimeForDay(day) {
+  if (day === 6) return { h: 13, m: 0 };
+  if (day === 0) return { h: 10, m: 0 };
+  return { h: 15, m: 0 };
+}
+
+function getOccupiedDates(ytVideos) {
+  const occupied = new Set();
+  ytVideos.forEach(v => {
+    const d = v.scheduledAt || v.publishedAt;
+    if (d) {
+      const date = new Date(d);
+      occupied.add(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`);
+    }
+  });
+  return occupied;
+}
+
+// Aaj se aage pehla FREE din dhundo (jis din koi video na ho)
+function findNextFreeSlot(ytVideos) {
+  const occupied = getOccupiedDates(ytVideos);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i <= 60; i++) {
+    const candidate = new Date(today);
+    candidate.setDate(today.getDate() + i);
+    const key = `${candidate.getFullYear()}-${candidate.getMonth()}-${candidate.getDate()}`;
+    if (!occupied.has(key)) {
+      const { h, m } = getTimeForDay(candidate.getDay());
+      candidate.setHours(h, m, 0, 0);
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function formatSlotDisplay(date) {
+  if (!date) return '';
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dayName = days[date.getDay()];
+  const d = date.getDate();
+  const mon = months[date.getMonth()];
+  const yr = date.getFullYear();
+  let h = date.getHours();
+  const min = date.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${dayName}, ${d} ${mon} ${yr} — ${h}:${min} ${ampm}`;
 }
 
 function buildIntroImagePrompt(seriesName, items = []) {
@@ -168,13 +216,11 @@ function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') 
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
   const objectLine = firstItem ? `Teacher bends down, picks up a big ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
-
   let anim = INTRO_ANIMATIONS.find(a => a.id === animationId);
   if (!anim || anim.id === 'random') {
     const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
     anim = nonRandom[Math.floor(Math.random() * nonRandom.length)];
   }
-
   return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${n}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${items.length} ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
@@ -182,11 +228,9 @@ function buildOutroVideoPrompt(items = []) {
   const last = items?.[items.length - 1];
   const lastName = last?.name || 'the object';
   const lastObj  = (last?.object || last?.name || '').toLowerCase();
-
   const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => lastObj.includes(w));
   const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => lastObj.includes(w));
   const isHeavy = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep'].some(w => lastObj.includes(w));
-
   let outroAction = '';
   if (isBird) {
     outroAction = `Teacher gently picks up the last ${lastName} with both hands carefully, lifts it toward the open window, and softly releases it — the bird flaps its wings and flies away off screen. Teacher watches it fly away with a warm smile.`;
@@ -197,7 +241,6 @@ function buildOutroVideoPrompt(items = []) {
   } else {
     outroAction = `Teacher picks up the last ${lastName} with both hands, carries it to the side, and places it neatly off screen. Teacher comes back to center, dusts hands and smiles at camera.`;
   }
-
   return `Use reference image exactly as background scene. Any text on screen fades away completely. ${outroAction} Screen is clean with only teacher visible at center. Teacher waves goodbye to camera with big smile and says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 10 seconds. Smooth. No floating objects. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
@@ -252,7 +295,6 @@ function cleanObjectDesc(obj) {
     .trim();
 }
 
-// ── Check if object is "large" — should be on floor, not in hand ──
 function isLargeObject(objectName) {
   const o = (objectName || '').toLowerCase();
   return ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep',
@@ -261,7 +303,6 @@ function isLargeObject(objectName) {
     'washing machine','bicycle','bike','motorcycle','scooter','cycle'].some(w => o.includes(w));
 }
 
-// ── Build IMAGE prompt for each item ──
 function buildItemImagePrompt(item, seriesName) {
   const cleanObj = cleanObjectDesc(item.object) || item.name;
   const large = isLargeObject(item.object || item.name);
@@ -271,11 +312,9 @@ function buildItemImagePrompt(item, seriesName) {
   return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center-left, smiling excitedly. ${placement} Bold glowing rainbow text "${item.name.toUpperCase()}" at very bottom center with sparkles. 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
 }
 
-// ── MAIN VIDEO PROMPT ──
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
 
-  // ── Numbers ──
   if (type === 'number') {
     const num = item.name;
     const hindiNum = item.hindiName || num;
@@ -284,7 +323,6 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
     return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
 
-  // ── Body Parts ──
   if (type === 'body') {
     const action = getBodyPartAction(item.object);
     const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
@@ -292,10 +330,8 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
     return `Use reference image exactly as background scene. Teacher standing center facing camera. ${action} while asking in Hindi: "${q}". Teacher keeps showing the body part the entire time during the question — do not stop. Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher still holds the pose. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
   }
 
-  // ── All other types ──
   const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
   const qText = `यह क्या है?`;
-
   const objLower = cleanObjectDesc(item.object || item.name || '').toLowerCase();
   const cleanObj = cleanObjectDesc(item.object) || item.name;
 
@@ -308,7 +344,8 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   let teacherAction = '';
 
   if (isBird) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting on a small wooden perch or branch at center-right of screen at eye level. Bird is large and clearly visible — not small. Bird sits still, looking at camera curiously, feathers gently ruffling. No floating. No flying.`;
+    // ← FIXED: Floor pe, bigger size, no perch
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) standing on the floor at center-right of screen. Bird is large and clearly visible — significantly bigger than real life. Bird faces toward teacher, standing still with wings slightly open, looking at camera with a cute curious expression. No floating. No flying. No perch.`;
     teacherAction = `Teacher points to the ${item.name} with one finger curiously while asking`;
   } else if (isAnimal) {
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible — not small. Animal looks toward camera curiously. No floating. Not jumping.`;
@@ -317,7 +354,6 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) parked on the floor at center-right of screen. Object is large and clearly visible — not small. No floating.`;
     teacherAction = `Teacher walks to the ${item.name}, places hand on it proudly while asking`;
   } else if (isSmall) {
-    // Small objects — teacher holds in hand
     placementDesc = `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, clearly showing it. Object fills most of the frame and is large and clearly visible.`;
     teacherAction = `Teacher holds the ${item.name} up toward camera and looks at it curiously while asking`;
   } else {
@@ -400,6 +436,11 @@ function CreateSeriesPage({ user }) {
   const [animPage, setAnimPage]           = useState(0);
   const [chosenAnim, setChosenAnim]       = useState('random');
 
+  // ── Schedule states ───────────────────────────────────
+  const [scheduleSlot, setScheduleSlot]     = useState(null);
+  const [scheduleModal, setScheduleModal]   = useState(false);
+  const [scheduleCopied, setScheduleCopied] = useState(false);
+
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
   async function loadList() {
@@ -413,7 +454,11 @@ function CreateSeriesPage({ user }) {
     try {
       const r = await fetch('/api/youtube');
       const d = await r.json();
-      if (!d.error) setYtVideos(d.videos || []);
+      if (!d.error) {
+        const vids = d.videos || [];
+        setYtVideos(vids);
+        setScheduleSlot(findNextFreeSlot(vids));
+      }
     } catch {}
     setYtLoading(false);
   }
@@ -482,7 +527,6 @@ Already created series: ${existing}
 User hint: "${hint}" (can be empty)
 Suggest exactly 6 unique kids educational topics that have NOT been created yet.
 These will be used as: "Five [topic] Name"
-Examples: "Flowers", "Wild Animals", "Insects", "Planets", "Body Parts", "Musical Instruments"
 Return ONLY a JSON array of single words or short phrases (max 2 words each), no markdown:
 ["Flowers","Wild Animals","Insects","Planets","Body Parts","Musical Instruments"]`);
       const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
@@ -496,23 +540,17 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
     setGenerating(true);
     try {
       const existing = seriesList.map(s => s.name).join(', ');
-
-      // AI se type detect karo — yahi folder determine karega
       const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
 Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
-If none match exactly, return the closest 1-2 word lowercase category using underscores (e.g. clothing, computer_part, stationery, toy, furniture).
-IMPORTANT: "computer parts" → "computer_part", "clothes" → "clothing", "toys" → "toy"
+If none match exactly, return the closest 1-2 word lowercase category using underscores.
 Return ONLY the single word or phrase, nothing else.`);
       const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
-
       const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
 [{"name":"Lion","object":"golden lion with fluffy mane"}]
 RULES for "object" field:
 - Describe ONLY the animal/object itself — no location, no background, no scene
-- Example GOOD: "golden lion with fluffy mane", "red apple with a leaf", "colorful parrot with green feathers"
-- Example BAD: "lion lounging under a tree in savanna", "apple on a table in kitchen"
 - Max 6 words, just the item appearance`);
       const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       if (getSeriesType(selectedTopic.name) === 'number') {
@@ -544,8 +582,6 @@ Return ONLY JSON array:
 [{"name":"Tiger","object":"orange tiger with black stripes"}]
 RULES for "object" field:
 - Describe ONLY the animal/object itself — no location, no background, no scene
-- Example GOOD: "orange tiger with black stripes", "yellow banana", "blue school bag"
-- Example BAD: "tiger in jungle", "banana on table", "bag near door"
 - Max 6 words, just the item appearance`);
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       if (getSeriesType(series.name) === 'number') {
@@ -588,33 +624,16 @@ RULES for "object" field:
       const itemNames = (series.items || []).map(i => i.name).join(', ');
       const partText = series.part > 1 ? ` Part ${series.part}` : '';
       const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
-
 Series: "${series.name}${partText}"
 Items: ${itemNames}
-Format: YouTube SHORT (vertical 9:16)
-Target audience: Indian parents searching for kids learning content
-
-TITLE RULES (VERY IMPORTANT):
-- Max 60 characters
-- Must include BOTH Hindi words (Devanagari) AND English
-- Pattern: "[Emoji] [Hindi phrase] | [English phrase] | Rang Tarang"
-- Include item count if possible (10, 20 etc)
-- Use high-search Hindi words: के नाम, सीखो, बच्चों के लिए, नाम सीखें
-- Examples:
-  "🌸 5 फूलों के नाम | Flowers Name in Hindi | Rang Tarang"
-  "🥦 सब्ज़ियों के नाम सीखो | 5 Vegetables Name | Rang Tarang"
-  "🔢 1 से 5 तक सीखो | Numbers 1 to 5 | Rang Tarang"
-
-DESCRIPTION RULES:
-- Line 1: Hook in Hindi — "बच्चों आज हम सीखेंगे [topic] के नाम! 🎉"
+TITLE: Max 60 chars, Hindi + English, pattern "[Emoji] [Hindi] | [English] | Rang Tarang"
+DESCRIPTION:
+- Line 1: Hook in Hindi
 - Line 2: "✅ इस video में: ${(series.items||[]).slice(0,5).map(i=>i.name).join(', ')}..."
-- Line 3: "👶 2-6 साल के बच्चों के लिए perfect learning video!"
-- Line 4: "🔔 Rang Tarang Subscribe karo — #Shorts #KidsLearning"
-- Line 5: Hashtags — mix of Hindi+English:
-  #Shorts #HindiKids #${series.name.replace(/\s+/g,'')} #बच्चोंकेलिए #LearnHindi #KidsSongs #RangTarang #EducationalShorts #HindiRhymes #BacchonKeGaane
-
-RETURN ONLY JSON: {"title":"...","description":"..."}
-`);
+- Line 3: "👶 2-6 साल के बच्चों के लिए perfect!"
+- Line 4: "🔔 Rang Tarang Subscribe karo"
+- Line 5: #Shorts #HindiKids #${series.name.replace(/\s+/g,'')} #बच्चोंकेलिए #LearnHindi #RangTarang #EducationalShorts
+RETURN ONLY JSON: {"title":"...","description":"..."}`);
       const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
       const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
@@ -663,7 +682,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
         key: `item_${i}`,
         title: `${i+1}. ${item.name}`,
         color: s.color,
-        // ← CHANGE: ab IMAGE prompt bhi har item mein hai
         prompts: [
           { type: '🖼 IMAGE', text: buildItemImagePrompt(item, s.name) },
           { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }
@@ -687,6 +705,8 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -696,6 +716,85 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
               <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 6 }} />
             </div>
           </div>
+
+          {/* ── SCHEDULE SLOT BUTTON — detail view mein ── */}
+          {!ytLoading && (
+            scheduleSlot ? (
+              <button
+                onClick={() => { setScheduleModal(true); setScheduleCopied(false); }}
+                style={{
+                  width: '100%', background: 'rgba(68,136,255,0.07)',
+                  border: '1px solid #4488ff44', borderRadius: 12,
+                  padding: '12px 16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>📅 NEXT FREE SLOT</div>
+                  <div style={{ fontSize: 13, color: '#ddd', fontWeight: 700 }}>{formatSlotDisplay(scheduleSlot)}</div>
+                </div>
+                <span style={{ fontSize: 18, color: '#4488ff' }}>→</span>
+              </button>
+            ) : (
+              <div style={{ background: '#0f0f0f', border: '1px solid #222', borderRadius: 12, padding: '12px 16px', fontSize: 12, color: '#444', textAlign: 'center' }}>
+                📅 60 dino mein koi free slot nahi
+              </div>
+            )
+          )}
+
+          {/* ── SCHEDULE CONFIRM MODAL ── */}
+          {scheduleModal && scheduleSlot && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 3000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
+              <div style={{ background: '#080e1a', border: '1px solid #4488ff55', borderRadius: 20, padding: 22, width: '100%' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#4488ff', textAlign: 'center', marginBottom: 4 }}>📅 Schedule Confirm Karo</div>
+                <div style={{ fontSize: 11, color: '#444', textAlign: 'center', marginBottom: 16 }}>Yeh din YouTube pe FREE hai — koi video nahi</div>
+
+                {/* Date display */}
+                <div style={{ background: 'rgba(68,136,255,0.1)', border: '1px solid #4488ff33', borderRadius: 14, padding: '18px', textAlign: 'center', marginBottom: 14 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#ccc', marginBottom: 6 }}>
+                    {formatSlotDisplay(scheduleSlot).split('—')[0].trim()}
+                  </div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: '#4488ff', marginBottom: 6 }}>
+                    {formatSlotDisplay(scheduleSlot).split('—')[1]?.trim()}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#555' }}>
+                    {scheduleSlot.getDay() === 6 ? '🗓 Saturday — 1:00 PM fixed' : scheduleSlot.getDay() === 0 ? '🗓 Sunday — 10:00 AM fixed' : '🗓 Weekday — 3:00 PM fixed'}
+                  </div>
+                </div>
+
+                {/* ISO string */}
+                <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#555', fontFamily: 'monospace', marginBottom: 14, wordBreak: 'break-all' }}>
+                  {scheduleSlot.toISOString()}
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(scheduleSlot.toISOString());
+                      setScheduleCopied(true);
+                      toast('📋 ISO time copied! YouTube Studio mein paste karo.');
+                    }}
+                    style={{
+                      flex: 2,
+                      background: scheduleCopied ? 'rgba(68,187,102,0.15)' : 'linear-gradient(135deg,#0a1a44,#05102a)',
+                      border: `1px solid ${scheduleCopied ? '#44bb66' : '#4488ff'}`,
+                      color: scheduleCopied ? '#44bb66' : '#4488ff',
+                      borderRadius: 12, padding: '13px',
+                      fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                    }}>
+                    {scheduleCopied ? '✅ Copied!' : '📋 ISO Copy Karo'}
+                  </button>
+                  <button
+                    onClick={() => setScheduleModal(false)}
+                    style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    Close
+                  </button>
+                </div>
+                <div style={{ fontSize: 10, color: '#2a2a2a', textAlign: 'center', marginTop: 10 }}>
+                  💡 YouTube Studio → Schedule → Paste ISO time
+                </div>
+              </div>
+            </div>
+          )}
 
           <TitleDescSection
             series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
@@ -718,8 +817,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                 </div>
                 {isOpen && (
                   <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-                    {/* Animation selector — sirf intro ke liye */}
                     {sec.key === 'intro' && (
                       <>
                         <button onClick={() => { setAnimModal(true); setAnimPage(0); }}
@@ -729,14 +826,11 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                             {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.emoji} {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.label}
                           </span>
                         </button>
-
                         {animModal && (
                           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
                             <div style={{ background: '#0a0a1a', border: '1px solid #334', borderRadius: 20, padding: 20, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
                               <div style={{ fontSize: 14, fontWeight: 800, color: '#88aaff', marginBottom: 4, textAlign: 'center' }}>🎬 Animation Chuno</div>
-                              <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 16 }}>
-                                Page {animPage + 1} / {Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE)}
-                              </div>
+                              <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 16 }}>Page {animPage + 1} / {Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE)}</div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
                                 {INTRO_ANIMATIONS.slice(animPage * ANIM_PER_PAGE, (animPage + 1) * ANIM_PER_PAGE).map(anim => (
                                   <button key={anim.id} onClick={() => setChosenAnim(anim.id)}
@@ -752,32 +846,23 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                               </div>
                               <div style={{ display: 'flex', gap: 8 }}>
                                 <button onClick={() => setAnimPage(p => Math.max(0, p - 1))} disabled={animPage === 0}
-                                  style={{ flex: 1, background: animPage === 0 ? '#111' : '#1a1a2a', border: `1px solid ${animPage === 0 ? '#222' : '#334'}`, color: animPage === 0 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage === 0 ? 'not-allowed' : 'pointer' }}>
-                                  ← Prev
-                                </button>
+                                  style={{ flex: 1, background: animPage === 0 ? '#111' : '#1a1a2a', border: `1px solid ${animPage === 0 ? '#222' : '#334'}`, color: animPage === 0 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage === 0 ? 'not-allowed' : 'pointer' }}>← Prev</button>
                                 <button onClick={() => setAnimModal(false)}
-                                  style={{ flex: 2, background: 'linear-gradient(135deg,#1a2255,#0a1133)', border: '1px solid #4488ff', color: '#4488ff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                                  ✅ Select Karo
-                                </button>
+                                  style={{ flex: 2, background: 'linear-gradient(135deg,#1a2255,#0a1133)', border: '1px solid #4488ff', color: '#4488ff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>✅ Select Karo</button>
                                 <button onClick={() => setAnimPage(p => Math.min(Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1, p + 1))} disabled={animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1}
-                                  style={{ flex: 1, background: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#111' : '#1a1a2a', border: `1px solid ${animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#222' : '#334'}`, color: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? 'not-allowed' : 'pointer' }}>
-                                  Next →
-                                </button>
+                                  style={{ flex: 1, background: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#111' : '#1a1a2a', border: `1px solid ${animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#222' : '#334'}`, color: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? 'not-allowed' : 'pointer' }}>Next →</button>
                               </div>
                             </div>
                           </div>
                         )}
                       </>
                     )}
-
                     {sec.prompts.map((p, pi) => {
                       const bck = `bottom_${sec.key}_${pi}`;
                       return (
                         <div key={pi}>
                           <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>{p.type}</div>
-                          <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>
-                            {p.text}
-                          </div>
+                          <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>{p.text}</div>
                           <button onClick={() => copy(bck, p.text)}
                             style={{ background: copiedKey===bck ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey===bck ? '#4488ff' : '#223355'}`, color: copiedKey===bck ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%', marginTop: 6 }}>
                             {copiedKey===bck ? '✅ Copied!' : `📋 Copy ${p.type}`}
@@ -805,7 +890,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
     const folder = getFolder(openFolder);
     const grouped = groupSeriesByFolder(seriesList);
     const seriesInFolder = grouped[openFolder] || [];
-
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
@@ -813,7 +897,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
           <span style={{ fontSize: 13, fontWeight: 700, color: folder.color }}>{folder.emoji} {folder.label}</span>
           <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{seriesInFolder.length} series</span>
         </div>
-
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {seriesInFolder.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40 }}>
@@ -827,7 +910,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
             const uploadText = ytLoading ? '🔍...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled' : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
             const nextPartExists = hasNextPart(s, seriesList);
             const isContinuing = continuing === s.id;
-
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: `1px solid #1e1e1e`, borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -842,13 +924,9 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                     <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
                   </div>
                   {!nextPartExists && (
-                    <button
-                      onClick={(e) => continueSeries(e, s)}
-                      disabled={isContinuing}
+                    <button onClick={(e) => continueSeries(e, s)} disabled={isContinuing}
                       style={{ marginTop: 10, background: isContinuing ? '#111' : `${s.color}18`, border: `1px solid ${s.color}55`, color: isContinuing ? '#555' : s.color, borderRadius: 8, padding: '7px 12px', fontSize: 11, fontWeight: 700, cursor: isContinuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
-                      {isContinuing
-                        ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</>
-                        : `➕ Continue → Part ${(s.part || 1) + 1}`}
+                      {isContinuing ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</> : `➕ Continue → Part ${(s.part || 1) + 1}`}
                     </button>
                   )}
                 </div>
@@ -875,16 +953,11 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
-
         <button onClick={() => {
           const names = seriesList.map(s => s.name).join('\n');
-          const msg = `Ye series already bani hain:\n${names}\n\nAur kya banau?`;
-          navigator.clipboard.writeText(msg);
+          navigator.clipboard.writeText(`Ye series already bani hain:\n${names}\n\nAur kya banau?`);
           toast('📋 Copied!');
-        }} style={{ background: 'none', border: '1px solid #cc88ff55', color: '#cc88ff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-          📋 Copy
-        </button>
-
+        }} style={{ background: 'none', border: '1px solid #cc88ff55', color: '#cc88ff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📋 Copy</button>
         {ytLoading ? (
           <button disabled style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.5 }}>+ Nayi</button>
         ) : (() => {
@@ -898,8 +971,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-        {/* ── MODALS ── */}
         {modal === 'choose' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -907,24 +978,17 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <button onClick={loadSuggestions} style={{ background: 'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', borderRadius: 14, padding: '16px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 32 }}>🤖</span>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 3 }}>AI Suggest Kare</div>
-                    <div style={{ fontSize: 11, color: '#777' }}>AI 4 topics suggest karega based on channel</div>
-                  </div>
+                  <div><div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 3 }}>AI Suggest Kare</div><div style={{ fontSize: 11, color: '#777' }}>AI 4 topics suggest karega based on channel</div></div>
                 </button>
                 <button onClick={() => setModal('custom')} style={{ background: '#0f0f0f', border: '1px solid #333', borderRadius: 14, padding: '16px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 32 }}>✏️</span>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 3 }}>Custom Series</div>
-                    <div style={{ fontSize: 11, color: '#777' }}>Khud series ka naam likho</div>
-                  </div>
+                  <div><div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 3 }}>Custom Series</div><div style={{ fontSize: 11, color: '#777' }}>Khud series ka naam likho</div></div>
                 </button>
               </div>
               <button onClick={() => setModal('none')} style={{ width: '100%', marginTop: 12, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         )}
-
         {modal === 'suggestions' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -945,39 +1009,21 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
             </div>
           </div>
         )}
-
         {modal === 'custom' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
-
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
                 <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>FIVE</span>
-                <input
-                  value={customName}
-                  onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }}
-                  placeholder="flowers, wild animals..."
-                  maxLength={30}
-                  style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }}
-                />
+                <input value={customName} onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }} placeholder="flowers, wild animals..." maxLength={30}
+                  style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>Name</span>
               </div>
-
-              {customName.trim() && (
-                <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
-                  👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span>
-                </div>
-              )}
-
-              <button
-                onClick={loadCustomSuggestions}
-                disabled={customSugLoading}
+              {customName.trim() && <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span></div>}
+              <button onClick={loadCustomSuggestions} disabled={customSugLoading}
                 style={{ width: '100%', background: customSugLoading ? '#111' : 'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading ? '#555' : '#cc88ff', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: customSugLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
-                {customSugLoading
-                  ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#cc88ff' }} />AI soch raha hai...</>
-                  : '🤖 AI se Ideas Lo'}
+                {customSugLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#cc88ff' }} />AI soch raha hai...</> : '🤖 AI se Ideas Lo'}
               </button>
-
               {aiSuggestions.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
@@ -991,21 +1037,15 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                   </div>
                 </div>
               )}
-
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={submitCustom} disabled={!customName.trim()}
-                  style={{ flex: 2, background: customName.trim() ? 'linear-gradient(135deg,#550055,#330033)' : '#111', border: '1px solid #660066', color: customName.trim() ? '#cc88ff' : '#444', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: customName.trim() ? 'pointer' : 'not-allowed' }}>
-                  Next →
-                </button>
+                  style={{ flex: 2, background: customName.trim() ? 'linear-gradient(135deg,#550055,#330033)' : '#111', border: '1px solid #660066', color: customName.trim() ? '#cc88ff' : '#444', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: customName.trim() ? 'pointer' : 'not-allowed' }}>Next →</button>
                 <button onClick={() => { setModal('choose'); setAiSuggestions([]); setCustomName(''); }}
-                  style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  ← Back
-                </button>
+                  style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
               </div>
             </div>
           </div>
         )}
-
         {modal === 'picker' && selectedTopic && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -1020,7 +1060,8 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
                 {COLORS.map(c => <div key={c} onClick={() => setSelectedColor(c)} style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: `3px solid ${selectedColor===c ? '#fff' : 'transparent'}`, transform: selectedColor===c ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.15s' }} />)}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={generateSeries} disabled={generating} style={{ flex: 2, background: generating ? '#1a001a' : 'linear-gradient(135deg,#550055,#330033)', border: '1px solid #660066', color: '#cc88ff', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: generating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <button onClick={generateSeries} disabled={generating}
+                  style={{ flex: 2, background: generating ? '#1a001a' : 'linear-gradient(135deg,#550055,#330033)', border: '1px solid #660066', color: '#cc88ff', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: generating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   {generating ? <><div className="spinner" style={{ borderTopColor: '#cc88ff', width: 16, height: 16 }} />Generating...</> : '🤖 Generate Karo'}
                 </button>
                 <button onClick={() => setModal('none')} style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
@@ -1029,7 +1070,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
           </div>
         )}
 
-        {/* ── FOLDER CARDS ── */}
         {loadingList ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
             <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} />
@@ -1045,14 +1085,11 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
           const folder = getFolder(type);
           const seriesInFolder = grouped[type];
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
-
           return (
             <div key={type} onClick={() => setOpenFolder(type)}
               style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
-                {folder.emoji}
-              </div>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{folder.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
                 <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
@@ -1066,17 +1103,11 @@ RETURN ONLY JSON: {"title":"...","description":"..."}
   );
 }
 
-// ── Title & Description Sub-Component ────────────────────
 function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle]     = useState(series.ytTitle || '');
   const [desc, setDesc]       = useState(series.ytDescription || '');
-
-  useEffect(() => {
-    setTitle(series.ytTitle || '');
-    setDesc(series.ytDescription || '');
-  }, [series.ytTitle, series.ytDescription]);
-
+  useEffect(() => { setTitle(series.ytTitle || ''); setDesc(series.ytDescription || ''); }, [series.ytTitle, series.ytDescription]);
   return (
     <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
       <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
