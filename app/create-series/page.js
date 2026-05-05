@@ -34,6 +34,7 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
+// ── Series type — only used as fallback for OLD series without type stored ──
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
   if (n.includes('flower'))                                                                    return 'flower';
@@ -51,7 +52,7 @@ function getSeriesType(seriesName) {
   if (n.includes('instrument') || n.includes('music'))                                         return 'instrument';
   if (n.includes('space') || n.includes('planet'))                                             return 'space';
   if (n.includes('weather') || n.includes('season'))                                           return 'weather';
-  if (n.includes('tool') || n.includes('computer') || n.includes('part'))                     return 'tool';
+  if (n.includes('tool'))                                                                       return 'tool';
   if (n.includes('sound'))                                                                      return 'animal_sound';
   if (n.includes('insect') || n.includes('bug'))                                               return 'insect';
   if (n.includes('bird') || n.includes('parrot') || n.includes('sparrow'))                    return 'bird';
@@ -62,6 +63,7 @@ function getSeriesType(seriesName) {
   return 'other';
 }
 
+// ── KNOWN_FOLDERS — only for very common types as fallback ──
 const KNOWN_FOLDERS = {
   number:          { label: 'Numbers',          emoji: '🔢', color: '#4488ff' },
   wild_animal:     { label: 'Wild Animals',     emoji: '🦁', color: '#ff6600' },
@@ -84,11 +86,21 @@ const KNOWN_FOLDERS = {
   instrument:      { label: 'Instruments',      emoji: '🎵', color: '#aa88ff' },
   space:           { label: 'Space',            emoji: '🚀', color: '#4444ff' },
   weather:         { label: 'Weather',          emoji: '⛅', color: '#44bbff' },
-  tool:            { label: 'Tools & Objects',  emoji: '🔧', color: '#aaaaaa' },
+  tool:            { label: 'Tools',            emoji: '🔧', color: '#aaaaaa' },
 };
 
-function getFolder(type) {
+// ── getFolder — AI-saved meta se folder banao, fallback KNOWN_FOLDERS ──
+function getFolder(type, seriesList = []) {
+  // 1. KNOWN_FOLDERS check
   if (KNOWN_FOLDERS[type]) return KNOWN_FOLDERS[type];
+  // 2. Kisi series mein is type ka AI-generated meta hai?
+  const sample = seriesList.find(s => (s.type || getSeriesType(s.name)) === type && s.folderLabel);
+  if (sample) return {
+    label: sample.folderLabel,
+    emoji: sample.folderEmoji || '📦',
+    color: sample.folderColor || '#888888',
+  };
+  // 3. Last fallback — type string se label banao
   const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const colors = ['#ff6644','#44bbff','#ffaa44','#cc88ff','#44bb66','#ff4488','#4488ff','#ffcc00'];
   const idx = type.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
@@ -116,7 +128,6 @@ function hasNextPart(series, allSeries) {
 }
 
 // ── Schedule helpers ──────────────────────────────────────
-// Saturday → 1:00 PM | Sunday → 10:00 AM | Mon-Fri → 3:00 PM
 function getTimeForDay(day) {
   if (day === 6) return { h: 13, m: 0 };
   if (day === 0) return { h: 10, m: 0 };
@@ -135,12 +146,10 @@ function getOccupiedDates(ytVideos) {
   return occupied;
 }
 
-// Aaj se aage pehla FREE din dhundo (jis din koi video na ho)
 function findNextFreeSlot(ytVideos) {
   const occupied = getOccupiedDates(ytVideos);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   for (let i = 0; i <= 60; i++) {
     const candidate = new Date(today);
     candidate.setDate(today.getDate() + i);
@@ -169,6 +178,19 @@ function formatSlotDisplay(date) {
   return `${dayName}, ${d} ${mon} ${yr} — ${h}:${min} ${ampm}`;
 }
 
+// ── Format scheduled time for series card ──
+function formatScheduledTime(isoString) {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = date.getHours();
+  const min = date.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} • ${h}:${min} ${ampm}`;
+}
+
 function buildIntroImagePrompt(seriesName, items = []) {
   const first3 = items.slice(0, 3);
   const positions = ['bottom left', 'bottom center', 'bottom right'];
@@ -180,36 +202,36 @@ function buildIntroImagePrompt(seriesName, items = []) {
 }
 
 const INTRO_ANIMATIONS = [
-  { id: 'slide_right',    label: 'Slide Right',        emoji: '👉', desc: 'Teacher grabs title and slides it off screen to the right dramatically.' },
-  { id: 'slide_left',     label: 'Slide Left',         emoji: '👈', desc: 'Teacher grabs title and slides it off screen to the left with a spin.' },
-  { id: 'slide_up',       label: 'Slide Up',           emoji: '⬆️', desc: 'Teacher pushes title upward with both hands — it flies off screen to the top.' },
-  { id: 'slide_down',     label: 'Slide Down',         emoji: '⬇️', desc: 'Teacher pushes title downward — it slides off screen to the bottom.' },
-  { id: 'jump_push',      label: 'Jump Push',          emoji: '🦘', desc: 'Teacher does a big jump and pushes the title upward — title flies off screen.' },
-  { id: 'kick',           label: 'Big Kick',           emoji: '🦵', desc: 'Teacher runs toward title, does a big kick and sends it flying off screen.' },
-  { id: 'pullup',         label: 'Pull Up Swing',      emoji: '🤸', desc: 'Teacher grabs title with one hand, does a funny pull-up swinging on it, then flings it off screen.' },
-  { id: 'spin_fling',     label: 'Spin & Fling',       emoji: '🌀', desc: 'Teacher grabs title and spins around holding it, then lets go — it flies off screen.' },
-  { id: 'blow_away',      label: 'Blow Away',          emoji: '💨', desc: 'Teacher blows a big puff of air toward title — it wobbles and flies off screen like wind.' },
-  { id: 'shatter',        label: 'Shatter',            emoji: '💥', desc: 'Teacher taps title with one finger — it shatters into colorful pieces and disappears.' },
-  { id: 'shrink',         label: 'Shrink Away',        emoji: '🔍', desc: 'Teacher pinches title with fingers — it shrinks smaller and smaller until it disappears.' },
-  { id: 'bounce_off',     label: 'Bounce Off',         emoji: '🏀', desc: 'Teacher bounces title like a basketball — it bounces off screen.' },
-  { id: 'fold_paper',     label: 'Fold Like Paper',    emoji: '📄', desc: 'Title folds itself like origami paper and disappears into a tiny dot.' },
-  { id: 'crumple',        label: 'Crumple',            emoji: '🗞️', desc: 'Teacher crumples title like paper into a ball and throws it off screen.' },
-  { id: 'melt',           label: 'Melt Away',          emoji: '🌡️', desc: 'Title slowly melts downward like ice cream and disappears.' },
-  { id: 'black_hole',     label: 'Black Hole',         emoji: '🕳️', desc: 'A small black hole appears and sucks the title into it — poof!' },
-  { id: 'backflip',       label: 'Teacher Backflip',   emoji: '🤾', desc: 'Teacher does a dramatic backflip and knocks the title off screen with feet.' },
-  { id: 'magic_wand',     label: 'Magic Wand',         emoji: '🪄', desc: 'Teacher waves a magic wand — title sparkles and disappears in a poof of stars.' },
-  { id: 'scissors',       label: 'Scissors Cut',       emoji: '✂️', desc: 'Teacher uses giant scissors to cut the title in half — both pieces fall off screen.' },
-  { id: 'lasso',          label: 'Lasso Pull',         emoji: '🤠', desc: 'Teacher throws a lasso around title, pulls hard — title flies toward teacher and off screen.' },
-  { id: 'slide_ride',     label: 'Slide Ride',         emoji: '🎢', desc: 'Teacher sits on top of title and rides it like a slide off screen.' },
-  { id: 'bat_hit',        label: 'Bat Hit',            emoji: '⚾', desc: 'Teacher swings a giant bat and hits title like a baseball — it flies off screen.' },
-  { id: 'rope_pull',      label: 'Rope Pull',          emoji: '🪢', desc: 'Teacher ties rope around title and pulls with all strength — title zips off screen.' },
-  { id: 'tug_of_war',     label: 'Tug of War',         emoji: '💪', desc: 'Teacher and title do tug of war — teacher wins and title flies off screen.' },
-  { id: 'vacuum',         label: 'Vacuum Suck',        emoji: '🌪️', desc: 'Teacher uses a giant vacuum cleaner — title gets sucked into it and disappears.' },
-  { id: 'sneeze',         label: 'Sneeze Away',        emoji: '🤧', desc: 'Teacher does a giant sneeze — title flies off screen from the force.' },
-  { id: 'banana_slip',    label: 'Banana Slip',        emoji: '🍌', desc: 'Teacher slips on banana peel toward title — crashes into it and sends it flying off screen.' },
-  { id: 'rocket',         label: 'Rocket Launch',      emoji: '🚀', desc: 'Teacher attaches tiny rocket to title — it launches off screen with fire trail.' },
-  { id: 'soap_bubble',    label: 'Soap Bubble Pop',    emoji: '🫧', desc: 'Title inflates like a soap bubble getting bigger and bigger — then pops and disappears.' },
-  { id: 'random',         label: 'Random',             emoji: '🎲', desc: 'Different animation every time — surprise!' },
+  { id: 'slide_right',  label: 'Slide Right',      emoji: '👉', desc: 'Teacher grabs title and slides it off screen to the right dramatically.' },
+  { id: 'slide_left',   label: 'Slide Left',        emoji: '👈', desc: 'Teacher grabs title and slides it off screen to the left with a spin.' },
+  { id: 'slide_up',     label: 'Slide Up',          emoji: '⬆️', desc: 'Teacher pushes title upward with both hands — it flies off screen to the top.' },
+  { id: 'slide_down',   label: 'Slide Down',        emoji: '⬇️', desc: 'Teacher pushes title downward — it slides off screen to the bottom.' },
+  { id: 'jump_push',    label: 'Jump Push',         emoji: '🦘', desc: 'Teacher does a big jump and pushes the title upward — title flies off screen.' },
+  { id: 'kick',         label: 'Big Kick',          emoji: '🦵', desc: 'Teacher runs toward title, does a big kick and sends it flying off screen.' },
+  { id: 'pullup',       label: 'Pull Up Swing',     emoji: '🤸', desc: 'Teacher grabs title with one hand, does a funny pull-up swinging on it, then flings it off screen.' },
+  { id: 'spin_fling',   label: 'Spin & Fling',      emoji: '🌀', desc: 'Teacher grabs title and spins around holding it, then lets go — it flies off screen.' },
+  { id: 'blow_away',    label: 'Blow Away',         emoji: '💨', desc: 'Teacher blows a big puff of air toward title — it wobbles and flies off screen like wind.' },
+  { id: 'shatter',      label: 'Shatter',           emoji: '💥', desc: 'Teacher taps title with one finger — it shatters into colorful pieces and disappears.' },
+  { id: 'shrink',       label: 'Shrink Away',       emoji: '🔍', desc: 'Teacher pinches title with fingers — it shrinks smaller and smaller until it disappears.' },
+  { id: 'bounce_off',   label: 'Bounce Off',        emoji: '🏀', desc: 'Teacher bounces title like a basketball — it bounces off screen.' },
+  { id: 'fold_paper',   label: 'Fold Like Paper',   emoji: '📄', desc: 'Title folds itself like origami paper and disappears into a tiny dot.' },
+  { id: 'crumple',      label: 'Crumple',           emoji: '🗞️', desc: 'Teacher crumples title like paper into a ball and throws it off screen.' },
+  { id: 'melt',         label: 'Melt Away',         emoji: '🌡️', desc: 'Title slowly melts downward like ice cream and disappears.' },
+  { id: 'black_hole',   label: 'Black Hole',        emoji: '🕳️', desc: 'A small black hole appears and sucks the title into it — poof!' },
+  { id: 'backflip',     label: 'Teacher Backflip',  emoji: '🤾', desc: 'Teacher does a dramatic backflip and knocks the title off screen with feet.' },
+  { id: 'magic_wand',   label: 'Magic Wand',        emoji: '🪄', desc: 'Teacher waves a magic wand — title sparkles and disappears in a poof of stars.' },
+  { id: 'scissors',     label: 'Scissors Cut',      emoji: '✂️', desc: 'Teacher uses giant scissors to cut the title in half — both pieces fall off screen.' },
+  { id: 'lasso',        label: 'Lasso Pull',        emoji: '🤠', desc: 'Teacher throws a lasso around title, pulls hard — title flies toward teacher and off screen.' },
+  { id: 'slide_ride',   label: 'Slide Ride',        emoji: '🎢', desc: 'Teacher sits on top of title and rides it like a slide off screen.' },
+  { id: 'bat_hit',      label: 'Bat Hit',           emoji: '⚾', desc: 'Teacher swings a giant bat and hits title like a baseball — it flies off screen.' },
+  { id: 'rope_pull',    label: 'Rope Pull',         emoji: '🪢', desc: 'Teacher ties rope around title and pulls with all strength — title zips off screen.' },
+  { id: 'tug_of_war',   label: 'Tug of War',        emoji: '💪', desc: 'Teacher and title do tug of war — teacher wins and title flies off screen.' },
+  { id: 'vacuum',       label: 'Vacuum Suck',       emoji: '🌪️', desc: 'Teacher uses a giant vacuum cleaner — title gets sucked into it and disappears.' },
+  { id: 'sneeze',       label: 'Sneeze Away',       emoji: '🤧', desc: 'Teacher does a giant sneeze — title flies off screen from the force.' },
+  { id: 'banana_slip',  label: 'Banana Slip',       emoji: '🍌', desc: 'Teacher slips on banana peel toward title — crashes into it and sends it flying off screen.' },
+  { id: 'rocket',       label: 'Rocket Launch',     emoji: '🚀', desc: 'Teacher attaches tiny rocket to title — it launches off screen with fire trail.' },
+  { id: 'soap_bubble',  label: 'Soap Bubble Pop',   emoji: '🫧', desc: 'Title inflates like a soap bubble getting bigger and bigger — then pops and disappears.' },
+  { id: 'random',       label: 'Random',            emoji: '🎲', desc: 'Different animation every time — surprise!' },
 ];
 
 function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') {
@@ -227,20 +249,15 @@ function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') 
 function buildOutroVideoPrompt(items = []) {
   const last = items?.[items.length - 1];
   const lastName = last?.name || 'the object';
-  const lastObj  = (last?.object || last?.name || '').toLowerCase();
+  const lastObj = (last?.object || last?.name || '').toLowerCase();
   const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => lastObj.includes(w));
   const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => lastObj.includes(w));
   const isHeavy = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep'].some(w => lastObj.includes(w));
   let outroAction = '';
-  if (isBird) {
-    outroAction = `Teacher gently picks up the last ${lastName} with both hands carefully, lifts it toward the open window, and softly releases it — the bird flaps its wings and flies away off screen. Teacher watches it fly away with a warm smile.`;
-  } else if (isAnimal) {
-    outroAction = `Teacher gives the last ${lastName} a gentle friendly push from behind — the animal happily walks away and exits the screen. Teacher waves goodbye to the animal with a big smile.`;
-  } else if (isHeavy) {
-    outroAction = `Teacher gives the last ${lastName} a big push with both hands — it rolls or drives away slowly and exits the screen. Teacher dusts hands off and smiles at camera.`;
-  } else {
-    outroAction = `Teacher picks up the last ${lastName} with both hands, carries it to the side, and places it neatly off screen. Teacher comes back to center, dusts hands and smiles at camera.`;
-  }
+  if (isBird) outroAction = `Teacher gently picks up the last ${lastName} with both hands carefully, lifts it toward the open window, and softly releases it — the bird flaps its wings and flies away off screen. Teacher watches it fly away with a warm smile.`;
+  else if (isAnimal) outroAction = `Teacher gives the last ${lastName} a gentle friendly push from behind — the animal happily walks away and exits the screen. Teacher waves goodbye to the animal with a big smile.`;
+  else if (isHeavy) outroAction = `Teacher gives the last ${lastName} a big push with both hands — it rolls or drives away slowly and exits the screen. Teacher dusts hands off and smiles at camera.`;
+  else outroAction = `Teacher picks up the last ${lastName} with both hands, carries it to the side, and places it neatly off screen. Teacher comes back to center, dusts hands and smiles at camera.`;
   return `Use reference image exactly as background scene. Any text on screen fades away completely. ${outroAction} Screen is clean with only teacher visible at center. Teacher waves goodbye to camera with big smile and says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 10 seconds. Smooth. No floating objects. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
@@ -284,23 +301,15 @@ function getBodyPartAction(objectName) {
 
 function cleanObjectDesc(obj) {
   return (obj || '')
-    .replace(/lounging\s+under.*$/i, '')
-    .replace(/standing\s+in\s+.*$/i, '')
-    .replace(/sitting\s+on\s+.*$/i, '')
+    .replace(/lounging\s+under.*$/i, '').replace(/standing\s+in\s+.*$/i, '').replace(/sitting\s+on\s+.*$/i, '')
     .replace(/in\s+the\s+(jungle|savanna|ocean|forest|sky|field|farm|desert|river|lake|sea|grass|meadow|kitchen|room|park).*/i, '')
     .replace(/on\s+(a\s+)?(table|chair|ground|floor|branch|tree|rock|hill|mountain|grass).*/i, '')
-    .replace(/under\s+(a\s+)?\w+.*/i, '')
-    .replace(/near\s+.*$/i, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+    .replace(/under\s+(a\s+)?\w+.*/i, '').replace(/near\s+.*$/i, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 function isLargeObject(objectName) {
   const o = (objectName || '').toLowerCase();
-  return ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep',
-    'airplane','plane','helicopter','elephant','giraffe','horse','cow','camel','lion',
-    'tiger','bear','zebra','rhino','hippo','sofa','table','chair','cupboard','refrigerator',
-    'washing machine','bicycle','bike','motorcycle','scooter','cycle'].some(w => o.includes(w));
+  return ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep','airplane','plane','helicopter','elephant','giraffe','horse','cow','camel','lion','tiger','bear','zebra','rhino','hippo','sofa','table','chair','cupboard','refrigerator','washing machine','bicycle','bike','motorcycle','scooter','cycle'].some(w => o.includes(w));
 }
 
 function buildItemImagePrompt(item, seriesName) {
@@ -314,7 +323,6 @@ function buildItemImagePrompt(item, seriesName) {
 
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
-
   if (type === 'number') {
     const num = item.name;
     const hindiNum = item.hindiName || num;
@@ -322,29 +330,23 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
     const qText = `यह क्या है?`;
     return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
-
   if (type === 'body') {
     const action = getBodyPartAction(item.object);
     const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
     const qText = `यह क्या है?`;
     return `Use reference image exactly as background scene. Teacher standing center facing camera. ${action} while asking in Hindi: "${q}". Teacher keeps showing the body part the entire time during the question — do not stop. Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher still holds the pose. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
   }
-
   const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
   const qText = `यह क्या है?`;
   const objLower = cleanObjectDesc(item.object || item.name || '').toLowerCase();
   const cleanObj = cleanObjectDesc(item.object) || item.name;
-
   const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => objLower.includes(w));
   const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => objLower.includes(w));
   const isHeavyVehicle = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep','airplane','plane','helicopter','bicycle','bike','motorcycle','scooter'].some(w => objLower.includes(w));
   const isSmall = !isBird && !isAnimal && !isHeavyVehicle && !isLargeObject(item.object || item.name);
-
   let placementDesc = '';
   let teacherAction = '';
-
   if (isBird) {
-    // ← FIXED: Floor pe, bigger size, no perch
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) standing on the floor at center-right of screen. Bird is large and clearly visible — significantly bigger than real life. Bird faces toward teacher, standing still with wings slightly open, looking at camera with a cute curious expression. No floating. No flying. No perch.`;
     teacherAction = `Teacher points to the ${item.name} with one finger curiously while asking`;
   } else if (isAnimal) {
@@ -360,35 +362,20 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Object is large and clearly visible — not small. No floating. Object is completely still.`;
     teacherAction = `Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking`;
   }
-
   return `Use reference image exactly as background scene. Teacher standing on left side. ${placementDesc} ${teacherAction} in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher keeps interacting with the ${item.name}. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects at any point. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
 }
 
 const hindiNumbers = {
-  1:'वन',2:'टू',3:'थ्री',4:'फोर',5:'फाइव',
-  6:'सिक्स',7:'सेवन',8:'एट',9:'नाइन',10:'टेन',
-  11:'इलेवन',12:'ट्वेल्व',13:'थर्टीन',14:'फोर्टीन',15:'फिफ्टीन',
-  16:'सिक्सटीन',17:'सेवेंटीन',18:'एटीन',19:'नाइनटीन',20:'ट्वेंटी',
-  21:'ट्वेंटी-वन',22:'ट्वेंटी-टू',23:'ट्वेंटी-थ्री',24:'ट्वेंटी-फोर',
-  25:'ट्वेंटी-फाइव',26:'ट्वेंटी-सिक्स',27:'ट्वेंटी-सेवन',28:'ट्वेंटी-एट',
-  29:'ट्वेंटी-नाइन',30:'थर्टी',31:'थर्टी-वन',32:'थर्टी-टू',
-  33:'थर्टी-थ्री',34:'थर्टी-फोर',35:'थर्टी-फाइव',36:'थर्टी-सिक्स',
-  37:'थर्टी-सेवन',38:'थर्टी-एट',39:'थर्टी-नाइन',40:'फोर्टी',
-  41:'फोर्टी-वन',42:'फोर्टी-टू',43:'फोर्टी-थ्री',44:'फोर्टी-फोर',
-  45:'फोर्टी-फाइव',46:'फोर्टी-सिक्स',47:'फोर्टी-सेवन',48:'फोर्टी-एट',
-  49:'फोर्टी-नाइन',50:'फिफ्टी',51:'फिफ्टी-वन',52:'फिफ्टी-टू',
-  53:'फिफ्टी-थ्री',54:'फिफ्टी-फोर',55:'फिफ्टी-फाइव',56:'फिफ्टी-सिक्स',
-  57:'फिफ्टी-सेवन',58:'फिफ्टी-एट',59:'फिफ्टी-नाइन',60:'सिक्सटी',
-  61:'सिक्सटी-वन',62:'सिक्सटी-टू',63:'सिक्सटी-थ्री',64:'सिक्सटी-फोर',
-  65:'सिक्सटी-फाइव',66:'सिक्सटी-सिक्स',67:'सिक्सटी-सेवन',68:'सिक्सटी-एट',
-  69:'सिक्सटी-नाइन',70:'सेवेंटी',71:'सेवेंटी-वन',72:'सेवेंटी-टू',
-  73:'सेवेंटी-थ्री',74:'सेवेंटी-फोर',75:'सेवेंटी-फाइव',76:'सेवेंटी-सिक्स',
-  77:'सेवेंटी-सेवन',78:'सेवेंटी-एट',79:'सेवेंटी-नाइन',80:'एटी',
-  81:'एटी-वन',82:'एटी-टू',83:'एटी-थ्री',84:'एटी-फोर',
-  85:'एटी-फाइव',86:'एटी-सिक्स',87:'एटी-सेवन',88:'एटी-एट',
-  89:'एटी-नाइन',90:'नाइंटी',91:'नाइंटी-वन',92:'नाइंटी-टू',
-  93:'नाइंटी-थ्री',94:'नाइंटी-फोर',95:'नाइंटी-फाइव',96:'नाइंटी-सिक्स',
-  97:'नाइंटी-सेवन',98:'नाइंटी-एट',99:'नाइंटी-नाइन',100:'हंड्रेड'
+  1:'वन',2:'टू',3:'थ्री',4:'फोर',5:'फाइव',6:'सिक्स',7:'सेवन',8:'एट',9:'नाइन',10:'टेन',
+  11:'इलेवन',12:'ट्वेल्व',13:'थर्टीन',14:'फोर्टीन',15:'फिफ्टीन',16:'सिक्सटीन',17:'सेवेंटीन',18:'एटीन',19:'नाइनटीन',20:'ट्वेंटी',
+  21:'ट्वेंटी-वन',22:'ट्वेंटी-टू',23:'ट्वेंटी-थ्री',24:'ट्वेंटी-फोर',25:'ट्वेंटी-फाइव',26:'ट्वेंटी-सिक्स',27:'ट्वेंटी-सेवन',28:'ट्वेंटी-एट',29:'ट्वेंटी-नाइन',30:'थर्टी',
+  31:'थर्टी-वन',32:'थर्टी-टू',33:'थर्टी-थ्री',34:'थर्टी-फोर',35:'थर्टी-फाइव',36:'थर्टी-सिक्स',37:'थर्टी-सेवन',38:'थर्टी-एट',39:'थर्टी-नाइन',40:'फोर्टी',
+  41:'फोर्टी-वन',42:'फोर्टी-टू',43:'फोर्टी-थ्री',44:'फोर्टी-फोर',45:'फोर्टी-फाइव',46:'फोर्टी-सिक्स',47:'फोर्टी-सेवन',48:'फोर्टी-एट',49:'फोर्टी-नाइन',50:'फिफ्टी',
+  51:'फिफ्टी-वन',52:'फिफ्टी-टू',53:'फिफ्टी-थ्री',54:'फिफ्टी-फोर',55:'फिफ्टी-फाइव',56:'फिफ्टी-सिक्स',57:'फिफ्टी-सेवन',58:'फिफ्टी-एट',59:'फिफ्टी-नाइन',60:'सिक्सटी',
+  61:'सिक्सटी-वन',62:'सिक्सटी-टू',63:'सिक्सटी-थ्री',64:'सिक्सटी-फोर',65:'सिक्सटी-फाइव',66:'सिक्सटी-सिक्स',67:'सिक्सटी-सेवन',68:'सिक्सटी-एट',69:'सिक्सटी-नाइन',70:'सेवेंटी',
+  71:'सेवेंटी-वन',72:'सेवेंटी-टू',73:'सेवेंटी-थ्री',74:'सेवेंटी-फोर',75:'सेवेंटी-फाइव',76:'सेवेंटी-सिक्स',77:'सेवेंटी-सेवन',78:'सेवेंटी-एट',79:'सेवेंटी-नाइन',80:'एटी',
+  81:'एटी-वन',82:'एटी-टू',83:'एटी-थ्री',84:'एटी-फोर',85:'एटी-फाइव',86:'एटी-सिक्स',87:'एटी-सेवन',88:'एटी-एट',89:'एटी-नाइन',90:'नाइंटी',
+  91:'नाइंटी-वन',92:'नाइंटी-टू',93:'नाइंटी-थ्री',94:'नाइंटी-फोर',95:'नाइंटी-फाइव',96:'नाइंटी-सिक्स',97:'नाइंटी-सेवन',98:'नाइंटी-एट',99:'नाइंटी-नाइन',100:'हंड्रेड'
 };
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
@@ -408,6 +395,23 @@ async function detectEmoji(seriesName) {
   const text = await aiCall(`Given this kids YouTube series name: "${seriesName}"
 Return ONLY a single most appropriate emoji for this topic. No explanation, no text, just one emoji.`);
   return text.trim().replace(/[^a-zA-Z\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').slice(0, 2) || '🌟';
+}
+
+// ── AI se folder meta generate karo ──
+async function generateFolderMeta(seriesName, detectedType) {
+  try {
+    const text = await aiCall(`For a Hindi kids YouTube channel, we have a series called "${seriesName}" with type "${detectedType}".
+Generate a folder name (2-3 words max), one fitting emoji, and a vibrant hex color for this folder.
+Return ONLY JSON, no markdown: {"label":"Computer Parts","emoji":"💻","color":"#44bbff"}`);
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    return {
+      folderLabel: parsed.label || detectedType,
+      folderEmoji: parsed.emoji || '📦',
+      folderColor: parsed.color || '#888888',
+    };
+  } catch {
+    return { folderLabel: detectedType.replace(/_/g,' '), folderEmoji: '📦', folderColor: '#888888' };
+  }
 }
 
 function CreateSeriesPage({ user }) {
@@ -435,10 +439,8 @@ function CreateSeriesPage({ user }) {
   const [animModal, setAnimModal]         = useState(false);
   const [animPage, setAnimPage]           = useState(0);
   const [chosenAnim, setChosenAnim]       = useState('random');
-
-  // ── Schedule states ───────────────────────────────────
-  const [scheduleSlot, setScheduleSlot]     = useState(null);
-  const [scheduleModal, setScheduleModal]   = useState(false);
+  const [scheduleSlot, setScheduleSlot]   = useState(null);
+  const [scheduleModal, setScheduleModal] = useState(false);
   const [scheduleCopied, setScheduleCopied] = useState(false);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
@@ -472,14 +474,16 @@ function CreateSeriesPage({ user }) {
       return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
     });
     if (!matched) return false;
-    if (matched.isScheduled) return 'scheduled';
+    if (matched.isScheduled) return { status: 'scheduled', scheduledAt: matched.scheduledAt };
     if (matched.privacyStatus === 'private') return 'private';
     return true;
   }
 
   function isDeleteDisabled(series) {
     const u = checkUploaded(series);
-    return u === true || u === 'private' || u === 'scheduled';
+    if (u === true || u === 'private') return true;
+    if (u && typeof u === 'object' && u.status === 'scheduled') return true;
+    return false;
   }
 
   function openChoose() { setModal('choose'); }
@@ -517,8 +521,7 @@ Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕"
   }
 
   async function loadCustomSuggestions() {
-    setCustomSugLoading(true);
-    setAiSuggestions([]);
+    setCustomSugLoading(true); setAiSuggestions([]);
     try {
       const existing = seriesList.map(s => s.name).join(', ') || 'none';
       const hint = customName.trim();
@@ -529,8 +532,7 @@ Suggest exactly 6 unique kids educational topics that have NOT been created yet.
 These will be used as: "Five [topic] Name"
 Return ONLY a JSON array of single words or short phrases (max 2 words each), no markdown:
 ["Flowers","Wild Animals","Insects","Planets","Body Parts","Musical Instruments"]`);
-      const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-      setAiSuggestions(parsed);
+      setAiSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setCustomSugLoading(false);
   }
@@ -540,11 +542,20 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
     setGenerating(true);
     try {
       const existing = seriesList.map(s => s.name).join(', ');
+      // Step 1: Type detect
       const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
 Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
-If none match exactly, return the closest 1-2 word lowercase category using underscores.
+If none match exactly, return a short 1-2 word lowercase category using underscores (e.g. computer_part, clothing, stationery, toy, furniture).
 Return ONLY the single word or phrase, nothing else.`);
       const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
+
+      // Step 2: Folder meta — AI se (KNOWN_FOLDERS mein nahi hai toh)
+      let folderMeta = {};
+      if (!KNOWN_FOLDERS[detectedType]) {
+        folderMeta = await generateFolderMeta(selectedTopic.name, detectedType);
+      }
+
+      // Step 3: Items generate
       const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
@@ -554,15 +565,13 @@ RULES for "object" field:
 - Max 6 words, just the item appearance`);
       const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       if (getSeriesType(selectedTopic.name) === 'number') {
-        items.forEach(item => {
-          const n = parseInt(item.name);
-          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
-        });
+        items.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
       }
       await saveSeries(user.uid, {
         name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor,
         items, doneSections: {}, doneCount: 0, progress: 0,
-        part: 1, ytTitle: '', ytDescription: '', type: detectedType
+        part: 1, ytTitle: '', ytDescription: '', type: detectedType,
+        ...folderMeta,
       });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
       setModal('none'); setSelectedTopic(null); setCustomName('');
@@ -585,10 +594,7 @@ RULES for "object" field:
 - Max 6 words, just the item appearance`);
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
       if (getSeriesType(series.name) === 'number') {
-        newItems.forEach(item => {
-          const n = parseInt(item.name);
-          if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name;
-        });
+        newItems.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
       }
       const newPart = (series.part || 1) + 1;
       const baseName = series.name.replace(/ Part \d+$/, '').trim();
@@ -597,7 +603,9 @@ RULES for "object" field:
         emoji: series.emoji, color: series.color,
         items: newItems, doneSections: {}, doneCount: 0, progress: 0,
         part: newPart, ytTitle: '', ytDescription: '',
-        type: series.type || 'other'
+        type: series.type || 'other',
+        // Parent series ka folder meta copy karo
+        ...(series.folderLabel ? { folderLabel: series.folderLabel, folderEmoji: series.folderEmoji, folderColor: series.folderColor } : {}),
       });
       toast(`🎉 Part ${newPart} ready!`);
       loadList();
@@ -672,16 +680,13 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
     const allPromptsDone = Object.keys(done).length >= total;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const deleteDisabled = isDeleteDisabled(s);
-
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
         { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
         { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || [], chosenAnim) }
       ]},
       ...(s.items || []).map((item, i) => ({
-        key: `item_${i}`,
-        title: `${i+1}. ${item.name}`,
-        color: s.color,
+        key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color,
         prompts: [
           { type: '🖼 IMAGE', text: buildItemImagePrompt(item, s.name) },
           { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }
@@ -697,16 +702,9 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
         <div className="mini-topbar">
           <button onClick={() => setOpenSeries(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{s.emoji} {s.name}</span>
-          {deleteDisabled ? (
-            <span style={{ fontSize: 18, opacity: 0.2, cursor: 'not-allowed' }}>🗑</span>
-          ) : (
-            <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
-          )}
+          {deleteDisabled ? <span style={{ fontSize: 18, opacity: 0.2, cursor: 'not-allowed' }}>🗑</span> : <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>}
         </div>
-
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -717,91 +715,49 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
             </div>
           </div>
 
-          {/* ── SCHEDULE SLOT BUTTON — detail view mein ── */}
-          {!ytLoading && (
-            scheduleSlot ? (
-              <button
-                onClick={() => { setScheduleModal(true); setScheduleCopied(false); }}
-                style={{
-                  width: '100%', background: 'rgba(68,136,255,0.07)',
-                  border: '1px solid #4488ff44', borderRadius: 12,
-                  padding: '12px 16px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>📅 NEXT FREE SLOT</div>
-                  <div style={{ fontSize: 13, color: '#ddd', fontWeight: 700 }}>{formatSlotDisplay(scheduleSlot)}</div>
-                </div>
-                <span style={{ fontSize: 18, color: '#4488ff' }}>→</span>
-              </button>
-            ) : (
-              <div style={{ background: '#0f0f0f', border: '1px solid #222', borderRadius: 12, padding: '12px 16px', fontSize: 12, color: '#444', textAlign: 'center' }}>
-                📅 60 dino mein koi free slot nahi
+          {/* ── Schedule slot button ── */}
+          {!ytLoading && (scheduleSlot ? (
+            <button onClick={() => { setScheduleModal(true); setScheduleCopied(false); }}
+              style={{ width: '100%', background: 'rgba(68,136,255,0.07)', border: '1px solid #4488ff44', borderRadius: 12, padding: '12px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>📅 NEXT FREE SLOT</div>
+                <div style={{ fontSize: 13, color: '#ddd', fontWeight: 700 }}>{formatSlotDisplay(scheduleSlot)}</div>
               </div>
-            )
-          )}
+              <span style={{ fontSize: 18, color: '#4488ff' }}>→</span>
+            </button>
+          ) : (
+            <div style={{ background: '#0f0f0f', border: '1px solid #222', borderRadius: 12, padding: '12px 16px', fontSize: 12, color: '#444', textAlign: 'center' }}>📅 60 dino mein koi free slot nahi</div>
+          ))}
 
-          {/* ── SCHEDULE CONFIRM MODAL ── */}
+          {/* ── Schedule confirm modal ── */}
           {scheduleModal && scheduleSlot && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 3000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
               <div style={{ background: '#080e1a', border: '1px solid #4488ff55', borderRadius: 20, padding: 22, width: '100%' }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#4488ff', textAlign: 'center', marginBottom: 4 }}>📅 Schedule Confirm Karo</div>
                 <div style={{ fontSize: 11, color: '#444', textAlign: 'center', marginBottom: 16 }}>Yeh din YouTube pe FREE hai — koi video nahi</div>
-
-                {/* Date display */}
                 <div style={{ background: 'rgba(68,136,255,0.1)', border: '1px solid #4488ff33', borderRadius: 14, padding: '18px', textAlign: 'center', marginBottom: 14 }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#ccc', marginBottom: 6 }}>
-                    {formatSlotDisplay(scheduleSlot).split('—')[0].trim()}
-                  </div>
-                  <div style={{ fontSize: 32, fontWeight: 900, color: '#4488ff', marginBottom: 6 }}>
-                    {formatSlotDisplay(scheduleSlot).split('—')[1]?.trim()}
-                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#ccc', marginBottom: 6 }}>{formatSlotDisplay(scheduleSlot).split('—')[0].trim()}</div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: '#4488ff', marginBottom: 6 }}>{formatSlotDisplay(scheduleSlot).split('—')[1]?.trim()}</div>
                   <div style={{ fontSize: 10, color: '#555' }}>
                     {scheduleSlot.getDay() === 6 ? '🗓 Saturday — 1:00 PM fixed' : scheduleSlot.getDay() === 0 ? '🗓 Sunday — 10:00 AM fixed' : '🗓 Weekday — 3:00 PM fixed'}
                   </div>
                 </div>
-
-                {/* ISO string */}
-                <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#555', fontFamily: 'monospace', marginBottom: 14, wordBreak: 'break-all' }}>
-                  {scheduleSlot.toISOString()}
-                </div>
-
+                <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#555', fontFamily: 'monospace', marginBottom: 14, wordBreak: 'break-all' }}>{scheduleSlot.toISOString()}</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(scheduleSlot.toISOString());
-                      setScheduleCopied(true);
-                      toast('📋 ISO time copied! YouTube Studio mein paste karo.');
-                    }}
-                    style={{
-                      flex: 2,
-                      background: scheduleCopied ? 'rgba(68,187,102,0.15)' : 'linear-gradient(135deg,#0a1a44,#05102a)',
-                      border: `1px solid ${scheduleCopied ? '#44bb66' : '#4488ff'}`,
-                      color: scheduleCopied ? '#44bb66' : '#4488ff',
-                      borderRadius: 12, padding: '13px',
-                      fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                    }}>
+                  <button onClick={() => { navigator.clipboard.writeText(scheduleSlot.toISOString()); setScheduleCopied(true); toast('📋 ISO time copied!'); }}
+                    style={{ flex: 2, background: scheduleCopied ? 'rgba(68,187,102,0.15)' : 'linear-gradient(135deg,#0a1a44,#05102a)', border: `1px solid ${scheduleCopied ? '#44bb66' : '#4488ff'}`, color: scheduleCopied ? '#44bb66' : '#4488ff', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                     {scheduleCopied ? '✅ Copied!' : '📋 ISO Copy Karo'}
                   </button>
-                  <button
-                    onClick={() => setScheduleModal(false)}
-                    style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                    Close
-                  </button>
+                  <button onClick={() => setScheduleModal(false)} style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Close</button>
                 </div>
-                <div style={{ fontSize: 10, color: '#2a2a2a', textAlign: 'center', marginTop: 10 }}>
-                  💡 YouTube Studio → Schedule → Paste ISO time
-                </div>
+                <div style={{ fontSize: 10, color: '#2a2a2a', textAlign: 'center', marginTop: 10 }}>💡 YouTube Studio → Schedule → Paste ISO time</div>
               </div>
             </div>
           )}
 
-          <TitleDescSection
-            series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
+          <TitleDescSection series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
             genTD={genTD} onGenerate={() => generateTitleDesc(s)}
-            onSave={(title, desc) => saveTitleDesc(s, title, desc)}
-            onCopy={copy} copiedKey={copiedKey}
-          />
+            onSave={(title, desc) => saveTitleDesc(s, title, desc)} onCopy={copy} copiedKey={copiedKey} />
 
           {sections.map(sec => {
             const isDone = !!done[sec.key];
@@ -822,9 +778,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
                         <button onClick={() => { setAnimModal(true); setAnimPage(0); }}
                           style={{ background: '#0a0a1a', border: '1px solid #334', borderRadius: 10, padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#88aaff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <span>🎬 Animation Chuno</span>
-                          <span style={{ color: '#4488ff' }}>
-                            {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.emoji} {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.label}
-                          </span>
+                          <span style={{ color: '#4488ff' }}>{INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.emoji} {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.label}</span>
                         </button>
                         {animModal && (
                           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
@@ -862,7 +816,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
                       return (
                         <div key={pi}>
                           <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>{p.type}</div>
-                          <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px 12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>{p.text}</div>
+                          <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>{p.text}</div>
                           <button onClick={() => copy(bck, p.text)}
                             style={{ background: copiedKey===bck ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey===bck ? '#4488ff' : '#223355'}`, color: copiedKey===bck ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%', marginTop: 6 }}>
                             {copiedKey===bck ? '✅ Copied!' : `📋 Copy ${p.type}`}
@@ -887,7 +841,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
   // LEVEL 2: FOLDER VIEW
   // ══════════════════════════════════════════════
   if (openFolder) {
-    const folder = getFolder(openFolder);
+    const folder = getFolder(openFolder, seriesList);
     const grouped = groupSeriesByFolder(seriesList);
     const seriesInFolder = grouped[openFolder] || [];
     return (
@@ -906,8 +860,16 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
           ) : seriesInFolder.map(s => {
             const total = (s.items || []).length + 2;
             const uploaded = checkUploaded(s);
-            const uploadColor = uploaded===true ? '#44bb66' : uploaded==='scheduled' ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
-            const uploadText = ytLoading ? '🔍...' : uploaded===true ? '✅ YouTube pe hai' : uploaded==='scheduled' ? '📅 Scheduled' : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
+            // ── Upload status ──
+            const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
+            const uploadColor = uploaded===true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
+            // ── Scheduled time show karo ──
+            const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
+            const uploadText = ytLoading ? '🔍...'
+              : uploaded===true ? '✅ YouTube pe hai'
+              : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}`
+              : uploaded==='private' ? '🔒 Private'
+              : '⏳ Upload baaki';
             const nextPartExists = hasNextPart(s, seriesList);
             const isContinuing = continuing === s.id;
             return (
@@ -953,11 +915,8 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🎬 Series</span>
-        <button onClick={() => {
-          const names = seriesList.map(s => s.name).join('\n');
-          navigator.clipboard.writeText(`Ye series already bani hain:\n${names}\n\nAur kya banau?`);
-          toast('📋 Copied!');
-        }} style={{ background: 'none', border: '1px solid #cc88ff55', color: '#cc88ff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📋 Copy</button>
+        <button onClick={() => { navigator.clipboard.writeText(`Ye series already bani hain:\n${seriesList.map(s=>s.name).join('\n')}\n\nAur kya banau?`); toast('📋 Copied!'); }}
+          style={{ background: 'none', border: '1px solid #cc88ff55', color: '#cc88ff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📋 Copy</button>
         {ytLoading ? (
           <button disabled style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.5 }}>+ Nayi</button>
         ) : (() => {
@@ -1082,7 +1041,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
         ) : sortedFolderOrder.map(type => {
-          const folder = getFolder(type);
+          const folder = getFolder(type, seriesList);
           const seriesInFolder = grouped[type];
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
           return (
