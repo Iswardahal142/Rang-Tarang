@@ -1,7 +1,7 @@
 // 📁 LOCATION: app/audit/page.js
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AuthWrapper from '../../components/AuthWrapper';
 import { ToastProvider, useToast } from '../../components/Toast';
 
@@ -51,75 +51,12 @@ function SeverityDot({ severity }) {
   return <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0, marginTop: 3 }} />;
 }
 
-// ── Apply Confirm Modal ──────────────────────────────
-function ApplyConfirmModal({ videoTitle, newTitle, newTags, onConfirm, onCancel, applying }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.96)',
-      zIndex: 2000, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      padding: 20, gap: 14,
-    }}>
-      <div style={{ fontSize: 28 }}>⚠️</div>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#ffaa00', textAlign: 'center' }}>YouTube pe Apply Karein?</div>
-      <div style={{ fontSize: 12, color: '#555', textAlign: 'center', lineHeight: 1.6 }}>
-        Ye changes <span style={{ color: '#fff' }}>seedha YouTube</span> aur <span style={{ color: '#cc88ff' }}>Firestore</span> mein save honge.
-      </div>
-
-      {/* Old vs New */}
-      <div style={{ width: '100%', background: '#0d0d0d', border: '1px solid #222', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 9, color: '#555', fontWeight: 700, marginBottom: 4 }}>PURANA TITLE</div>
-          <div style={{ fontSize: 12, color: '#666', lineHeight: 1.4 }}>{videoTitle}</div>
-        </div>
-        <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 10 }}>
-          <div style={{ fontSize: 9, color: '#ff8800', fontWeight: 700, marginBottom: 4 }}>NAYA TITLE</div>
-          <div style={{ fontSize: 12, color: '#ffcc88', lineHeight: 1.4 }}>{newTitle}</div>
-        </div>
-        <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 10 }}>
-          <div style={{ fontSize: 9, color: '#44bb66', fontWeight: 700, marginBottom: 6 }}>NAYE TAGS ({newTags.length})</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {newTags.slice(0, 8).map((t, i) => (
-              <span key={i} style={{ background: '#44bb6615', border: '1px solid #44bb6633', color: '#44bb6699', borderRadius: 20, padding: '2px 8px', fontSize: 10 }}>{t}</span>
-            ))}
-            {newTags.length > 8 && <span style={{ fontSize: 10, color: '#444' }}>+{newTags.length - 8} more</span>}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-        <button onClick={onCancel} disabled={applying} style={{
-          flex: 1, background: '#1a1a1a', border: '1px solid #333', color: '#666',
-          borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-        }}>✕ Cancel</button>
-        <button onClick={onConfirm} disabled={applying} style={{
-          flex: 2,
-          background: applying ? '#1a1a2a' : 'linear-gradient(135deg,#ff6600,#ffaa00)',
-          border: 'none', color: applying ? '#555' : '#fff',
-          borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700,
-          cursor: applying ? 'not-allowed' : 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }}>
-          {applying ? (
-            <>
-              <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#cc88ff' }} />
-              Apply ho raha hai...
-            </>
-          ) : '✅ Haan, Apply Karo'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── AI Fix Modal ──────────────────────────────────────
-function AiFixModal({ video, uid, onClose, onApplied }) {
+function AiFixModal({ video, onClose, onApply }) {
   const toast = useToast();
   const [loading, setLoading]   = useState(true);
   const [result, setResult]     = useState(null);
   const [copied, setCopied]     = useState('');
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [applying, setApplying] = useState(false);
 
   useEffect(() => { generate(); }, []);
 
@@ -153,6 +90,7 @@ DESCRIPTION_START:
 WHY:
 [2-3 line explanation in Hinglish of what you changed and why]`);
 
+      // Parse sections
       const parse = (key) => {
         const match = text.match(new RegExp(`${key}:\\n([\\s\\S]*?)(?=\\n[A-Z_]+:|$)`));
         return match ? match[1].trim() : '';
@@ -177,148 +115,90 @@ WHY:
     });
   }
 
-  // Tags string → array
-  function parsedTags() {
-    if (!result?.tags) return [];
-    return result.tags.split(',').map(t => t.trim()).filter(Boolean);
-  }
-
-  async function handleApply() {
-    setApplying(true);
-    try {
-      const res = await fetch('/api/audit/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId: video.videoId,
-          title:   result.title,
-          tags:    parsedTags(),
-          uid,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        toast('❌ ' + (data.error || 'Update fail hua'));
-        setApplying(false);
-        setShowConfirm(false);
-        return;
-      }
-      toast('✅ YouTube + Firestore dono update ho gaye!');
-      setShowConfirm(false);
-      setApplying(false);
-      // Parent ko bata do — video list refresh karo
-      if (onApplied) onApplied(video.videoId, result.title, parsedTags());
-      onClose();
-    } catch (e) {
-      toast('❌ ' + e.message);
-      setApplying(false);
-      setShowConfirm(false);
-    }
-  }
-
   return (
-    <>
-      {showConfirm && (
-        <ApplyConfirmModal
-          videoTitle={video.title}
-          newTitle={result?.title || ''}
-          newTags={parsedTags()}
-          onConfirm={handleApply}
-          onCancel={() => setShowConfirm(false)}
-          applying={applying}
-        />
-      )}
-
-      <div style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
-        zIndex: 1000, display: 'flex', flexDirection: 'column',
-        padding: 16, gap: 12, overflowY: 'auto',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#cc88ff' }}>🤖 AI Fix Suggestions</div>
-          <button onClick={onClose} style={{ background: '#1a1a1a', border: '1px solid #333', color: '#888', borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>✕ Close</button>
-        </div>
-
-        {/* Video title ref */}
-        <div style={{ background: '#111', border: '1px solid #222', borderRadius: 10, padding: '10px 12px' }}>
-          <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 3 }}>VIDEO</div>
-          <div style={{ fontSize: 12, color: '#aaa', lineHeight: 1.4 }}>{video.title}</div>
-        </div>
-
-        {loading ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            <div className="spinner" style={{ borderTopColor: '#cc88ff' }} />
-            <div style={{ fontSize: 12, color: '#555' }}>AI soch raha hai...</div>
-          </div>
-        ) : result && (
-          <>
-            {/* Title */}
-            <FixCard
-              label="✏️ Better Title"
-              value={result.title}
-              copied={copied === 'title'}
-              onCopy={() => copyText(result.title, 'title')}
-              color="#ff8800"
-            />
-
-            {/* Tags */}
-            <FixCard
-              label="🏷️ Suggested Tags"
-              value={result.tags}
-              copied={copied === 'tags'}
-              onCopy={() => copyText(result.tags, 'tags')}
-              color="#44bb66"
-              isTagList
-            />
-
-            {/* Description */}
-            <FixCard
-              label="📝 Description Start"
-              value={result.description}
-              copied={copied === 'desc'}
-              onCopy={() => copyText(result.description, 'desc')}
-              color="#4488ff"
-            />
-
-            {/* Why */}
-            {result.why && (
-              <div style={{ background: '#0a0a14', border: '1px solid #223', borderRadius: 12, padding: 14 }}>
-                <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 6 }}>💡 WHY THESE CHANGES</div>
-                <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7 }}>{result.why}</div>
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={generate} style={{
-                flex: 1,
-                background: '#1a0a2a', border: '1px solid #cc88ff44', color: '#cc88ff',
-                borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}>
-                🔄 Dobara
-              </button>
-
-              {/* ✅ APPLY TO YOUTUBE BUTTON */}
-              <button onClick={() => setShowConfirm(true)} style={{
-                flex: 2,
-                background: 'linear-gradient(135deg,#ff6600,#ffaa00)',
-                border: 'none', color: '#fff',
-                borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}>
-                🚀 YouTube pe Apply Karo
-              </button>
-            </div>
-
-            {/* Info note */}
-            <div style={{ fontSize: 10, color: '#333', textAlign: 'center', lineHeight: 1.5 }}>
-              Title + Tags YouTube aur Firestore dono mein update honge.<br />
-              Description unchanged rahega.
-            </div>
-          </>
-        )}
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+      zIndex: 1000, display: 'flex', flexDirection: 'column',
+      padding: 16, gap: 12, overflowY: 'auto',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#cc88ff' }}>🤖 AI Fix Suggestions</div>
+        <button onClick={onClose} style={{ background: '#1a1a1a', border: '1px solid #333', color: '#888', borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>✕ Close</button>
       </div>
-    </>
+
+      {/* Video title ref */}
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: 10, padding: '10px 12px' }}>
+        <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 3 }}>VIDEO</div>
+        <div style={{ fontSize: 12, color: '#aaa', lineHeight: 1.4 }}>{video.title}</div>
+      </div>
+
+      {loading ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <div className="spinner" style={{ borderTopColor: '#cc88ff' }} />
+          <div style={{ fontSize: 12, color: '#555' }}>AI soch raha hai...</div>
+        </div>
+      ) : result && (
+        <>
+          {/* Title */}
+          <FixCard
+            label="✏️ Better Title"
+            value={result.title}
+            copied={copied === 'title'}
+            onCopy={() => copyText(result.title, 'title')}
+            color="#ff8800"
+          />
+
+          {/* Tags */}
+          <FixCard
+            label="🏷️ Suggested Tags"
+            value={result.tags}
+            copied={copied === 'tags'}
+            onCopy={() => copyText(result.tags, 'tags')}
+            color="#44bb66"
+            isTagList
+          />
+
+          {/* Description */}
+          <FixCard
+            label="📝 Description Start"
+            value={result.description}
+            copied={copied === 'desc'}
+            onCopy={() => copyText(result.description, 'desc')}
+            color="#4488ff"
+          />
+
+          {/* Why */}
+          {result.why && (
+            <div style={{ background: '#0a0a14', border: '1px solid #223', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 6 }}>💡 WHY THESE CHANGES</div>
+              <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7 }}>{result.why}</div>
+            </div>
+          )}
+
+          {/* ── Apply directly button ── */}
+          {onApply && result.title && (
+            <button
+              onClick={() => { onApply(result.title, result.description, result.tags); onClose(); }}
+              style={{
+                background: 'linear-gradient(135deg,#1a3300,#0a2200)',
+                border: '1px solid #44bb6666',
+                color: '#44bb66',
+                borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+              }}>
+              ⚡ Seedha Apply + YouTube Update Karo
+            </button>
+          )}
+
+          <button onClick={generate} style={{
+            background: '#1a0a2a', border: '1px solid #cc88ff44', color: '#cc88ff',
+            borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}>
+            🔄 Dobara Generate Karo
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -352,24 +232,232 @@ function FixCard({ label, value, copied, onCopy, color, isTagList }) {
   );
 }
 
+// ── Direct Update Section ─────────────────────────────
+function DirectUpdateSection({ video, onUpdated }) {
+  const toast = useToast();
+  const [open, setOpen]         = useState(false);
+  const [title, setTitle]       = useState(video.title || '');
+  const [desc, setDesc]         = useState(video.description || '');
+  const [tags, setTags]         = useState((video.tags || []).join(', '));
+  const [saving, setSaving]     = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
+
+  // Apply values from outside (AI Fix → Apply)
+  function applyValues(newTitle, newDesc, newTags) {
+    setTitle(newTitle || title);
+    setDesc(newDesc || desc);
+    setTags(newTags || tags);
+    setOpen(true);
+  }
+
+  // Expose applyValues via ref if needed — handled via prop callback pattern
+  useEffect(() => {
+    if (onUpdated?.applyRef) onUpdated.applyRef.current = applyValues;
+  }, []);
+
+  async function handleUpdate() {
+    if (!title.trim()) { toast('⚠️ Title khaali nahi ho sakta!'); return; }
+    setSaving(true);
+    setSaveStatus('saving');
+    try {
+      const res = await fetch('/api/audit', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId:     video.videoId,
+          title:       title.trim(),
+          description: desc.trim(),
+          tags,
+          categoryId:  video.categoryId || '22',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Update fail');
+      setSaveStatus('saved');
+      toast('✅ YouTube pe update ho gaya!');
+      // Parent ko updated values bhejna
+      if (onUpdated?.onSuccess) {
+        onUpdated.onSuccess({
+          ...video,
+          title:       title.trim(),
+          description: desc.trim(),
+          tags:        tags.split(',').map(t => t.trim()).filter(Boolean),
+        });
+      }
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (e) {
+      setSaveStatus('error');
+      toast('❌ ' + e.message);
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+    setSaving(false);
+  }
+
+  const isDirty = title !== video.title || desc !== video.description || tags !== (video.tags || []).join(', ');
+
+  const statusColor = saveStatus === 'saved' ? '#44bb66' : saveStatus === 'error' ? '#ff4455' : saveStatus === 'saving' ? '#ffaa00' : '#333';
+  const statusText  = saveStatus === 'saved' ? '✅ Saved!' : saveStatus === 'error' ? '❌ Error' : saveStatus === 'saving' ? '⏳ Saving...' : '';
+
+  return (
+    <div style={{ background: '#0f0f0f', border: `1px solid ${open ? '#4488ff44' : '#1e1e1e'}`, borderRadius: 12, overflow: 'hidden' }}>
+      {/* Header */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#4488ff' }}>✏️ Direct YouTube Update</span>
+          {isDirty && (
+            <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.12)', color: '#ffaa00', border: '1px solid #442200', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>
+              Unsaved
+            </span>
+          )}
+          {saveStatus === 'saved' && (
+            <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.12)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>
+              ✅ Updated
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: 13, color: '#444' }}>{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Info banner */}
+          <div style={{ background: 'rgba(68,136,255,0.07)', border: '1px solid #223355', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#4466aa', lineHeight: 1.5 }}>
+            💡 Yahan changes karo aur "YouTube Pe Update Karo" press karo — directly YouTube pe save ho jaayega, copy-paste ki zaroorat nahi!
+          </div>
+
+          {/* Title field */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+              <span style={{ fontSize: 9, color: '#ff8800', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📌 Title</span>
+              <span style={{ fontSize: 9, color: title.length > 100 ? '#ff4455' : '#444', fontWeight: 600 }}>{title.length}/100</span>
+            </div>
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              maxLength={120}
+              placeholder="Video ka title..."
+              style={{
+                width: '100%', background: '#0a0a0a',
+                border: `1px solid ${title !== video.title ? '#ff880044' : '#222'}`,
+                borderRadius: 10, padding: '10px 12px', fontSize: 12,
+                color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+              }}
+            />
+          </div>
+
+          {/* Description field */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+              <span style={{ fontSize: 9, color: '#4488ff', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📝 Description</span>
+              <span style={{ fontSize: 9, color: '#444', fontWeight: 600 }}>{desc.length} chars</span>
+            </div>
+            <textarea
+              value={desc}
+              onChange={e => setDesc(e.target.value)}
+              placeholder="Video ki description..."
+              rows={5}
+              style={{
+                width: '100%', background: '#0a0a0a',
+                border: `1px solid ${desc !== video.description ? '#4488ff44' : '#222'}`,
+                borderRadius: 10, padding: '10px 12px', fontSize: 12,
+                color: '#eee', outline: 'none', boxSizing: 'border-box',
+                fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6,
+              }}
+            />
+          </div>
+
+          {/* Tags field */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+              <span style={{ fontSize: 9, color: '#44bb66', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>🏷️ Tags (comma separated)</span>
+              <span style={{ fontSize: 9, color: tags.split(',').filter(t => t.trim()).length < 10 ? '#ffaa00' : '#44bb66', fontWeight: 700 }}>
+                {tags.split(',').filter(t => t.trim()).length} tags
+              </span>
+            </div>
+            <textarea
+              value={tags}
+              onChange={e => setTags(e.target.value)}
+              placeholder="tag1, tag2, tag3..."
+              rows={3}
+              style={{
+                width: '100%', background: '#0a0a0a',
+                border: `1px solid ${tags !== (video.tags || []).join(', ') ? '#44bb6644' : '#222'}`,
+                borderRadius: 10, padding: '10px 12px', fontSize: 12,
+                color: '#eee', outline: 'none', boxSizing: 'border-box',
+                fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6,
+              }}
+            />
+            {/* Tag chips preview */}
+            {tags.trim() && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                {tags.split(',').filter(t => t.trim()).map((t, i) => (
+                  <span key={i} style={{
+                    background: '#1a2a1a', border: '1px solid #44bb6633',
+                    color: '#44bb66aa', borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 600,
+                  }}>{t.trim()}</span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Update button */}
+          <button
+            onClick={handleUpdate}
+            disabled={saving || !isDirty}
+            style={{
+              background: saving ? '#111' : isDirty ? 'linear-gradient(135deg,#0a1a44,#05102a)' : '#111',
+              border: `1px solid ${saving ? '#333' : isDirty ? '#4488ff' : '#222'}`,
+              color: saving ? '#555' : isDirty ? '#4488ff' : '#333',
+              borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 800,
+              cursor: saving || !isDirty ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              width: '100%',
+            }}>
+            {saving ? (
+              <><div className="spinner" style={{ width: 16, height: 16, borderTopColor: '#4488ff' }} />YouTube pe update ho raha hai...</>
+            ) : !isDirty ? (
+              '✅ Koi change nahi'
+            ) : (
+              '🚀 YouTube Pe Update Karo'
+            )}
+          </button>
+
+          {/* Save status */}
+          {saveStatus !== 'idle' && (
+            <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: statusColor }}>
+              {statusText}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Video Detail ──────────────────────────────────────
-function VideoDetail({ video, uid, onBack, onApplied }) {
-  const [showAiFix, setShowAiFix] = useState(false);
+function VideoDetail({ video: initialVideo, onBack }) {
+  const [showAiFix, setShowAiFix]   = useState(false);
+  const [video, setVideo]           = useState(initialVideo);
+  const applyRef                    = useRef(null);
 
   const highIssues   = video.issues.filter(i => i.severity === 'high');
   const mediumIssues = video.issues.filter(i => i.severity === 'medium');
   const lowIssues    = video.issues.filter(i => i.severity === 'low');
+
+  function handleApplyFix(newTitle, newDesc, newTags) {
+    if (applyRef.current) applyRef.current(newTitle, newDesc, newTags);
+  }
 
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
       {showAiFix && (
         <AiFixModal
           video={video}
-          uid={uid}
           onClose={() => setShowAiFix(false)}
-          onApplied={(videoId, newTitle, newTags) => {
-            onApplied && onApplied(videoId, newTitle, newTags);
-          }}
+          onApply={handleApplyFix}
         />
       )}
 
@@ -400,6 +488,15 @@ function VideoDetail({ video, uid, onBack, onApplied }) {
             </div>
           </div>
         </div>
+
+        {/* ── Direct Update Section ── */}
+        <DirectUpdateSection
+          video={video}
+          onUpdated={{
+            applyRef,
+            onSuccess: (updatedVideo) => setVideo(updatedVideo),
+          }}
+        />
 
         {/* Issues */}
         {video.issues.length === 0 ? (
@@ -455,21 +552,19 @@ function VideoDetail({ video, uid, onBack, onApplied }) {
 }
 
 // ── MAIN PAGE ─────────────────────────────────────────
-function AuditPage({ user }) {
+function AuditPage() {
   const toast = useToast();
-  const uid   = user?.uid;
-
-  const [loading, setLoading]     = useState(false);
-  const [data, setData]           = useState(null);
-  const [openVideo, setOpenVideo] = useState(null);
-  const [filterIssue, setFilterIssue] = useState('all');
+  const [loading, setLoading]       = useState(false);
+  const [data, setData]             = useState(null);
+  const [openVideo, setOpenVideo]   = useState(null);
+  const [filterIssue, setFilterIssue] = useState('all'); // all | high | medium | ok
 
   useEffect(() => { fetchAudit(); }, []);
 
   async function fetchAudit() {
     setLoading(true); setData(null); setOpenVideo(null);
     try {
-      const res  = await fetch('/api/audit');
+      const res = await fetch('/api/audit');
       const json = await res.json();
       if (json.error) { toast('❌ ' + json.error); setLoading(false); return; }
       setData(json);
@@ -477,35 +572,7 @@ function AuditPage({ user }) {
     setLoading(false);
   }
 
-  // Apply hone ke baad video list mein title/tags update karo
-  function handleApplied(videoId, newTitle, newTags) {
-    setData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        videos: prev.videos.map(v =>
-          v.videoId === videoId
-            ? { ...v, title: newTitle, tags: newTags }
-            : v
-        ),
-      };
-    });
-    // Open video bhi update karo
-    setOpenVideo(prev =>
-      prev && prev.videoId === videoId
-        ? { ...prev, title: newTitle, tags: newTags }
-        : prev
-    );
-  }
-
-  if (openVideo) return (
-    <VideoDetail
-      video={openVideo}
-      uid={uid}
-      onBack={() => setOpenVideo(null)}
-      onApplied={handleApplied}
-    />
-  );
+  if (openVideo) return <VideoDetail video={openVideo} onBack={() => setOpenVideo(null)} />;
 
   const videos = data?.videos || [];
 
@@ -545,6 +612,7 @@ function AuditPage({ user }) {
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff' }}>{data.channelName}</div>
                 <div style={{ fontSize: 11, color: '#555' }}>{fmtNum(data.subscriberCount)} subscribers • {data.videoCount} videos</div>
               </div>
+              {/* Avg Score */}
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 22, fontWeight: 900, color: avgScore >= 80 ? '#44bb66' : avgScore >= 50 ? '#ffaa00' : '#ff4455' }}>{avgScore}</div>
                 <div style={{ fontSize: 9, color: '#444', fontWeight: 700 }}>AVG SCORE</div>
@@ -554,9 +622,9 @@ function AuditPage({ user }) {
             {/* Summary cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               {[
-                { label: '🔴 High',   count: highCount,   color: '#ff4455', filter: 'high'   },
+                { label: '🔴 High', count: highCount,   color: '#ff4455', filter: 'high'   },
                 { label: '🟡 Medium', count: mediumCount, color: '#ffaa00', filter: 'medium' },
-                { label: '✅ OK',     count: okCount,     color: '#44bb66', filter: 'ok'     },
+                { label: '✅ OK',    count: okCount,     color: '#44bb66', filter: 'ok'     },
               ].map(s => (
                 <button key={s.filter} onClick={() => setFilterIssue(filterIssue === s.filter ? 'all' : s.filter)}
                   style={{ background: filterIssue === s.filter ? `${s.color}15` : '#0d0d0d', border: `1px solid ${filterIssue === s.filter ? s.color : '#1e1e1e'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center', cursor: 'pointer' }}>
@@ -597,11 +665,5 @@ function AuditPage({ user }) {
 }
 
 export default function AuditWrapper() {
-  return (
-    <ToastProvider>
-      <AuthWrapper>
-        {({ user }) => <AuditPage user={user} />}
-      </AuthWrapper>
-    </ToastProvider>
-  );
+  return <ToastProvider><AuthWrapper>{() => <AuditPage />}</AuthWrapper></ToastProvider>;
 }
