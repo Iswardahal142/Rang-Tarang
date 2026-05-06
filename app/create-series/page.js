@@ -105,9 +105,9 @@ function getFolder(type, seriesList = []) {
 function groupSeriesByFolder(seriesList) {
   const groups = {};
   seriesList.forEach(s => {
-    const type = s.type || getSeriesType(s.name);
-    if (!groups[type]) groups[type] = [];
-    groups[type].push(s);
+    const key = s.folderLabel || s.type || getSeriesType(s.name);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(s);
   });
   return groups;
 }
@@ -957,27 +957,30 @@ RETURN ONLY JSON (no markdown):
 
   // ══════════════════════════════════════════════
 
-  
-  // LEVEL 2: FOLDER VIEW
+    // LEVEL 2: FOLDER VIEW
   // ══════════════════════════════════════════════
-  if (openFolder) {
-    const folder = getFolder(openFolder, seriesList);
+ if (openFolder) {
     const grouped = groupSeriesByFolder(seriesList);
-    const seriesInFolder = grouped[openFolder] || [];
+    const folderSeries = grouped[openFolder] || [];
+    const folder = {
+      label: folderSeries[0]?.folderLabel || openFolder,
+      emoji: folderSeries[0]?.folderEmoji || '📦',
+      color: folderSeries[0]?.folderColor || '#888',
+    };
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
           <button onClick={() => setOpenFolder(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, fontWeight: 700, color: folder.color }}>{folder.emoji} {folder.label}</span>
-          <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{seriesInFolder.length} series</span>
+          <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{folderSeries.length} series</span>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {seriesInFolder.length === 0 ? (
+          {folderSeries.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40 }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>{folder.emoji}</div>
               <div style={{ fontSize: 13, color: '#555' }}>Koi series nahi hai</div>
             </div>
-          ) : seriesInFolder.map(s => {
+          ) : folderSeries.map(s => {
             const total = (s.items || []).length + 2;
             const uploaded = checkUploaded(s);
             const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
@@ -1007,7 +1010,6 @@ RETURN ONLY JSON (no markdown):
                       {isContinuing ? <><div className="spinner" style={{ width:12, height:12, borderTopColor:s.color }} /> Generating...</> : `➕ Continue → Part ${(s.part||1)+1}`}
                     </button>
                   )}
-                  {/* ── Fix Folder button — sirf wahi series jisme zarurat hai ── */}
                   {needsFix && (
                     <button onClick={(e) => fixFolderMeta(e, s)} disabled={isFixing}
                       style={{ marginTop: 8, background: isFixing?'#111':'rgba(255,170,0,0.08)', border:'1px solid #443300', color: isFixing?'#555':'#ffaa44', borderRadius:8, padding:'7px 12px', fontSize:11, fontWeight:700, cursor: isFixing?'not-allowed':'pointer', display:'flex', alignItems:'center', gap:6, width:'100%', justifyContent:'center' }}>
@@ -1024,8 +1026,8 @@ RETURN ONLY JSON (no markdown):
     );
   }
 
-  // ══════════════════════════════════════════════
-  // LEVEL 1: FOLDER LIST
+
+// LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
   const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
