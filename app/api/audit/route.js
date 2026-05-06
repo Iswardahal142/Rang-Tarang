@@ -34,7 +34,6 @@ export async function GET() {
   const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
   try {
-    // ── Channel info ──────────────────────────────────────
     const channelRes  = await fetch(
       buildUrl(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet,statistics&id=${channelId}`),
       { headers }
@@ -49,7 +48,6 @@ export async function GET() {
     const subscriberCount   = channel.statistics?.subscriberCount || '0';
     const videoCount        = channel.statistics?.videoCount || '0';
 
-    // ── Playlist items ────────────────────────────────────
     const playlistRes  = await fetch(
       buildUrl(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=50`),
       { headers }
@@ -58,7 +56,6 @@ export async function GET() {
     const videoIds     = playlistData.items?.map(i => i.contentDetails.videoId).join(',') || '';
     if (!videoIds) return Response.json({ channelId, channelName, channelThumb, subscriberCount, videoCount, videos: [] });
 
-    // ── Video details — tags bhi lenge ────────────────────
     const statsRes  = await fetch(
       buildUrl(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,contentDetails,status&id=${videoIds}`),
       { headers }
@@ -73,84 +70,58 @@ export async function GET() {
     }
 
     const videos = statsData.items?.map(v => {
-      const durationSec   = parseDuration(v.contentDetails?.duration);
-      const isShort       = durationSec > 0 && durationSec <= 60;
-      const tags          = v.snippet?.tags || [];
-      const title         = v.snippet?.title || '';
-      const description   = v.snippet?.description || '';
-      const thumbnail     = v.snippet?.thumbnails?.maxres?.url || v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.medium?.url || '';
+      const durationSec = parseDuration(v.contentDetails?.duration);
+      const isShort     = durationSec > 0 && durationSec <= 60;
+      const tags        = v.snippet?.tags || [];
+      const title       = v.snippet?.title || '';
+      const description = v.snippet?.description || '';
+      const thumbnail   = v.snippet?.thumbnails?.maxres?.url || v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.medium?.url || '';
 
-      // ── Audit scoring ─────────────────────────────────
       const issues = [];
-
-      // Tags check
-      if (tags.length === 0)       issues.push({ type: 'tags',        severity: 'high',   msg: 'Koi tags nahi hain' });
-      else if (tags.length < 5)    issues.push({ type: 'tags',        severity: 'medium', msg: `Sirf ${tags.length} tags — kam se kam 10 hone chahiye` });
-
-      // Title check
-      if (title.length < 30)       issues.push({ type: 'title',       severity: 'medium', msg: 'Title bahut chhota hai (30+ chars better)' });
-      if (title.length > 100)      issues.push({ type: 'title',       severity: 'low',    msg: 'Title bahut lamba hai' });
-      if (!/[|•\-–:]/.test(title)) issues.push({ type: 'title',       severity: 'low',    msg: 'Title mein separator nahi (| ya - se CTR badhta hai)' });
-
-      // Description check
+      if (tags.length === 0)             issues.push({ type: 'tags',        severity: 'high',   msg: 'Koi tags nahi hain' });
+      else if (tags.length < 5)          issues.push({ type: 'tags',        severity: 'medium', msg: `Sirf ${tags.length} tags — kam se kam 10 hone chahiye` });
+      if (title.length < 30)             issues.push({ type: 'title',       severity: 'medium', msg: 'Title bahut chhota hai (30+ chars better)' });
+      if (title.length > 100)            issues.push({ type: 'title',       severity: 'low',    msg: 'Title bahut lamba hai' });
+      if (!/[|•\-–:]/.test(title))       issues.push({ type: 'title',       severity: 'low',    msg: 'Title mein separator nahi (| ya - se CTR badhta hai)' });
       if (description.length === 0)      issues.push({ type: 'description', severity: 'high',   msg: 'Description bilkul khaali hai' });
       else if (description.length < 150) issues.push({ type: 'description', severity: 'medium', msg: 'Description bahut chhoti hai (150+ chars recommended)' });
+      if (!thumbnail)                    issues.push({ type: 'thumbnail',   severity: 'high',   msg: 'Thumbnail nahi mili' });
 
-      // Thumbnail check
-      if (!thumbnail) issues.push({ type: 'thumbnail', severity: 'high', msg: 'Thumbnail nahi mili' });
-
-      // Score: 100 se issues ka penalty
       const penalty = issues.reduce((acc, i) => acc + (i.severity === 'high' ? 30 : i.severity === 'medium' ? 15 : 7), 0);
       const score   = Math.max(0, 100 - penalty);
 
       return {
-        videoId:      v.id,
-        title,
-        description,
-        thumbnail,
+        videoId: v.id,
+        title, description, thumbnail,
         publishedAt:  v.snippet?.publishedAt,
         viewCount:    parseInt(v.statistics?.viewCount  || '0'),
         likeCount:    parseInt(v.statistics?.likeCount  || '0'),
-        durationSec,
-        isShort,
-        tags,
-        issues,
-        score,
+        durationSec, isShort, tags, issues, score,
         privacyStatus: v.status?.privacyStatus || 'public',
-        // ── categoryId preserve karne ke liye ──
-        categoryId: v.snippet?.categoryId || '22',
-        defaultLanguage: v.snippet?.defaultLanguage || '',
+        categoryId:    v.snippet?.categoryId   || '22',
       };
     }) || [];
 
-    // Sort by worst score first
     videos.sort((a, b) => a.score - b.score);
 
-    return Response.json({
-      channelId,
-      channelName,
-      channelThumb,
-      subscriberCount,
-      videoCount,
-      videos,
-      oauthActive: !!accessToken,
-      fetchedAt: new Date().toISOString(),
-    });
+    return Response.json({ channelId, channelName, channelThumb, subscriberCount, videoCount, videos, oauthActive: !!accessToken, fetchedAt: new Date().toISOString() });
 
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
-// ── PATCH: YouTube video title/description/tags directly update ──
+// ── PATCH: Title / Description / Tags seedha YouTube pe update ──
+// YouTube API requires all snippet fields together in one PUT call.
+// Frontend sends whichever field changed + current values of others.
 export async function PATCH(request) {
   try {
     const { videoId, title, description, tags, categoryId } = await request.json();
 
-    if (!videoId) return Response.json({ error: 'videoId required' }, { status: 400 });
+    if (!videoId)      return Response.json({ error: 'videoId required' },             { status: 400 });
     if (!title?.trim()) return Response.json({ error: 'Title khaali nahi ho sakta' }, { status: 400 });
 
-    // OAuth token REQUIRED for updates
+    // OAuth REQUIRED — API key se update nahi hota
     let accessToken;
     try {
       accessToken = await getAccessToken();
@@ -158,7 +129,7 @@ export async function PATCH(request) {
       return Response.json({ error: 'OAuth token nahi mila — update ke liye OAuth zaroori hai' }, { status: 401 });
     }
 
-    // Tags string → array clean karo
+    // Tags: comma string → clean array
     const tagsArray = tags
       ? tags.split(',').map(t => t.trim()).filter(Boolean)
       : [];
@@ -169,21 +140,15 @@ export async function PATCH(request) {
         title:       title.trim(),
         description: description?.trim() || '',
         tags:        tagsArray,
-        categoryId:  categoryId || '22', // 22 = People & Blogs (YouTube default)
+        categoryId:  categoryId || '22',
       },
     };
 
-    const res = await fetch(
-      'https://www.googleapis.com/youtube/v3/videos?part=snippet',
-      {
-        method:  'PUT',
-        headers: {
-          Authorization:  `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    const res = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet', {
+      method:  'PUT',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
 
     const data = await res.json();
 
@@ -193,10 +158,10 @@ export async function PATCH(request) {
     }
 
     return Response.json({
-      success:     true,
-      message:     '✅ YouTube pe update ho gaya!',
+      success:      true,
+      message:      '✅ YouTube pe update ho gaya!',
       updatedTitle: data.snippet?.title,
-      tagsCount:   data.snippet?.tags?.length || 0,
+      tagsCount:    data.snippet?.tags?.length || 0,
     });
 
   } catch (err) {
