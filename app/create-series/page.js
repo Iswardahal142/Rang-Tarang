@@ -564,7 +564,8 @@ RULES for "object" field: Describe ONLY the item itself, max 6 words, no locatio
     setGenerating(false);
   }
 
-  async function continueSeries(e, series) {
+
+async function continueSeries(e, series) {
     e.stopPropagation();
     setContinuing(series.id);
     try {
@@ -581,15 +582,12 @@ RULES for "object" field: Describe ONLY the item itself, max 6 words, no locatio
       const newPart = (series.part || 1) + 1;
       const baseName = series.name.replace(/ Part \d+$/, '').trim();
 
-      // ── Purani series ka type aur folderMeta copy karo ──
-      // Agar purani series mein type nahi hai toh detect karo
       let parentType = series.type && series.type !== 'other' ? series.type : null;
       let parentFolderMeta = {};
       if (series.folderLabel) {
         parentFolderMeta = { folderLabel: series.folderLabel, folderEmoji: series.folderEmoji, folderColor: series.folderColor };
       }
       if (!parentType) {
-        // AI se detect karo
         const typeText = await aiCall(`What single category does "${baseName}" belong to for a kids YouTube channel?
 Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
 If none match exactly, return a short 1-2 word lowercase category using underscores.
@@ -598,31 +596,7 @@ Return ONLY the single word or phrase, nothing else.`);
         if (!KNOWN_FOLDERS[parentType] && !parentFolderMeta.folderLabel) {
           parentFolderMeta = await generateFolderMeta(baseName, parentType);
         }
-        // Purani series ko bhi update karo
         await updateSeries(user.uid, series.id, { type: parentType, ...parentFolderMeta });
-      }
-
-      async function addToPlaylist(series, videoId) {
-  setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
-  try {
-    const folderLabel = series.folderLabel || getFolder(series.type || getSeriesType(series.name), seriesList).label;
-    const res = await fetch('/api/youtube/playlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ videoId, playlistTitle: folderLabel }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    setPlaylistStatus(p => ({ ...p, [series.id]: 'added' }));
-    await updateSeries(user.uid, series.id, { playlistAdded: true });
-    const updated = { ...series, playlistAdded: true };
-    setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
-    setOpenSeries(updated);
-    toast(data.message);
-  } catch (e) {
-    setPlaylistStatus(p => ({ ...p, [series.id]: null }));
-    toast('❌ ' + e.message);
-  }
       }
 
       await saveSeries(user.uid, {
@@ -639,6 +613,29 @@ Return ONLY the single word or phrase, nothing else.`);
     setContinuing(null);
   }
 
+  async function addToPlaylist(series, videoId) {
+    setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
+    try {
+      const folderLabel = series.folderLabel || getFolder(series.type || getSeriesType(series.name), seriesList).label;
+      const res = await fetch('/api/youtube/playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, playlistTitle: folderLabel }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPlaylistStatus(p => ({ ...p, [series.id]: 'added' }));
+      await updateSeries(user.uid, series.id, { playlistAdded: true });
+      const updated = { ...series, playlistAdded: true };
+      setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+      setOpenSeries(updated);
+      toast(data.message);
+    } catch (e) {
+      setPlaylistStatus(p => ({ ...p, [series.id]: null }));
+      toast('❌ ' + e.message);
+    }
+  }
+
   async function markDone(series, key, wasDone) {
     const doneSections = { ...(series.doneSections || {}) };
     if (wasDone) delete doneSections[key]; else doneSections[key] = true;
@@ -651,6 +648,8 @@ Return ONLY the single word or phrase, nothing else.`);
     setOpenSeries(updated);
     toast(wasDone ? 'Undone!' : '✅ Done!');
   }
+
+  
 
   async function generateTitleDesc(series) {
   setGenTD(true);
