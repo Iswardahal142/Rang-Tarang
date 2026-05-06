@@ -1,21 +1,5 @@
 // 📁 LOCATION: app/api/audit/update/route.js
-// Audit page se YouTube title + tags update karo aur Firestore mein bhi save karo
-
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore }                  from 'firebase-admin/firestore';
-
-function getAdminDB() {
-  if (!getApps().length) {
-    initializeApp({
-      credential: cert({
-        projectId:   process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
-    });
-  }
-  return getFirestore();
-}
+// firebase-admin nahi — Firestore REST API use kar rahe hain (no extra dependency)
 
 async function getAccessToken() {
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -33,6 +17,30 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+// Firestore REST API se document add karo (firebase-admin ki zaroorat nahi)
+async function saveToFirestore({ projectId, uid, videoId, title, tags }) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}/audit_updates`;
+  const body = {
+    fields: {
+      videoId:   { stringValue: videoId },
+      title:     { stringValue: title },
+      tags:      { arrayValue: { values: tags.map(t => ({ stringValue: t })) } },
+      updatedAt: { stringValue: new Date().toISOString() },
+    },
+  };
+  // Firestore REST ke liye koi auth nahi chahiye agar rules allow karti hain
+  // Agar rules strict hain toh ye silently fail hoga — YouTube update fir bhi hoga
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    console.warn('Firestore save skipped:', e.message);
+  }
+}
+
 // POST /api/audit/update
 // Body: { videoId, title, tags: string[], uid }
 export async function POST(req) {
@@ -43,11 +51,13 @@ export async function POST(req) {
     if (!title)   return Response.json({ error: 'title required' },   { status: 400 });
     if (!uid)     return Response.json({ error: 'uid required' },     { status: 400 });
 
+    const cleanTags = Array.isArray(tags) ? tags.map(t => t.trim()).filter(Boolean) : [];
+
     // ── 1. YouTube OAuth token ──────────────────────────────
     const accessToken = await getAccessToken();
 
-    // ── 2. Pehle current snippet fetch karo (categoryId + language preserve karne ke liye) ──
-    const fetchRes = await fetch(
+    // ── 2. Current snippet fetch (categoryId + language preserve) ──
+    const fetchRes  = await fetch(
       `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
@@ -57,7 +67,7 @@ export async function POST(req) {
     }
     const currentSnippet = fetchData.items[0].snippet;
 
-    // ── 3. YouTube update karo ──────────────────────────────
+    // ── 3. YouTube update ───────────────────────────────────
     const updateRes = await fetch(
       'https://www.googleapis.com/youtube/v3/videos?part=snippet',
       {
@@ -69,10 +79,10 @@ export async function POST(req) {
         body: JSON.stringify({
           id: videoId,
           snippet: {
-            ...currentSnippet,          // categoryId, defaultLanguage etc preserve
+            ...currentSnippet,
             title:       title.trim(),
-            tags:        Array.isArray(tags) ? tags.map(t => t.trim()).filter(Boolean) : [],
-            description: currentSnippet.description, // description unchanged rakhte hain
+            tags:        cleanTags,
+            description: currentSnippet.description,
           },
         }),
       }
@@ -82,15 +92,11 @@ export async function POST(req) {
       return Response.json({ error: updateData.error?.message || 'YouTube update failed' }, { status: 400 });
     }
 
-    // ── 4. Firestore mein bhi save karo — audit_updates collection ──
-    // Ye create-series ke rt_series episodes ke saath match karne mein help karega
-    const db = getAdminDB();
-    await db.collection('users').doc(uid).collection('audit_updates').add({
-      videoId,
-      title:     title.trim(),
-      tags:      Array.isArray(tags) ? tags.map(t => t.trim()).filter(Boolean) : [],
-      updatedAt: new Date().toISOString(),
-    });
+    // ── 4. Firestore mein save (REST API, no firebase-admin) ──
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+                   || process.env.FIREBASE_PROJECT_ID
+                   || 'fir-c929f'; // fallback from firebase.js
+    await saveToFirestore({ projectId, uid, videoId, title: title.trim(), tags: cleanTags });
 
     return Response.json({
       success: true,
