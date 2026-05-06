@@ -388,19 +388,9 @@ Return ONLY JSON, no markdown: {"label":"Computer Parts","emoji":"💻","color":
   }
 }
 
-// ── Needs folder fix: no folderLabel AND type is 'other' or missing or KNOWN_FOLDERS mein nahi hai ──
 function needsFolderFix(series) {
-  const storedType = series.type;
-  const detectedType = getSeriesType(series.name);
-  const type = storedType || detectedType;
-  const hasLabel = !!series.folderLabel;
-  const isKnown = !!KNOWN_FOLDERS[type];
-  // Agar stored type aur detected type alag hain toh fix karo
-  const isMismatch = storedType && detectedType !== 'other' && storedType !== detectedType;
-  // Agar label hai but wrong folder mein hai
-  const isWrongFolder = hasLabel && type !== 'other' && !isKnown;
-  return (!hasLabel && (type === 'other' || !isKnown)) || isWrongFolder || isMismatch;
-    }
+  return !series.folderLabel || !series.folderEmoji || !series.folderColor;
+}
 
 function CreateSeriesPage({ user }) {
   const toast = useToast();
