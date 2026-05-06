@@ -775,10 +775,11 @@ RETURN ONLY JSON (no markdown):
             </div>
           )}
 
-          <TitleDescSection series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
-            genTD={genTD} onGenerate={() => generateTitleDesc(s)}
-            onSave={(title, desc) => saveTitleDesc(s, title, desc)} onCopy={copy} copiedKey={copiedKey} />
-
+        <TitleDescSection series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
+  genTD={genTD} onGenerate={() => generateTitleDesc(s)}
+  onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)} 
+  onCopy={copy} copiedKey={copiedKey} />
+    
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
