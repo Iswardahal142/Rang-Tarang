@@ -162,13 +162,14 @@ function CompareActionPage({ user }) {
     try {
       const existing = list.map(s => s.name).join(', ') || 'none';
       const typeHint = seriesType === 'compare'
-        ? 'comparison topics like Big/Small, Hot/Cold, Fast/Slow, Boy/Girl, Bird/Animal'
-        : 'action topics like Jump, Run, Walk, Dance, Swim, Clap';
+        ? 'comparison topics using opposite quality pairs like: Big Small, Long Short, Hot Cold, Fast Slow, Heavy Light, Tall Short, Thick Thin, Wide Narrow, Old New, Tiny Huge, Hard Soft, Loud Quiet, Near Far, Full Empty, Clean Dirty, Happy Sad, Open Closed, Wet Dry'
+        : 'action topics like Jump, Run, Walk, Dance, Swim, Clap, Spin, Crawl, Hop, Stretch';
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created: ${existing}
 Suggest exactly 6 NEW unique kids educational ${typeHint} that have NOT been created yet.
-Return ONLY a JSON array of short names (max 3 words each), no markdown:
-${seriesType === 'compare' ? '["Big Small","Hot Cold","Fast Slow","Boy Girl","Bird Animal","Day Night"]' : '["Jump","Run","Walk","Dance","Swim","Clap"]'}`);
+Each suggestion should be exactly 2 words representing opposite qualities.
+Return ONLY a JSON array of short names (2 words each), no markdown:
+${seriesType === 'compare' ? '["Long Short","Tiny Huge","Heavy Light","Tall Short","Hot Cold"]' : '["Jump","Run","Walk","Dance","Swim","Clap"]'}`);
       setAiSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setSugLoading(false);
@@ -182,20 +183,34 @@ ${seriesType === 'compare' ? '["Big Small","Hot Cold","Fast Slow","Boy Girl","Bi
       let items = [];
 
       if (seriesType === 'compare') {
-        const text = await aiCall(`Generate exactly 5 unique comparison items for kids YouTube series "${customName}".
-Each item should show two contrasting things kids can compare.
-Return ONLY JSON array, no markdown:
+        const text = await aiCall(`You are making a Hindi kids YouTube comparison series called "${customName}".
+The series teaches kids to compare two opposite qualities (e.g. Big vs Small, Long vs Short, Hot vs Cold, Tiny vs Huge, Fast vs Slow, Heavy vs Light, Tall vs Short, Thick vs Thin, Wide vs Narrow, Old vs New, etc.)
+
+Extract the TWO qualities from the series name: "${customName}"
+- quality1 = first word/concept (e.g. "Long", "Tiny", "Hot", "Heavy")
+- quality2 = second word/concept (e.g. "Short", "Huge", "Cold", "Light")
+
+Generate exactly 5 comparison items. Each item must:
+1. Use a SPECIFIC real-world object pair that clearly shows this quality difference
+2. label1 = quality1 word in English (e.g. "Long")
+3. label2 = quality2 word in English (e.g. "Short")
+4. question = quality1 word in Hindi (e.g. "लंबा" for Long, "छोटा" for Tiny, "गरम" for Hot, "भारी" for Heavy, "बड़ा" for Big, "ऊंचा" for Tall, "मोटा" for Thick, "चौड़ा" for Wide, "पुराना" for Old, "तेज़" for Fast)
+5. object1 = Pixar 3D animated description of the object that IS quality1
+6. object2 = Pixar 3D animated description of the object that IS quality2
+7. answer1object = "left side object" or "right side object" reference
+
+Return ONLY JSON array, no markdown, no explanation:
 [{
-  "name": "Elephant vs Ant",
-  "question": "बड़ा",
-  "label1": "Big",
-  "label2": "Small",
-  "object1": "giant colorful Pixar 3D elephant standing proudly",
-  "object2": "tiny cute Pixar 3D ant waving",
-  "answer1object": "elephant on left",
-  "answer2object": "ant on right"
+  "name": "Giraffe vs Rabbit",
+  "question": "लंबा",
+  "label1": "Long",
+  "label2": "Short",
+  "object1": "tall majestic Pixar 3D giraffe with long neck standing proudly",
+  "object2": "small fluffy Pixar 3D rabbit sitting cutely",
+  "answer1object": "giraffe on left",
+  "answer2object": "rabbit on right"
 }]
-Avoid overlap with: ${existing}`);
+Avoid repeating: ${existing}`);
         items = JSON.parse(text.replace(/```json|```/g, '').trim());
       } else {
         const text = await aiCall(`Generate exactly 5 unique action items for kids YouTube series "${customName}".
