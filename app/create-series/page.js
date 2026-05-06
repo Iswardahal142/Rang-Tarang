@@ -477,9 +477,15 @@ Return ONLY the single word or phrase, nothing else.`);
       const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
       // Step 2: Folder meta
       let folderMeta = {};
-      if (!KNOWN_FOLDERS[detectedType]) {
-        folderMeta = await generateFolderMeta(baseName, detectedType);
-      }
+if (KNOWN_FOLDERS[detectedType]) {
+  folderMeta = {
+    folderLabel: KNOWN_FOLDERS[detectedType].label,
+    folderEmoji: KNOWN_FOLDERS[detectedType].emoji,
+    folderColor: KNOWN_FOLDERS[detectedType].color,
+  };
+} else {
+  folderMeta = await generateFolderMeta(baseName, detectedType);
+}
       // Step 3: Save
       await updateSeries(user.uid, series.id, { type: detectedType, ...folderMeta });
       toast('✅ Folder fix ho gaya!');
