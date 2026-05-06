@@ -299,7 +299,7 @@ function buildItemImagePrompt(item, seriesName) {
   const placement = large
     ? `Big Pixar 3D cartoon ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Large and clearly visible.`
     : `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, showing it clearly. Object is large and clearly visible.`;
-  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center-left, smiling excitedly. ${placement} Bold glowing rainbow text "${item.name.toUpperCase()}" at very bottom center with sparkles. 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center-left, smiling excitedly. ${placement} 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
 }
 
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
