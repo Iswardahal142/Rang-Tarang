@@ -117,6 +117,9 @@ export async function GET() {
         issues,
         score,
         privacyStatus: v.status?.privacyStatus || 'public',
+        // ── categoryId preserve karne ke liye ──
+        categoryId: v.snippet?.categoryId || '22',
+        defaultLanguage: v.snippet?.defaultLanguage || '',
       };
     }) || [];
 
@@ -132,6 +135,68 @@ export async function GET() {
       videos,
       oauthActive: !!accessToken,
       fetchedAt: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// ── PATCH: YouTube video title/description/tags directly update ──
+export async function PATCH(request) {
+  try {
+    const { videoId, title, description, tags, categoryId } = await request.json();
+
+    if (!videoId) return Response.json({ error: 'videoId required' }, { status: 400 });
+    if (!title?.trim()) return Response.json({ error: 'Title khaali nahi ho sakta' }, { status: 400 });
+
+    // OAuth token REQUIRED for updates
+    let accessToken;
+    try {
+      accessToken = await getAccessToken();
+    } catch (e) {
+      return Response.json({ error: 'OAuth token nahi mila — update ke liye OAuth zaroori hai' }, { status: 401 });
+    }
+
+    // Tags string → array clean karo
+    const tagsArray = tags
+      ? tags.split(',').map(t => t.trim()).filter(Boolean)
+      : [];
+
+    const body = {
+      id: videoId,
+      snippet: {
+        title:       title.trim(),
+        description: description?.trim() || '',
+        tags:        tagsArray,
+        categoryId:  categoryId || '22', // 22 = People & Blogs (YouTube default)
+      },
+    };
+
+    const res = await fetch(
+      'https://www.googleapis.com/youtube/v3/videos?part=snippet',
+      {
+        method:  'PUT',
+        headers: {
+          Authorization:  `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      const errMsg = data?.error?.message || data?.error?.errors?.[0]?.message || 'YouTube update fail';
+      return Response.json({ error: errMsg }, { status: res.status });
+    }
+
+    return Response.json({
+      success:     true,
+      message:     '✅ YouTube pe update ho gaya!',
+      updatedTitle: data.snippet?.title,
+      tagsCount:   data.snippet?.tags?.length || 0,
     });
 
   } catch (err) {
