@@ -423,6 +423,7 @@ function CreateSeriesPage({ user }) {
   const [scheduleCopied, setScheduleCopied] = useState(false);
   // ── Fix folder states ──
   const [fixingFolder, setFixingFolder]     = useState(null); // series id
+  const [playlistStatus, setPlaylistStatus] = useState({});
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -601,6 +602,29 @@ Return ONLY the single word or phrase, nothing else.`);
         await updateSeries(user.uid, series.id, { type: parentType, ...parentFolderMeta });
       }
 
+      async function addToPlaylist(series, videoId) {
+  setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
+  try {
+    const folderLabel = series.folderLabel || getFolder(series.type || getSeriesType(series.name), seriesList).label;
+    const res = await fetch('/api/youtube/playlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId, playlistTitle: folderLabel }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    setPlaylistStatus(p => ({ ...p, [series.id]: 'added' }));
+    await updateSeries(user.uid, series.id, { playlistAdded: true });
+    const updated = { ...series, playlistAdded: true };
+    setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+    setOpenSeries(updated);
+    toast(data.message);
+  } catch (e) {
+    setPlaylistStatus(p => ({ ...p, [series.id]: null }));
+    toast('❌ ' + e.message);
+  }
+      }
+
       await saveSeries(user.uid, {
         name: `${baseName} Part ${newPart}`,
         emoji: series.emoji, color: series.color,
@@ -696,7 +720,9 @@ RETURN ONLY JSON (no markdown):
 
   // ══════════════════════════════════════════════
   // LEVEL 3: SERIES DETAIL VIEW
-  // ══════════════════════════════════════════════
+
+
+// ══════════════════════════════════════════════
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
@@ -704,6 +730,16 @@ RETURN ONLY JSON (no markdown):
     const allPromptsDone = Object.keys(done).length >= total;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const deleteDisabled = isDeleteDisabled(s);
+
+    // ── VideoId nikalo title match se ──
+    const matchedVideo = ytVideos.find(v => {
+      const matchStr = (s.ytTitle || s.name || '').trim().toLowerCase();
+      return (v.title || '').toLowerCase().includes(matchStr) ||
+             matchStr.includes((v.title || '').toLowerCase().slice(0, 20));
+    });
+    const videoId = matchedVideo?.videoId || null;
+    const folderLabel = s.folderLabel || getFolder(s.type || getSeriesType(s.name), seriesList).label;
+
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
         { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
@@ -775,11 +811,40 @@ RETURN ONLY JSON (no markdown):
             </div>
           )}
 
-        <TitleDescSection series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
-  genTD={genTD} onGenerate={() => generateTitleDesc(s)}
-  onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)} 
-  onCopy={copy} copiedKey={copiedKey} />
-    
+          {/* ── Playlist Section ── */}
+          {videoId ? (
+            <div style={{ background: '#0f0f0f', border: `1px solid ${s.playlistAdded || playlistStatus[s.id] === 'added' ? '#1a3a1a' : '#1a2a1a'}`, borderRadius: 12, padding: '13px 14px' }}>
+              <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>🎵 PLAYLIST</div>
+              {s.playlistAdded || playlistStatus[s.id] === 'added' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>✅</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#44bb66' }}>Already Added to Playlist</div>
+                    <div style={{ fontSize: 11, color: '#555' }}>{folderLabel}</div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => addToPlaylist(s, videoId)}
+                  disabled={playlistStatus[s.id] === 'loading'}
+                  style={{ width: '100%', background: playlistStatus[s.id] === 'loading' ? '#111' : 'linear-gradient(135deg,#0a1a0a,#0a2a0a)', border: '1px solid #224422', color: playlistStatus[s.id] === 'loading' ? '#555' : '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: playlistStatus[s.id] === 'loading' ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {playlistStatus[s.id] === 'loading'
+                    ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#44bb66' }} />Adding...</>
+                    : `➕ Add to Playlist — ${folderLabel}`}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 12, padding: '13px 14px', fontSize: 12, color: '#444', textAlign: 'center' }}>
+              🎵 Pehle video YouTube pe upload karo
+            </div>
+          )}
+
+          <TitleDescSection series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
+            genTD={genTD} onGenerate={() => generateTitleDesc(s)}
+            onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)}
+            onCopy={copy} copiedKey={copiedKey} />
+
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -859,6 +924,8 @@ RETURN ONLY JSON (no markdown):
   }
 
   // ══════════════════════════════════════════════
+
+  
   // LEVEL 2: FOLDER VIEW
   // ══════════════════════════════════════════════
   if (openFolder) {
