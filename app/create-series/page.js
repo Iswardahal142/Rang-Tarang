@@ -629,38 +629,60 @@ Return ONLY the single word or phrase, nothing else.`);
   }
 
   async function generateTitleDesc(series) {
-    setGenTD(true);
-    try {
-      const itemNames = (series.items || []).map(i => i.name).join(', ');
-      const partText = series.part > 1 ? ` Part ${series.part}` : '';
-      const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
-Series: "${series.name}${partText}"
-Items: ${itemNames}
-TITLE: Max 60 chars, Hindi + English, pattern "[Emoji] [Hindi] | [English] | Rang Tarang"
-DESCRIPTION:
-- Line 1: Hook in Hindi
-- Line 2: "✅ इस video में: ${(series.items||[]).slice(0,5).map(i=>i.name).join(', ')}..."
-- Line 3: "👶 2-6 साल के बच्चों के लिए perfect!"
-- Line 4: "🔔 Rang Tarang Subscribe karo"
-- Line 5: #Shorts #HindiKids #${series.name.replace(/\s+/g,'')} #बच्चोंकेलिए #LearnHindi #RangTarang #EducationalShorts
-RETURN ONLY JSON: {"title":"...","description":"..."}`);
-      const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
-      await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
-      const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
-      setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
-      setOpenSeries(updated);
-      toast('✅ Title & Description ready!');
-    } catch (e) { toast('❌ ' + e.message); }
-    setGenTD(false);
-  }
+  setGenTD(true);
+  try {
+    const itemNames = (series.items || []).map(i => i.name).join(', ');
+    const count = (series.items || []).length;
+    const baseName = series.name.replace(/ Part \d+$/, '').trim();
+    const partText = (series.part || 1) > 1 ? ` Part ${series.part}` : '';
+    const partHindi = (series.part || 1) > 1 ? ` भाग ${series.part}` : '';
 
-  async function saveTitleDesc(series, title, desc) {
-    await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc });
-    const updated = { ...series, ytTitle: title, ytDescription: desc };
+    const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
+Series: "${baseName}${partText}"
+Items: ${itemNames}
+Count: ${count}
+
+Generate YouTube title, description, and tags.
+
+TITLE RULES (VERY STRICT):
+- Exactly this pattern: "[count] [Hindi name] | [count] [English name] | Rang Tarang"
+- Hindi name = topic ka Hindi naam (e.g. फूलों के नाम, सब्जियों के नाम, रंगों के नाम)
+- If Part 2 or more: "[count] [Hindi name] भाग ${(series.part||1)>1?series.part:''} | [count] [English name] Part ${(series.part||1)>1?series.part:''} | Rang Tarang"
+- Max 60 characters total
+- NO emoji in title
+
+DESCRIPTION RULES:
+Line 1: Hook in Hindi (1 line)
+Line 2: ✅ इस video में: ${(series.items||[]).slice(0,5).map(i=>i.name).join(', ')}...
+Line 3: 👶 2-6 साल के बच्चों के लिए perfect!
+Line 4: 🔔 Rang Tarang Subscribe karo: https://youtube.com/@RangTarangHindi
+Line 5 (TAGS - include all): #Shorts #HindiKids #${baseName.replace(/\s+/g,'')} #बच्चोंकेलिए #LearnHindi #RangTarang #EducationalShorts #हिंदीशिक्षा #KidsLearning #${baseName.replace(/\s+/g,'').replace(/[^\w]/g,'')}Hindi
+
+TAGS RULES:
+- Comma separated, max 15 tags
+- Mix of Hindi + English keywords
+- Topic specific + general kids learning tags
+- Example format: "flowers name in hindi, phoolon ke naam, flowers for kids, rang tarang, hindi educational"
+
+RETURN ONLY JSON (no markdown):
+{"title":"...","description":"...","tags":"..."}`);
+
+    const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
+    await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags });
+    const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags };
     setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
     setOpenSeries(updated);
-    toast('💾 Saved!');
-  }
+    toast('✅ Title, Description & Tags ready!');
+  } catch (e) { toast('❌ ' + e.message); }
+  setGenTD(false);
+}
+  async function saveTitleDesc(series, title, desc, tags = '') {
+  await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc, ytTags: tags });
+  const updated = { ...series, ytTitle: title, ytDescription: desc, ytTags: tags };
+  setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+  setOpenSeries(updated);
+  toast('💾 Saved!');
+}
 
   function copy(key, text) {
     navigator.clipboard.writeText(text).then(() => { setCopiedKey(key); setTimeout(() => setCopiedKey(''), 2000); toast('📋 Copied!'); });
@@ -1067,7 +1089,12 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
   const [editing, setEditing] = useState(false);
   const [title, setTitle]     = useState(series.ytTitle || '');
   const [desc, setDesc]       = useState(series.ytDescription || '');
-  useEffect(() => { setTitle(series.ytTitle || ''); setDesc(series.ytDescription || ''); }, [series.ytTitle, series.ytDescription]);
+  const [tags, setTags]       = useState(series.ytTags || '');
+  useEffect(() => {
+    setTitle(series.ytTitle || '');
+    setDesc(series.ytDescription || '');
+    setTags(series.ytTags || '');
+  }, [series.ytTitle, series.ytDescription, series.ytTags]);
   return (
     <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc?'#1a3a2a':'#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
       <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
@@ -1089,6 +1116,8 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
             style={{ background: genTD?'#111':'linear-gradient(135deg,#1a1000,#2a1800)', border:'1px solid #443300', color: genTD?'#555':'#ffaa44', borderRadius:10, padding:'11px', fontSize:12, fontWeight:700, cursor: genTD?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
             {genTD ? <><div className="spinner" style={{ width:14, height:14, borderTopColor:'#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
           </button>
+
+          {/* Title */}
           <div>
             <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>📌 YouTube Title</div>
             <div style={{ position: 'relative' }}>
@@ -1097,6 +1126,8 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
               <button onClick={() => onCopy('ytTitle', title)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytTitle'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytTitle'?'#44bb66':'#333'}`, color: copiedKey==='ytTitle'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytTitle'?'✅':'📋'}</button>
             </div>
           </div>
+
+          {/* Description */}
           <div>
             <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>📄 YouTube Description</div>
             <div style={{ position: 'relative' }}>
@@ -1105,7 +1136,18 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
               <button onClick={() => onCopy('ytDesc', desc)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytDesc'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytDesc'?'#44bb66':'#333'}`, color: copiedKey==='ytDesc'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytDesc'?'✅':'📋'}</button>
             </div>
           </div>
-          <button onClick={() => { onSave(title, desc); setEditing(false); }}
+
+          {/* Tags */}
+          <div>
+            <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>🏷️ YouTube Tags</div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags comma se separate..." rows={3}
+                style={{ width:'100%', background:'#0a0a0a', border:'1px solid #2a2000', borderRadius:10, padding:'10px 44px 10px 12px', fontSize:12, color:'#eee', outline:'none', boxSizing:'border-box', fontFamily:'inherit', resize:'vertical', lineHeight:1.6 }} />
+              <button onClick={() => onCopy('ytTags', tags)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytTags'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytTags'?'#44bb66':'#333'}`, color: copiedKey==='ytTags'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytTags'?'✅':'📋'}</button>
+            </div>
+          </div>
+
+          <button onClick={() => { onSave(title, desc, tags); setEditing(false); }}
             style={{ background:'rgba(68,187,102,0.12)', border:'1px solid rgba(68,187,102,0.4)', color:'#44bb66', borderRadius:10, padding:'11px', fontSize:13, fontWeight:700, cursor:'pointer', width:'100%' }}>
             💾 Save Karo
           </button>
