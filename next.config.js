@@ -1,5 +1,9 @@
+// 📁 LOCATION: next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_BASE_URL: 'https://rang-tarang.vercel.app',
+  },
   async headers() {
     return [
       {
