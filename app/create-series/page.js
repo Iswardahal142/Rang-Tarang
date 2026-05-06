@@ -552,53 +552,50 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
   }
 
   async function generateSeries() {
-    if (!selectedTopic) return;
-    setGenerating(true);
-    try {
-      const existing = seriesList.map(s => s.name).join(', ');
-      const autoColor = getNextColor();
+  if (!selectedTopic) return;
+  setGenerating(true);
+  try {
+    const existing = seriesList.map(s => s.name).join(', ');
+    const autoColor = getNextColor();
 
-      // ── Type detect ──
-      const detectedType = getSeriesType(selectedTopic.name) || 'other';
+    // ── Type detect ──
+    const detectedType = getSeriesType(selectedTopic.name) || 'other';
 
-      // ── Folder meta ──
-      let folderMeta = {};
-      if (KNOWN_FOLDERS[detectedType]) {
-        // Known folder — use karo directly
-        folderMeta = {};
-      } else {
-        // Unknown — folderLabel = series name itself
-        folderMeta = {
-          folderLabel: selectedTopic.name.replace(/^Five\s+/i, '').replace(/\s+Name$/i, '').trim(),
-          folderEmoji: selectedEmoji,
-          folderColor: autoColor,
-        };
-      }
+    // ── Folder meta — hamesha user input se ──
+    const userInputLabel = customName.trim()
+      ? customName.trim().replace(/\b\w/g, c => c.toUpperCase())
+      : selectedTopic.name.replace(/^Five\s+/i, '').replace(/\s+Name$/i, '').trim();
 
-      const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
+    const folderMeta = {
+      folderLabel: userInputLabel,
+      folderEmoji: selectedEmoji,
+      folderColor: autoColor,
+    };
+
+    const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
 [{"name":"Lion","object":"golden lion with fluffy mane"}]
 RULES for "object" field: Describe ONLY the item itself, max 6 words, no location or scene.`);
-      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
-      if (getSeriesType(selectedTopic.name) === 'number') {
-        items.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
-      }
-      await saveSeries(user.uid, {
-        name: selectedTopic.name,
-        emoji: selectedEmoji,
-        color: autoColor,
-        items,
-        doneSections: {}, doneCount: 0, progress: 0,
-        part: 1, ytTitle: '', ytDescription: '',
-        type: detectedType,
-        ...folderMeta,
-      });
-      toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
-      setModal('none'); setSelectedTopic(null); setCustomName(''); loadList();
-    } catch (e) { toast('❌ ' + e.message); }
-    setGenerating(false);
-  }
+    const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+    if (getSeriesType(selectedTopic.name) === 'number') {
+      items.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
+    }
+    await saveSeries(user.uid, {
+      name: selectedTopic.name,
+      emoji: selectedEmoji,
+      color: autoColor,
+      items,
+      doneSections: {}, doneCount: 0, progress: 0,
+      part: 1, ytTitle: '', ytDescription: '',
+      type: detectedType,
+      ...folderMeta,
+    });
+    toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
+    setModal('none'); setSelectedTopic(null); setCustomName(''); loadList();
+  } catch (e) { toast('❌ ' + e.message); }
+  setGenerating(false);
+}
 
 
 async function continueSeries(e, series) {
