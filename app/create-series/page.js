@@ -521,6 +521,12 @@ Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕"
     setModal('picker');
   }
 
+  function getNextColor() {
+    const lastColor = seriesList?.[0]?.color || '';
+    const available = COLORS.filter(c => c !== lastColor);
+    return available[Math.floor(Math.random() * available.length)];
+  }
+
   async function submitCustom() {
     if (!customName.trim()) { toast('⚠️ Beech wala part likho!'); return; }
     const fullName = `Five ${customName.trim()} Name`;
@@ -537,7 +543,7 @@ Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕"
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created series: ${existing}
 User hint: "${customName.trim()}"
-Suggest exactly 6 unique kids educational topics that have NOT been created yet.
+Suggest exactly 6 unique kids educational topics that have NOT been created yet. Do NOT suggest any of these: ${existing}
 Return ONLY a JSON array of single words or short phrases (max 2 words each), no markdown:
 ["Flowers","Wild Animals","Insects","Planets","Body Parts","Musical Instruments"]`);
       setAiSuggestions(JSON.parse(text.replace(/```json|```/g,'').trim()));
@@ -550,13 +556,25 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
     setGenerating(true);
     try {
       const existing = seriesList.map(s => s.name).join(', ');
-      const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
-Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
-If none match exactly, return a short 1-2 word lowercase category using underscores.
-Return ONLY the single word or phrase, nothing else.`);
-      const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
+      const autoColor = getNextColor();
+
+      // ── Type detect ──
+      const detectedType = getSeriesType(selectedTopic.name) || 'other';
+
+      // ── Folder meta ──
       let folderMeta = {};
-      if (!KNOWN_FOLDERS[detectedType]) folderMeta = await generateFolderMeta(selectedTopic.name, detectedType);
+      if (KNOWN_FOLDERS[detectedType]) {
+        // Known folder — use karo directly
+        folderMeta = {};
+      } else {
+        // Unknown — folderLabel = series name itself
+        folderMeta = {
+          folderLabel: selectedTopic.name.replace(/^Five\s+/i, '').replace(/\s+Name$/i, '').trim(),
+          folderEmoji: selectedEmoji,
+          folderColor: autoColor,
+        };
+      }
+
       const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
@@ -566,7 +584,16 @@ RULES for "object" field: Describe ONLY the item itself, max 6 words, no locatio
       if (getSeriesType(selectedTopic.name) === 'number') {
         items.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
       }
-      await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '', type: detectedType, ...folderMeta });
+      await saveSeries(user.uid, {
+        name: selectedTopic.name,
+        emoji: selectedEmoji,
+        color: autoColor,
+        items,
+        doneSections: {}, doneCount: 0, progress: 0,
+        part: 1, ytTitle: '', ytDescription: '',
+        type: detectedType,
+        ...folderMeta,
+      });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
       setModal('none'); setSelectedTopic(null); setCustomName(''); loadList();
     } catch (e) { toast('❌ ' + e.message); }
