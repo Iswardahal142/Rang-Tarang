@@ -1,6 +1,19 @@
 // 📁 LOCATION: app/api/youtube/route.js
 export const revalidate = 300;
 
+const CORS = { 'Access-Control-Allow-Origin': '*' };
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
 async function getAccessToken() {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -21,8 +34,8 @@ export async function GET() {
   const apiKey    = process.env.YOUTUBE_API_KEY;
   const channelId = process.env.YOUTUBE_CHANNEL_ID;
 
-  if (!apiKey)    return Response.json({ error: 'YOUTUBE_API_KEY not set' },    { status: 500 });
-  if (!channelId) return Response.json({ error: 'YOUTUBE_CHANNEL_ID not set' }, { status: 500 });
+  if (!apiKey)    return Response.json({ error: 'YOUTUBE_API_KEY not set' },    { status: 500, headers: CORS });
+  if (!channelId) return Response.json({ error: 'YOUTUBE_CHANNEL_ID not set' }, { status: 500, headers: CORS });
 
   // OAuth token lo
   let accessToken = null;
@@ -32,7 +45,6 @@ export async function GET() {
     console.warn('OAuth fail, API key fallback:', e.message);
   }
 
-  // ✅ KEY INSIGHT: OAuth ho toh key mat bhejo, warna key bhejo
   function buildUrl(base) {
     return accessToken ? base : `${base}${base.includes('?') ? '&' : '?'}key=${apiKey}`;
   }
@@ -47,7 +59,7 @@ export async function GET() {
     const channelData = await channelRes.json();
 
     if (!channelData.items?.length) {
-      return Response.json({ error: 'Channel not found.' }, { status: 404 });
+      return Response.json({ error: 'Channel not found.' }, { status: 404, headers: CORS });
     }
 
     const channel           = channelData.items[0];
@@ -67,7 +79,7 @@ export async function GET() {
     const videoIds = playlistData.items?.map(item => item.contentDetails.videoId).join(',') || '';
 
     if (!videoIds) {
-      return Response.json({ channelId: channelId_out, channelName, channelThumb, subscriberCount, videoCount, videos: [] });
+      return Response.json({ channelId: channelId_out, channelName, channelThumb, subscriberCount, videoCount, videos: [] }, { headers: CORS });
     }
 
     // ── Video stats + privacy ─────────────────────────────
@@ -114,9 +126,9 @@ export async function GET() {
       videoCount,
       videos,
       oauthActive: !!accessToken,
-    });
+    }, { headers: CORS });
 
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    return Response.json({ error: err.message }, { status: 500, headers: CORS });
   }
 }
