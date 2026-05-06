@@ -1016,7 +1016,6 @@ RETURN ONLY JSON (no markdown):
     );
   }
 
-
 // LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
@@ -1121,26 +1120,25 @@ RETURN ONLY JSON (no markdown):
           </div>
         )}
 
-{modal === 'picker' && selectedTopic && (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
-    <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 4, textAlign: 'center' }}>{selectedEmoji} {selectedTopic.name}</div>
-      {selectedTopic.description && <div style={{ fontSize: 11, color: '#666', textAlign: 'center', marginBottom: 14 }}>{selectedTopic.description}</div>}
-      <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>EMOJI CHUNO</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-        {EMOJIS.map(e => <button key={e} onClick={() => setSelectedEmoji(e)} style={{ fontSize:22, padding:'6px 8px', borderRadius:10, cursor:'pointer', background: selectedEmoji===e?'rgba(204,136,255,0.2)':'#1a1a1a', border:`1px solid ${selectedEmoji===e?'#cc88ff':'#333'}` }}>{e}</button>)}
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={generateSeries} disabled={generating}
-          style={{ flex:2, background: generating?'#1a001a':'linear-gradient(135deg,#550055,#330033)', border:'1px solid #660066', color:'#cc88ff', borderRadius:10, padding:'12px', fontSize:13, fontWeight:800, cursor: generating?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-          {generating ? <><div className="spinner" style={{ borderTopColor:'#cc88ff', width:16, height:16 }} />Generating...</> : '🤖 Generate Karo'}
-        </button>
-        <button onClick={() => setModal('none')} style={{ flex:1, background:'#111', border:'1px solid #333', color:'#666', borderRadius:10, padding:'12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>Cancel</button>
-      </div>
-    </div>
-  </div>
-)}
-
+        {modal === 'picker' && selectedTopic && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
+            <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 4, textAlign: 'center' }}>{selectedEmoji} {selectedTopic.name}</div>
+              {selectedTopic.description && <div style={{ fontSize: 11, color: '#666', textAlign: 'center', marginBottom: 14 }}>{selectedTopic.description}</div>}
+              <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>EMOJI CHUNO</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                {EMOJIS.map(e => <button key={e} onClick={() => setSelectedEmoji(e)} style={{ fontSize:22, padding:'6px 8px', borderRadius:10, cursor:'pointer', background: selectedEmoji===e?'rgba(204,136,255,0.2)':'#1a1a1a', border:`1px solid ${selectedEmoji===e?'#cc88ff':'#333'}` }}>{e}</button>)}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={generateSeries} disabled={generating}
+                  style={{ flex:2, background: generating?'#1a001a':'linear-gradient(135deg,#550055,#330033)', border:'1px solid #660066', color:'#cc88ff', borderRadius:10, padding:'12px', fontSize:13, fontWeight:800, cursor: generating?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                  {generating ? <><div className="spinner" style={{ borderTopColor:'#cc88ff', width:16, height:16 }} />Generating...</> : '🤖 Generate Karo'}
+                </button>
+                <button onClick={() => setModal('none')} style={{ flex:1, background:'#111', border:'1px solid #333', color:'#666', borderRadius:10, padding:'12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {loadingList ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
@@ -1154,8 +1152,12 @@ RETURN ONLY JSON (no markdown):
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
         ) : sortedFolderOrder.map(type => {
-          const folder = getFolder(type, seriesList);
           const seriesInFolder = grouped[type];
+          const folder = {
+            label: seriesInFolder[0]?.folderLabel || type,
+            emoji: seriesInFolder[0]?.folderEmoji || '📦',
+            color: seriesInFolder[0]?.folderColor || '#888888',
+          };
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
           return (
             <div key={type} onClick={() => setOpenFolder(type)}
@@ -1174,6 +1176,8 @@ RETURN ONLY JSON (no markdown):
     </div>
   );
 }
+
+
 
 function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
   const [editing, setEditing] = useState(false);
