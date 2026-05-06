@@ -953,10 +953,10 @@ RETURN ONLY JSON (no markdown):
     const grouped = groupSeriesByFolder(seriesList);
     const folderSeries = grouped[openFolder] || [];
     const folder = {
-      label: folderSeries[0]?.folderLabel || openFolder,
-      emoji: folderSeries[0]?.folderEmoji || '📦',
-      color: folderSeries[0]?.folderColor || '#888',
-    };
+  label: folderSeries[0]?.folderLabel || KNOWN_FOLDERS[openFolder]?.label || openFolder,
+  emoji: folderSeries[0]?.folderEmoji || KNOWN_FOLDERS[openFolder]?.emoji || '📦',
+  color: folderSeries[0]?.folderColor || KNOWN_FOLDERS[openFolder]?.color || '#888',
+};
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
@@ -1152,12 +1152,12 @@ RETURN ONLY JSON (no markdown):
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
         ) : sortedFolderOrder.map(type => {
-          const seriesInFolder = grouped[type];
-          const folder = {
-            label: seriesInFolder[0]?.folderLabel || type,
-            emoji: seriesInFolder[0]?.folderEmoji || '📦',
-            color: seriesInFolder[0]?.folderColor || '#888888',
-          };
+  const seriesInFolder = grouped[type];
+  const folder = {
+    label: seriesInFolder[0]?.folderLabel || KNOWN_FOLDERS[type]?.label || type,
+    emoji: seriesInFolder[0]?.folderEmoji || KNOWN_FOLDERS[type]?.emoji || '📦',
+    color: seriesInFolder[0]?.folderColor || KNOWN_FOLDERS[type]?.color || '#888888',
+  };
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
           return (
             <div key={type} onClick={() => setOpenFolder(type)}
