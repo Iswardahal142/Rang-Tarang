@@ -425,21 +425,7 @@ function CreateSeriesPage({ user }) {
   const [playlistStatus, setPlaylistStatus] = useState({});
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
-  useEffect(() => {
-  if (!seriesList.length || ytLoading) return;
   
-  const pending = seriesList.find(s => {
-    const uploaded = checkUploaded(s);
-    const nextExists = hasNextPart(s, seriesList);
-    return uploaded === false && !nextExists;
-  });
-
-  if (pending) {
-    setTimeout(() => {
-      toast(`🎬 "${pending.name}" abhi tak upload nahi hua — pehle yeh karo!`);
-    }, 1500);
-  }
-}, [seriesList, ytLoading]);
 
   async function loadList() {
     setLoadingList(true);
@@ -1049,6 +1035,9 @@ RETURN ONLY JSON (no markdown):
     );
   }
 
+
+
+
 // LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
@@ -1173,43 +1162,53 @@ RETURN ONLY JSON (no markdown):
           </div>
         )}
 
-        {loadingList ? (
-          <div style={{ textAlign: 'center', padding: 32 }}>
-            <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} />
-            <div style={{ fontSize: 12, color: '#555' }}>Loading...</div>
-          </div>
-        ) : seriesList.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
-            <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
-          </div>
-        ) : sortedFolderOrder.map(type => {
+ 
+{loadingList ? (
+  <div style={{ textAlign: 'center', padding: 32 }}>
+    <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} />
+    <div style={{ fontSize: 12, color: '#555' }}>Loading...</div>
+  </div>
+) : seriesList.length === 0 ? (
+  <div style={{ textAlign: 'center', padding: 40 }}>
+    <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
+    <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
+    <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
+  </div>
+) : sortedFolderOrder.map(type => {
   const seriesInFolder = grouped[type];
   const folder = {
     label: seriesInFolder[0]?.folderLabel || KNOWN_FOLDERS[type]?.label || type,
     emoji: seriesInFolder[0]?.folderEmoji || KNOWN_FOLDERS[type]?.emoji || '📦',
     color: seriesInFolder[0]?.folderColor || KNOWN_FOLDERS[type]?.color || '#888888',
   };
-          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
-          return (
-            <div key={type} onClick={() => setOpenFolder(type)}
-              style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{folder.emoji}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
-                <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
-              </div>
-              <span style={{ fontSize: 22, color: `${folder.color}66` }}>›</span>
-            </div>
-          );
-        })}
+  const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
+  const canContinue = seriesInFolder.find(s => !hasNextPart(s, seriesList));
+  return (
+    <div key={type} onClick={() => setOpenFolder(type)}
+      style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
+      <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{folder.emoji}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
+        <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
+        {canContinue && !ytLoading && (
+          <div style={{
+            fontSize: 10, color: '#4488ff', fontWeight: 700, marginTop: 4,
+            background: 'rgba(68,136,255,0.08)', border: '1px solid #223355',
+            borderRadius: 6, padding: '3px 8px', display: 'inline-block'
+          }}>
+            ✨ Part {(canContinue.part || 1) + 1} ban sakta hai
+          </div>
+        )}
       </div>
+      <span style={{ fontSize: 22, color: `${folder.color}66` }}>›</span>
     </div>
   );
+})}
+    </div>
+  </div>
+);
 }
-
 
 
 function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
