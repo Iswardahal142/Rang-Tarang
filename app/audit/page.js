@@ -51,61 +51,159 @@ function SeverityDot({ severity }) {
   return <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0, marginTop: 3 }} />;
 }
 
-// ── Apply Confirm Modal ──────────────────────────────
-function ApplyConfirmModal({ videoTitle, newTitle, newTags, onConfirm, onCancel, applying }) {
+// ── Per-field Apply util ─────────────────────────────
+async function applyField({ videoId, uid, title, tags }) {
+  const res = await fetch('/api/audit/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ videoId, uid, title, tags }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || 'Update fail hua');
+  return data;
+}
+
+// ── Title Card ────────────────────────────────────────
+function TitleCard({ video, uid, aiTitle, onApplied }) {
+  const toast = useToast();
+  const [editing,  setEditing]  = useState(false);
+  const [value,    setValue]    = useState(aiTitle);
+  const [applying, setApplying] = useState(false);
+  const [done,     setDone]     = useState(false);
+
+  async function handleApply() {
+    if (!value.trim()) return;
+    setApplying(true);
+    try {
+      // Tags current video wale hi bhejo (unchanged)
+      await applyField({ videoId: video.videoId, uid, title: value.trim(), tags: video.tags });
+      setDone(true);
+      toast('✅ Title YouTube pe update ho gaya!');
+      onApplied && onApplied('title', value.trim());
+    } catch (e) { toast('❌ ' + e.message); }
+    setApplying(false);
+  }
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.96)',
-      zIndex: 2000, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      padding: 20, gap: 14,
-    }}>
-      <div style={{ fontSize: 28 }}>⚠️</div>
-      <div style={{ fontSize: 14, fontWeight: 800, color: '#ffaa00', textAlign: 'center' }}>YouTube pe Apply Karein?</div>
-      <div style={{ fontSize: 12, color: '#555', textAlign: 'center', lineHeight: 1.6 }}>
-        Ye changes <span style={{ color: '#fff' }}>seedha YouTube</span> aur <span style={{ color: '#cc88ff' }}>Firestore</span> mein save honge.
+    <div style={{ background: '#0d0d0d', border: `1px solid ${done ? '#44bb6655' : '#ff880033'}`, borderRadius: 12, padding: 14 }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 10, color: '#ff8800', fontWeight: 700 }}>✏️ AI TITLE {done && <span style={{ color: '#44bb66' }}>✓ Applied</span>}</div>
+        <button onClick={() => setEditing(e => !e)} style={{
+          background: '#1a1a1a', border: '1px solid #333', color: '#888',
+          borderRadius: 8, padding: '3px 9px', fontSize: 10, fontWeight: 700, cursor: 'pointer',
+        }}>{editing ? 'Done' : '✎ Edit'}</button>
       </div>
 
-      {/* Old vs New */}
-      <div style={{ width: '100%', background: '#0d0d0d', border: '1px solid #222', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 9, color: '#555', fontWeight: 700, marginBottom: 4 }}>PURANA TITLE</div>
-          <div style={{ fontSize: 12, color: '#666', lineHeight: 1.4 }}>{videoTitle}</div>
-        </div>
-        <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 10 }}>
-          <div style={{ fontSize: 9, color: '#ff8800', fontWeight: 700, marginBottom: 4 }}>NAYA TITLE</div>
-          <div style={{ fontSize: 12, color: '#ffcc88', lineHeight: 1.4 }}>{newTitle}</div>
-        </div>
-        <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 10 }}>
-          <div style={{ fontSize: 9, color: '#44bb66', fontWeight: 700, marginBottom: 6 }}>NAYE TAGS ({newTags.length})</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {newTags.slice(0, 8).map((t, i) => (
-              <span key={i} style={{ background: '#44bb6615', border: '1px solid #44bb6633', color: '#44bb6699', borderRadius: 20, padding: '2px 8px', fontSize: 10 }}>{t}</span>
-            ))}
-            {newTags.length > 8 && <span style={{ fontSize: 10, color: '#444' }}>+{newTags.length - 8} more</span>}
-          </div>
-        </div>
-      </div>
+      {/* Editable value */}
+      {editing ? (
+        <textarea
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          rows={2}
+          style={{
+            width: '100%', background: '#111', border: '1px solid #ff880066',
+            color: '#ffcc88', borderRadius: 8, padding: '8px 10px',
+            fontSize: 12, lineHeight: 1.5, resize: 'vertical', boxSizing: 'border-box',
+            fontFamily: 'inherit', outline: 'none',
+          }}
+        />
+      ) : (
+        <div style={{ fontSize: 13, color: '#ffcc88', lineHeight: 1.5, fontWeight: 600 }}>{value}</div>
+      )}
 
-      <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-        <button onClick={onCancel} disabled={applying} style={{
-          flex: 1, background: '#1a1a1a', border: '1px solid #333', color: '#666',
-          borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-        }}>✕ Cancel</button>
-        <button onClick={onConfirm} disabled={applying} style={{
-          flex: 2,
-          background: applying ? '#1a1a2a' : 'linear-gradient(135deg,#ff6600,#ffaa00)',
-          border: 'none', color: applying ? '#555' : '#fff',
-          borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700,
-          cursor: applying ? 'not-allowed' : 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+      {/* Char count + Apply */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+        <span style={{ fontSize: 10, color: value.length > 100 ? '#ff4455' : '#444' }}>{value.length}/100 chars</span>
+        <button onClick={handleApply} disabled={applying || done} style={{
+          background: done ? '#44bb6622' : applying ? '#1a1a1a' : 'linear-gradient(135deg,#ff6600,#ffaa00)',
+          border: `1px solid ${done ? '#44bb6644' : '#0000'}`,
+          color: done ? '#44bb66' : applying ? '#444' : '#fff',
+          borderRadius: 8, padding: '6px 14px', fontSize: 11, fontWeight: 700,
+          cursor: applying || done ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5,
         }}>
-          {applying ? (
-            <>
-              <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#cc88ff' }} />
-              Apply ho raha hai...
-            </>
-          ) : '✅ Haan, Apply Karo'}
+          {applying ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2, borderTopColor: '#888' }} />Updating...</> : done ? '✓ Done' : '🚀 Title Apply'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Tags Card ─────────────────────────────────────────
+function TagsCard({ video, uid, aiTagsStr, onApplied }) {
+  const toast = useToast();
+  // Tags ko editable string ke roop mein rakhte hain (comma-separated)
+  const [tagStr,   setTagStr]   = useState(aiTagsStr);
+  const [editing,  setEditing]  = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [done,     setDone]     = useState(false);
+
+  const tagArray = tagStr.split(',').map(t => t.trim()).filter(Boolean);
+
+  async function handleApply() {
+    if (!tagArray.length) return;
+    setApplying(true);
+    try {
+      // Title current video wala hi bhejo (unchanged)
+      await applyField({ videoId: video.videoId, uid, title: video.title, tags: tagArray });
+      setDone(true);
+      toast('✅ Tags YouTube pe update ho gaye!');
+      onApplied && onApplied('tags', tagArray);
+    } catch (e) { toast('❌ ' + e.message); }
+    setApplying(false);
+  }
+
+  return (
+    <div style={{ background: '#0d0d0d', border: `1px solid ${done ? '#44bb6655' : '#44bb6633'}`, borderRadius: 12, padding: 14 }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 10, color: '#44bb66', fontWeight: 700 }}>🏷️ AI TAGS ({tagArray.length}) {done && <span>✓ Applied</span>}</div>
+        <button onClick={() => setEditing(e => !e)} style={{
+          background: '#1a1a1a', border: '1px solid #333', color: '#888',
+          borderRadius: 8, padding: '3px 9px', fontSize: 10, fontWeight: 700, cursor: 'pointer',
+        }}>{editing ? 'Done' : '✎ Edit'}</button>
+      </div>
+
+      {/* Edit mode: textarea */}
+      {editing ? (
+        <>
+          <div style={{ fontSize: 10, color: '#555', marginBottom: 6 }}>Comma se alag karo. Ek tag = ek item.</div>
+          <textarea
+            value={tagStr}
+            onChange={e => setTagStr(e.target.value)}
+            rows={4}
+            style={{
+              width: '100%', background: '#111', border: '1px solid #44bb6666',
+              color: '#aaffaa', borderRadius: 8, padding: '8px 10px',
+              fontSize: 11, lineHeight: 1.6, resize: 'vertical', boxSizing: 'border-box',
+              fontFamily: 'inherit', outline: 'none',
+            }}
+          />
+        </>
+      ) : (
+        /* View mode: tag pills */
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          {tagArray.map((t, i) => (
+            <span key={i} style={{
+              background: '#44bb6615', border: '1px solid #44bb6633',
+              color: '#44bb66cc', borderRadius: 20, padding: '3px 9px', fontSize: 10, fontWeight: 700,
+            }}>{t}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Apply */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+        <button onClick={handleApply} disabled={applying || done} style={{
+          background: done ? '#44bb6622' : applying ? '#1a1a1a' : 'linear-gradient(135deg,#228844,#44bb66)',
+          border: `1px solid ${done ? '#44bb6644' : '#0000'}`,
+          color: done ? '#44bb66' : applying ? '#444' : '#fff',
+          borderRadius: 8, padding: '6px 14px', fontSize: 11, fontWeight: 700,
+          cursor: applying || done ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5,
+        }}>
+          {applying ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2, borderTopColor: '#888' }} />Updating...</> : done ? '✓ Done' : '🚀 Tags Apply'}
         </button>
       </div>
     </div>
@@ -114,17 +212,18 @@ function ApplyConfirmModal({ videoTitle, newTitle, newTags, onConfirm, onCancel,
 
 // ── AI Fix Modal ──────────────────────────────────────
 function AiFixModal({ video, uid, onClose, onApplied }) {
-  const toast = useToast();
-  const [loading, setLoading]   = useState(true);
-  const [result, setResult]     = useState(null);
-  const [copied, setCopied]     = useState('');
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [applying, setApplying] = useState(false);
+  const toast  = useToast();
+  const [loading, setLoading] = useState(true);
+  const [result,  setResult]  = useState(null);
+
+  // Track karo kya-kya apply hua
+  const [applied, setApplied] = useState({ title: null, tags: null }); // null = not yet
 
   useEffect(() => { generate(); }, []);
 
   async function generate() {
     setLoading(true);
+    setApplied({ title: null, tags: null });
     try {
       const issueList = video.issues.map(i => `- ${i.msg}`).join('\n');
       const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" (teaches colors, shapes, animals in Hindi for kids 2–8 years).
@@ -170,183 +269,75 @@ WHY:
     setLoading(false);
   }
 
-  function copyText(text, key) {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(key);
-      setTimeout(() => setCopied(''), 2000);
-    });
-  }
-
-  // Tags string → array
-  function parsedTags() {
-    if (!result?.tags) return [];
-    return result.tags.split(',').map(t => t.trim()).filter(Boolean);
-  }
-
-  async function handleApply() {
-    setApplying(true);
-    try {
-      const res = await fetch('/api/audit/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId: video.videoId,
-          title:   result.title,
-          tags:    parsedTags(),
-          uid,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        toast('❌ ' + (data.error || 'Update fail hua'));
-        setApplying(false);
-        setShowConfirm(false);
-        return;
-      }
-      toast('✅ YouTube + Firestore dono update ho gaye!');
-      setShowConfirm(false);
-      setApplying(false);
-      // Parent ko bata do — video list refresh karo
-      if (onApplied) onApplied(video.videoId, result.title, parsedTags());
-      onClose();
-    } catch (e) {
-      toast('❌ ' + e.message);
-      setApplying(false);
-      setShowConfirm(false);
-    }
+  function handleFieldApplied(field, value) {
+    setApplied(prev => ({ ...prev, [field]: value }));
+    // Parent update
+    if (field === 'title') onApplied && onApplied(video.videoId, value, video.tags);
+    if (field === 'tags')  onApplied && onApplied(video.videoId, video.title, value);
   }
 
   return (
-    <>
-      {showConfirm && (
-        <ApplyConfirmModal
-          videoTitle={video.title}
-          newTitle={result?.title || ''}
-          newTags={parsedTags()}
-          onConfirm={handleApply}
-          onCancel={() => setShowConfirm(false)}
-          applying={applying}
-        />
-      )}
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+      zIndex: 1000, display: 'flex', flexDirection: 'column',
+      padding: 16, gap: 12, overflowY: 'auto',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#cc88ff' }}>🤖 AI Fix Suggestions</div>
+        <button onClick={onClose} style={{ background: '#1a1a1a', border: '1px solid #333', color: '#888', borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>✕ Close</button>
+      </div>
 
-      <div style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
-        zIndex: 1000, display: 'flex', flexDirection: 'column',
-        padding: 16, gap: 12, overflowY: 'auto',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#cc88ff' }}>🤖 AI Fix Suggestions</div>
-          <button onClick={onClose} style={{ background: '#1a1a1a', border: '1px solid #333', color: '#888', borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>✕ Close</button>
+      {/* Video ref */}
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: 10, padding: '10px 12px' }}>
+        <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 3 }}>VIDEO</div>
+        <div style={{ fontSize: 12, color: '#aaa', lineHeight: 1.4 }}>{video.title}</div>
+      </div>
+
+      {loading ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <div className="spinner" style={{ borderTopColor: '#cc88ff' }} />
+          <div style={{ fontSize: 12, color: '#555' }}>AI soch raha hai...</div>
         </div>
+      ) : result && (
+        <>
+          {/* ── Title card — apna apply button ── */}
+          <TitleCard
+            video={video}
+            uid={uid}
+            aiTitle={result.title}
+            onApplied={handleFieldApplied}
+          />
 
-        {/* Video title ref */}
-        <div style={{ background: '#111', border: '1px solid #222', borderRadius: 10, padding: '10px 12px' }}>
-          <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 3 }}>VIDEO</div>
-          <div style={{ fontSize: 12, color: '#aaa', lineHeight: 1.4 }}>{video.title}</div>
-        </div>
+          {/* ── Tags card — apna apply button ── */}
+          <TagsCard
+            video={video}
+            uid={uid}
+            aiTagsStr={result.tags}
+            onApplied={handleFieldApplied}
+          />
 
-        {loading ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            <div className="spinner" style={{ borderTopColor: '#cc88ff' }} />
-            <div style={{ fontSize: 12, color: '#555' }}>AI soch raha hai...</div>
+          {/* Description — sirf read/copy, apply nahi */}
+          <div style={{ background: '#0d0d0d', border: '1px solid #4488ff33', borderRadius: 12, padding: 14 }}>
+            <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 6 }}>📝 DESCRIPTION START (sirf reference)</div>
+            <div style={{ fontSize: 12, color: '#ccc', lineHeight: 1.6 }}>{result.description}</div>
           </div>
-        ) : result && (
-          <>
-            {/* Title */}
-            <FixCard
-              label="✏️ Better Title"
-              value={result.title}
-              copied={copied === 'title'}
-              onCopy={() => copyText(result.title, 'title')}
-              color="#ff8800"
-            />
 
-            {/* Tags */}
-            <FixCard
-              label="🏷️ Suggested Tags"
-              value={result.tags}
-              copied={copied === 'tags'}
-              onCopy={() => copyText(result.tags, 'tags')}
-              color="#44bb66"
-              isTagList
-            />
-
-            {/* Description */}
-            <FixCard
-              label="📝 Description Start"
-              value={result.description}
-              copied={copied === 'desc'}
-              onCopy={() => copyText(result.description, 'desc')}
-              color="#4488ff"
-            />
-
-            {/* Why */}
-            {result.why && (
-              <div style={{ background: '#0a0a14', border: '1px solid #223', borderRadius: 12, padding: 14 }}>
-                <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 6 }}>💡 WHY THESE CHANGES</div>
-                <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7 }}>{result.why}</div>
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={generate} style={{
-                flex: 1,
-                background: '#1a0a2a', border: '1px solid #cc88ff44', color: '#cc88ff',
-                borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}>
-                🔄 Dobara
-              </button>
-
-              {/* ✅ APPLY TO YOUTUBE BUTTON */}
-              <button onClick={() => setShowConfirm(true)} style={{
-                flex: 2,
-                background: 'linear-gradient(135deg,#ff6600,#ffaa00)',
-                border: 'none', color: '#fff',
-                borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}>
-                🚀 YouTube pe Apply Karo
-              </button>
+          {/* Why */}
+          {result.why && (
+            <div style={{ background: '#0a0a14', border: '1px solid #223', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 6 }}>💡 WHY THESE CHANGES</div>
+              <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7 }}>{result.why}</div>
             </div>
+          )}
 
-            {/* Info note */}
-            <div style={{ fontSize: 10, color: '#333', textAlign: 'center', lineHeight: 1.5 }}>
-              Title + Tags YouTube aur Firestore dono mein update honge.<br />
-              Description unchanged rahega.
-            </div>
-          </>
-        )}
-      </div>
-    </>
-  );
-}
-
-function FixCard({ label, value, copied, onCopy, color, isTagList }) {
-  return (
-    <div style={{ background: '#0d0d0d', border: `1px solid ${color}33`, borderRadius: 12, padding: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ fontSize: 10, color, fontWeight: 700 }}>{label}</div>
-        <button onClick={onCopy} style={{
-          background: copied ? `${color}22` : '#1a1a1a',
-          border: `1px solid ${copied ? color : '#333'}`,
-          color: copied ? color : '#666',
-          borderRadius: 8, padding: '4px 10px', fontSize: 10, fontWeight: 700, cursor: 'pointer',
-        }}>
-          {copied ? '✓ Copied!' : 'Copy'}
-        </button>
-      </div>
-      {isTagList ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {value.split(',').map((t, i) => (
-            <span key={i} style={{
-              background: `${color}15`, border: `1px solid ${color}33`,
-              color: `${color}cc`, borderRadius: 20, padding: '3px 9px', fontSize: 10, fontWeight: 700,
-            }}>{t.trim()}</span>
-          ))}
-        </div>
-      ) : (
-        <div style={{ fontSize: 12, color: '#ccc', lineHeight: 1.6 }}>{value}</div>
+          <button onClick={generate} style={{
+            background: '#1a0a2a', border: '1px solid #cc88ff44', color: '#cc88ff',
+            borderRadius: 10, padding: '10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}>
+            🔄 Dobara Generate Karo
+          </button>
+        </>
       )}
     </div>
   );
