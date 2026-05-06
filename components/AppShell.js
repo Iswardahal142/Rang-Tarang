@@ -18,7 +18,7 @@ const BOTTOM_TABS = [
 // ── Sidebar Only Tabs ─────────────────────────────────────────
 const SIDEBAR_ONLY_TABS = [
   { key: 'long-video', icon: '🎥', label: 'Long Video', path: '/long-video' },
-  { key: 'trending',   icon: '🔥', label: 'Trending',   path: '/trending'   },
+  { key: 'audit',   icon: '🔥', label: 'audit',   path: '/audit'   },
 ];
 
 const ALL_TABS = [...BOTTOM_TABS, ...SIDEBAR_ONLY_TABS];
@@ -30,7 +30,7 @@ const TAB_COLORS = {
   'compare-series': '#ffaa00',
   'shorts-creator': '#ff4488',
   'long-video':     '#4488ff',
-  trending:         '#ff4400',
+  audit:         '#ff4400',
 };
 
 function getNotifStyle(n) {
