@@ -52,6 +52,7 @@ function getSeriesType(seriesName) {
   if (n.includes('instrument') || n.includes('music'))                                         return 'instrument';
   if (n.includes('space') || n.includes('planet'))                                             return 'space';
   if (n.includes('weather') || n.includes('season'))                                           return 'weather';
+  if (n.includes('computer'))                                                                   return 'computer_part';
   if (n.includes('tool'))                                                                       return 'tool';
   if (n.includes('sound'))                                                                      return 'animal_sound';
   if (n.includes('insect') || n.includes('bug'))                                               return 'insect';
@@ -86,7 +87,10 @@ const KNOWN_FOLDERS = {
   space:           { label: 'Space',            emoji: '🚀', color: '#4444ff' },
   weather:         { label: 'Weather',          emoji: '⛅', color: '#44bbff' },
   tool:            { label: 'Tools',            emoji: '🔧', color: '#aaaaaa' },
+  computer_part:   { label: 'Computer Parts',   emoji: '💻', color: '#44bbff' },
 };
+
+
 
 function getFolder(type, seriesList = []) {
   if (KNOWN_FOLDERS[type]) return KNOWN_FOLDERS[type];
@@ -389,8 +393,9 @@ function needsFolderFix(series) {
   const type = series.type || getSeriesType(series.name);
   const hasLabel = !!series.folderLabel;
   const isKnown = !!KNOWN_FOLDERS[type];
-  // Agar type 'other' hai ya KNOWN_FOLDERS mein nahi hai aur folderLabel bhi nahi hai
-  return !hasLabel && (type === 'other' || !isKnown);
+  // Agar label hai but wrong folder mein hai toh bhi fix karo
+  const isWrongFolder = hasLabel && type !== 'other' && !isKnown;
+  return (!hasLabel && (type === 'other' || !isKnown)) || isWrongFolder;
 }
 
 function CreateSeriesPage({ user }) {
