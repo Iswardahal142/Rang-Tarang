@@ -34,7 +34,7 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
-// ── Series type — only used as fallback for OLD series without type stored ──
+// ── Fallback type detect (old series ke liye) ──
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
   if (n.includes('flower'))                                                                    return 'flower';
@@ -63,7 +63,6 @@ function getSeriesType(seriesName) {
   return 'other';
 }
 
-// ── KNOWN_FOLDERS — only for very common types as fallback ──
 const KNOWN_FOLDERS = {
   number:          { label: 'Numbers',          emoji: '🔢', color: '#4488ff' },
   wild_animal:     { label: 'Wild Animals',     emoji: '🦁', color: '#ff6600' },
@@ -89,18 +88,10 @@ const KNOWN_FOLDERS = {
   tool:            { label: 'Tools',            emoji: '🔧', color: '#aaaaaa' },
 };
 
-// ── getFolder — AI-saved meta se folder banao, fallback KNOWN_FOLDERS ──
 function getFolder(type, seriesList = []) {
-  // 1. KNOWN_FOLDERS check
   if (KNOWN_FOLDERS[type]) return KNOWN_FOLDERS[type];
-  // 2. Kisi series mein is type ka AI-generated meta hai?
   const sample = seriesList.find(s => (s.type || getSeriesType(s.name)) === type && s.folderLabel);
-  if (sample) return {
-    label: sample.folderLabel,
-    emoji: sample.folderEmoji || '📦',
-    color: sample.folderColor || '#888888',
-  };
-  // 3. Last fallback — type string se label banao
+  if (sample) return { label: sample.folderLabel, emoji: sample.folderEmoji || '📦', color: sample.folderColor || '#888888' };
   const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const colors = ['#ff6644','#44bbff','#ffaa44','#cc88ff','#44bb66','#ff4488','#4488ff','#ffcc00'];
   const idx = type.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
@@ -127,29 +118,23 @@ function hasNextPart(series, allSeries) {
   });
 }
 
-// ── Schedule helpers ──────────────────────────────────────
+// ── Schedule helpers ──
 function getTimeForDay(day) {
   if (day === 6) return { h: 13, m: 0 };
   if (day === 0) return { h: 10, m: 0 };
   return { h: 15, m: 0 };
 }
-
 function getOccupiedDates(ytVideos) {
   const occupied = new Set();
   ytVideos.forEach(v => {
     const d = v.scheduledAt || v.publishedAt;
-    if (d) {
-      const date = new Date(d);
-      occupied.add(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`);
-    }
+    if (d) { const date = new Date(d); occupied.add(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`); }
   });
   return occupied;
 }
-
 function findNextFreeSlot(ytVideos) {
   const occupied = getOccupiedDates(ytVideos);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   for (let i = 0; i <= 60; i++) {
     const candidate = new Date(today);
     candidate.setDate(today.getDate() + i);
@@ -162,32 +147,21 @@ function findNextFreeSlot(ytVideos) {
   }
   return null;
 }
-
 function formatSlotDisplay(date) {
   if (!date) return '';
   const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const dayName = days[date.getDay()];
-  const d = date.getDate();
-  const mon = months[date.getMonth()];
-  const yr = date.getFullYear();
-  let h = date.getHours();
-  const min = date.getMinutes().toString().padStart(2, '0');
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${dayName}, ${d} ${mon} ${yr} — ${h}:${min} ${ampm}`;
+  let h = date.getHours(); const min = date.getMinutes().toString().padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()} — ${h}:${min} ${ampm}`;
 }
-
-// ── Format scheduled time for series card ──
 function formatScheduledTime(isoString) {
   if (!isoString) return null;
   const date = new Date(isoString);
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let h = date.getHours();
-  const min = date.getMinutes().toString().padStart(2, '0');
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
+  let h = date.getHours(); const min = date.getMinutes().toString().padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
   return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} • ${h}:${min} ${ampm}`;
 }
 
@@ -198,7 +172,7 @@ function buildIntroImagePrompt(seriesName, items = []) {
   const itemsDesc = first3.length > 0
     ? first3.map((item, i) => `${item.name} (${item.object}) at ${shuffled[i]}`).join(', ')
     : 'colorful educational items at bottom';
-  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating top center with colorful sparkles. Show 3 big Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show 3 big Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
 }
 
 const INTRO_ANIMATIONS = [
@@ -234,16 +208,19 @@ const INTRO_ANIMATIONS = [
   { id: 'random',       label: 'Random',            emoji: '🎲', desc: 'Different animation every time — surprise!' },
 ];
 
-function buildIntroVideoPrompt(n, part = 1, items = [], animationId = 'random') {
+function buildIntroVideoPrompt(seriesName, part = 1, items = [], animationId = 'random') {
+  // ── FIX: Base name nikalo (Part X hata do) ──
+  const baseName = seriesName.replace(/ Part \d+$/, '').trim();
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
-  const objectLine = firstItem ? `Teacher bends down, touch a big ${firstItem} from the bottom sofly.` : '';
+  const objectLine = firstItem ? `Teacher bends down, picks up a big ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
   let anim = INTRO_ANIMATIONS.find(a => a.id === animationId);
   if (!anim || anim.id === 'random') {
     const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
     anim = nonRandom[Math.floor(Math.random() * nonRandom.length)];
   }
-  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${n}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${n}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.no camera movement.no teacher movement.no zoom`;
+  // baseName use karo (Part X without suffix), partMention alag se
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${baseName}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${baseName}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildOutroVideoPrompt(items = []) {
@@ -301,10 +278,10 @@ function getBodyPartAction(objectName) {
 
 function cleanObjectDesc(obj) {
   return (obj || '')
-    .replace(/lounging\s+under.*$/i, '').replace(/standing\s+in\s+.*$/i, '').replace(/sitting\s+on\s+.*$/i, '')
-    .replace(/in\s+the\s+(jungle|savanna|ocean|forest|sky|field|farm|desert|river|lake|sea|grass|meadow|kitchen|room|park).*/i, '')
-    .replace(/on\s+(a\s+)?(table|chair|ground|floor|branch|tree|rock|hill|mountain|grass).*/i, '')
-    .replace(/under\s+(a\s+)?\w+.*/i, '').replace(/near\s+.*$/i, '').replace(/\s{2,}/g, ' ').trim();
+    .replace(/lounging\s+under.*$/i,'').replace(/standing\s+in\s+.*$/i,'').replace(/sitting\s+on\s+.*$/i,'')
+    .replace(/in\s+the\s+(jungle|savanna|ocean|forest|sky|field|farm|desert|river|lake|sea|grass|meadow|kitchen|room|park).*/i,'')
+    .replace(/on\s+(a\s+)?(table|chair|ground|floor|branch|tree|rock|hill|mountain|grass).*/i,'')
+    .replace(/under\s+(a\s+)?\w+.*/i,'').replace(/near\s+.*$/i,'').replace(/\s{2,}/g,' ').trim();
 }
 
 function isLargeObject(objectName) {
@@ -318,17 +295,16 @@ function buildItemImagePrompt(item, seriesName) {
   const placement = large
     ? `Big Pixar 3D cartoon ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Large and clearly visible.`
     : `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, showing it clearly. Object is large and clearly visible.`;
-  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center-left, smiling excitedly. ${placement} 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center-left, smiling excitedly. ${placement} Bold glowing rainbow text "${item.name.toUpperCase()}" at very bottom center with sparkles. 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
 }
 
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
   if (type === 'number') {
-    const num = item.name;
-    const hindiNum = item.hindiName || num;
+    const num = item.name; const hindiNum = item.hindiName || num;
     const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
     const qText = `यह क्या है?`;
-    return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.no canera movement.no zoom.no teacher movement.`;
+    return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
   if (type === 'body') {
     const action = getBodyPartAction(item.object);
@@ -344,22 +320,21 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => objLower.includes(w));
   const isHeavyVehicle = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep','airplane','plane','helicopter','bicycle','bike','motorcycle','scooter'].some(w => objLower.includes(w));
   const isSmall = !isBird && !isAnimal && !isHeavyVehicle && !isLargeObject(item.object || item.name);
-  let placementDesc = '';
-  let teacherAction = '';
+  let placementDesc = '', teacherAction = '';
   if (isBird) {
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) standing on the floor at center-right of screen. Bird is large and clearly visible — significantly bigger than real life. Bird faces toward teacher, standing still with wings slightly open, looking at camera with a cute curious expression. No floating. No flying. No perch.`;
     teacherAction = `Teacher points to the ${item.name} with one finger curiously while asking`;
   } else if (isAnimal) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible — not small. Animal looks toward camera curiously. No floating. Not jumping.`;
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) sitting or resting naturally on the floor at center-right of screen. Animal is large and clearly visible. Animal looks toward camera curiously. No floating. Not jumping.`;
     teacherAction = `Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking`;
   } else if (isHeavyVehicle) {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) parked on the floor at center-right of screen. Object is large and clearly visible — not small. No floating.`;
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) parked on the floor at center-right of screen. Object is large and clearly visible. No floating.`;
     teacherAction = `Teacher walks to the ${item.name}, places hand on it proudly while asking`;
   } else if (isSmall) {
     placementDesc = `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, clearly showing it. Object fills most of the frame and is large and clearly visible.`;
     teacherAction = `Teacher holds the ${item.name} up toward camera and looks at it curiously while asking`;
   } else {
-    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Object is large and clearly visible — not small. No floating. Object is completely still.`;
+    placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Object is large and clearly visible. No floating.`;
     teacherAction = `Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking`;
   }
   return `Use reference image exactly as background scene. Teacher standing on left side. ${placementDesc} ${teacherAction} in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher keeps interacting with the ${item.name}. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects at any point. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
@@ -397,51 +372,57 @@ Return ONLY a single most appropriate emoji for this topic. No explanation, no t
   return text.trim().replace(/[^a-zA-Z\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').slice(0, 2) || '🌟';
 }
 
-// ── AI se folder meta generate karo ──
 async function generateFolderMeta(seriesName, detectedType) {
   try {
     const text = await aiCall(`For a Hindi kids YouTube channel, we have a series called "${seriesName}" with type "${detectedType}".
-Generate a folder name (2-3 words max), one fitting emoji, and a vibrant hex color for this folder.
+Generate a folder name (2-3 words max), one fitting emoji, and a vibrant hex color.
 Return ONLY JSON, no markdown: {"label":"Computer Parts","emoji":"💻","color":"#44bbff"}`);
     const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-    return {
-      folderLabel: parsed.label || detectedType,
-      folderEmoji: parsed.emoji || '📦',
-      folderColor: parsed.color || '#888888',
-    };
+    return { folderLabel: parsed.label || detectedType, folderEmoji: parsed.emoji || '📦', folderColor: parsed.color || '#888888' };
   } catch {
     return { folderLabel: detectedType.replace(/_/g,' '), folderEmoji: '📦', folderColor: '#888888' };
   }
 }
 
+// ── Needs folder fix: no folderLabel AND type is 'other' or missing or KNOWN_FOLDERS mein nahi hai ──
+function needsFolderFix(series) {
+  const type = series.type || getSeriesType(series.name);
+  const hasLabel = !!series.folderLabel;
+  const isKnown = !!KNOWN_FOLDERS[type];
+  // Agar type 'other' hai ya KNOWN_FOLDERS mein nahi hai aur folderLabel bhi nahi hai
+  return !hasLabel && (type === 'other' || !isKnown);
+}
+
 function CreateSeriesPage({ user }) {
   const toast = useToast();
-  const [seriesList, setSeriesList]       = useState([]);
-  const [loadingList, setLoadingList]     = useState(true);
-  const [openFolder, setOpenFolder]       = useState(null);
-  const [openSeries, setOpenSeries]       = useState(null);
-  const [openSection, setOpenSection]     = useState(null);
-  const [copiedKey, setCopiedKey]         = useState('');
-  const [ytVideos, setYtVideos]           = useState([]);
-  const [continuing, setContinuing]       = useState(null);
-  const [genTD, setGenTD]                 = useState(false);
-  const [modal, setModal]                 = useState('none');
-  const [suggestions, setSuggestions]     = useState([]);
-  const [sugLoading, setSugLoading]       = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [customName, setCustomName]       = useState('');
-  const [selectedEmoji, setSelectedEmoji] = useState('🌟');
-  const [selectedColor, setSelectedColor] = useState('#ff4400');
-  const [generating, setGenerating]       = useState(false);
-  const [ytLoading, setYtLoading]         = useState(true);
-  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [seriesList, setSeriesList]         = useState([]);
+  const [loadingList, setLoadingList]       = useState(true);
+  const [openFolder, setOpenFolder]         = useState(null);
+  const [openSeries, setOpenSeries]         = useState(null);
+  const [openSection, setOpenSection]       = useState(null);
+  const [copiedKey, setCopiedKey]           = useState('');
+  const [ytVideos, setYtVideos]             = useState([]);
+  const [continuing, setContinuing]         = useState(null);
+  const [genTD, setGenTD]                   = useState(false);
+  const [modal, setModal]                   = useState('none');
+  const [suggestions, setSuggestions]       = useState([]);
+  const [sugLoading, setSugLoading]         = useState(false);
+  const [selectedTopic, setSelectedTopic]   = useState(null);
+  const [customName, setCustomName]         = useState('');
+  const [selectedEmoji, setSelectedEmoji]   = useState('🌟');
+  const [selectedColor, setSelectedColor]   = useState('#ff4400');
+  const [generating, setGenerating]         = useState(false);
+  const [ytLoading, setYtLoading]           = useState(true);
+  const [aiSuggestions, setAiSuggestions]   = useState([]);
   const [customSugLoading, setCustomSugLoading] = useState(false);
-  const [animModal, setAnimModal]         = useState(false);
-  const [animPage, setAnimPage]           = useState(0);
-  const [chosenAnim, setChosenAnim]       = useState('random');
-  const [scheduleSlot, setScheduleSlot]   = useState(null);
-  const [scheduleModal, setScheduleModal] = useState(false);
+  const [animModal, setAnimModal]           = useState(false);
+  const [animPage, setAnimPage]             = useState(0);
+  const [chosenAnim, setChosenAnim]         = useState('random');
+  const [scheduleSlot, setScheduleSlot]     = useState(null);
+  const [scheduleModal, setScheduleModal]   = useState(false);
   const [scheduleCopied, setScheduleCopied] = useState(false);
+  // ── Fix folder states ──
+  const [fixingFolder, setFixingFolder]     = useState(null); // series id
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -456,11 +437,7 @@ function CreateSeriesPage({ user }) {
     try {
       const r = await fetch('/api/youtube');
       const d = await r.json();
-      if (!d.error) {
-        const vids = d.videos || [];
-        setYtVideos(vids);
-        setScheduleSlot(findNextFreeSlot(vids));
-      }
+      if (!d.error) { const vids = d.videos || []; setYtVideos(vids); setScheduleSlot(findNextFreeSlot(vids)); }
     } catch {}
     setYtLoading(false);
   }
@@ -486,6 +463,31 @@ function CreateSeriesPage({ user }) {
     return false;
   }
 
+  // ── Fix folder for a series ──
+  async function fixFolderMeta(e, series) {
+    e.stopPropagation();
+    setFixingFolder(series.id);
+    try {
+      const baseName = series.name.replace(/ Part \d+$/, '').trim();
+      // Step 1: Type detect
+      const typeText = await aiCall(`What single category does "${baseName}" belong to for a kids YouTube channel?
+Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
+If none match exactly, return a short 1-2 word lowercase category using underscores (e.g. computer_part, clothing, stationery, toy, furniture).
+Return ONLY the single word or phrase, nothing else.`);
+      const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
+      // Step 2: Folder meta
+      let folderMeta = {};
+      if (!KNOWN_FOLDERS[detectedType]) {
+        folderMeta = await generateFolderMeta(baseName, detectedType);
+      }
+      // Step 3: Save
+      await updateSeries(user.uid, series.id, { type: detectedType, ...folderMeta });
+      toast('✅ Folder fix ho gaya!');
+      loadList();
+    } catch (e) { toast('❌ ' + e.message); }
+    setFixingFolder(null);
+  }
+
   function openChoose() { setModal('choose'); }
 
   async function loadSuggestions() {
@@ -496,9 +498,8 @@ function CreateSeriesPage({ user }) {
 Already created: ${existing}
 Suggest exactly 4 NEW unique educational series topics for kids aged 2-6.
 IMPORTANT: Suggest easy daily-life topics that Indian kids see every day.
-Priority: home items, clothes, toys, common animals, vegetables, fruits — NOT space, instruments, weather yet.
 Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕","description":"One line"}]`);
-      setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim()));
+      setSuggestions(JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setSugLoading(false);
   }
@@ -516,23 +517,20 @@ Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕"
     const detectedEmoji = await detectEmoji(fullName);
     setSelectedEmoji(detectedEmoji);
     setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
-    setAiSuggestions([]);
-    setModal('picker');
+    setAiSuggestions([]); setModal('picker');
   }
 
   async function loadCustomSuggestions() {
     setCustomSugLoading(true); setAiSuggestions([]);
     try {
       const existing = seriesList.map(s => s.name).join(', ') || 'none';
-      const hint = customName.trim();
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created series: ${existing}
-User hint: "${hint}" (can be empty)
+User hint: "${customName.trim()}"
 Suggest exactly 6 unique kids educational topics that have NOT been created yet.
-These will be used as: "Five [topic] Name"
 Return ONLY a JSON array of single words or short phrases (max 2 words each), no markdown:
 ["Flowers","Wild Animals","Insects","Planets","Body Parts","Musical Instruments"]`);
-      setAiSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
+      setAiSuggestions(JSON.parse(text.replace(/```json|```/g,'').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setCustomSugLoading(false);
   }
@@ -542,40 +540,25 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
     setGenerating(true);
     try {
       const existing = seriesList.map(s => s.name).join(', ');
-      // Step 1: Type detect
       const typeText = await aiCall(`What single category does "${selectedTopic.name}" belong to for a kids YouTube channel?
 Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
-If none match exactly, return a short 1-2 word lowercase category using underscores (e.g. computer_part, clothing, stationery, toy, furniture).
+If none match exactly, return a short 1-2 word lowercase category using underscores.
 Return ONLY the single word or phrase, nothing else.`);
       const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
-
-      // Step 2: Folder meta — AI se (KNOWN_FOLDERS mein nahi hai toh)
       let folderMeta = {};
-      if (!KNOWN_FOLDERS[detectedType]) {
-        folderMeta = await generateFolderMeta(selectedTopic.name, detectedType);
-      }
-
-      // Step 3: Items generate
+      if (!KNOWN_FOLDERS[detectedType]) folderMeta = await generateFolderMeta(selectedTopic.name, detectedType);
       const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
 [{"name":"Lion","object":"golden lion with fluffy mane"}]
-RULES for "object" field:
-- Describe ONLY the animal/object itself — no location, no background, no scene
-- Max 6 words, just the item appearance`);
-      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+RULES for "object" field: Describe ONLY the item itself, max 6 words, no location or scene.`);
+      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
       if (getSeriesType(selectedTopic.name) === 'number') {
         items.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
       }
-      await saveSeries(user.uid, {
-        name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor,
-        items, doneSections: {}, doneCount: 0, progress: 0,
-        part: 1, ytTitle: '', ytDescription: '', type: detectedType,
-        ...folderMeta,
-      });
+      await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: selectedColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '', type: detectedType, ...folderMeta });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
-      setModal('none'); setSelectedTopic(null); setCustomName('');
-      loadList();
+      setModal('none'); setSelectedTopic(null); setCustomName(''); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setGenerating(false);
   }
@@ -589,23 +572,42 @@ RULES for "object" field:
 Already done (DO NOT repeat): ${done}
 Return ONLY JSON array:
 [{"name":"Tiger","object":"orange tiger with black stripes"}]
-RULES for "object" field:
-- Describe ONLY the animal/object itself — no location, no background, no scene
-- Max 6 words, just the item appearance`);
-      const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+RULES for "object" field: Describe ONLY the item itself, max 6 words, no location or scene.`);
+      const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
       if (getSeriesType(series.name) === 'number') {
         newItems.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
       }
       const newPart = (series.part || 1) + 1;
       const baseName = series.name.replace(/ Part \d+$/, '').trim();
+
+      // ── Purani series ka type aur folderMeta copy karo ──
+      // Agar purani series mein type nahi hai toh detect karo
+      let parentType = series.type && series.type !== 'other' ? series.type : null;
+      let parentFolderMeta = {};
+      if (series.folderLabel) {
+        parentFolderMeta = { folderLabel: series.folderLabel, folderEmoji: series.folderEmoji, folderColor: series.folderColor };
+      }
+      if (!parentType) {
+        // AI se detect karo
+        const typeText = await aiCall(`What single category does "${baseName}" belong to for a kids YouTube channel?
+Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
+If none match exactly, return a short 1-2 word lowercase category using underscores.
+Return ONLY the single word or phrase, nothing else.`);
+        parentType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
+        if (!KNOWN_FOLDERS[parentType] && !parentFolderMeta.folderLabel) {
+          parentFolderMeta = await generateFolderMeta(baseName, parentType);
+        }
+        // Purani series ko bhi update karo
+        await updateSeries(user.uid, series.id, { type: parentType, ...parentFolderMeta });
+      }
+
       await saveSeries(user.uid, {
         name: `${baseName} Part ${newPart}`,
         emoji: series.emoji, color: series.color,
         items: newItems, doneSections: {}, doneCount: 0, progress: 0,
         part: newPart, ytTitle: '', ytDescription: '',
-        type: series.type || 'other',
-        // Parent series ka folder meta copy karo
-        ...(series.folderLabel ? { folderLabel: series.folderLabel, folderEmoji: series.folderEmoji, folderColor: series.folderColor } : {}),
+        type: parentType,
+        ...parentFolderMeta,
       });
       toast(`🎉 Part ${newPart} ready!`);
       loadList();
@@ -642,7 +644,7 @@ DESCRIPTION:
 - Line 4: "🔔 Rang Tarang Subscribe karo"
 - Line 5: #Shorts #HindiKids #${series.name.replace(/\s+/g,'')} #बच्चोंकेलिए #LearnHindi #RangTarang #EducationalShorts
 RETURN ONLY JSON: {"title":"...","description":"..."}`);
-      const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
+      const parsed = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
       await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
       const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
       setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
@@ -715,7 +717,6 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
             </div>
           </div>
 
-          {/* ── Schedule slot button ── */}
           {!ytLoading && (scheduleSlot ? (
             <button onClick={() => { setScheduleModal(true); setScheduleCopied(false); }}
               style={{ width: '100%', background: 'rgba(68,136,255,0.07)', border: '1px solid #4488ff44', borderRadius: 12, padding: '12px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -729,23 +730,20 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
             <div style={{ background: '#0f0f0f', border: '1px solid #222', borderRadius: 12, padding: '12px 16px', fontSize: 12, color: '#444', textAlign: 'center' }}>📅 60 dino mein koi free slot nahi</div>
           ))}
 
-          {/* ── Schedule confirm modal ── */}
           {scheduleModal && scheduleSlot && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 3000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
               <div style={{ background: '#080e1a', border: '1px solid #4488ff55', borderRadius: 20, padding: 22, width: '100%' }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#4488ff', textAlign: 'center', marginBottom: 4 }}>📅 Schedule Confirm Karo</div>
-                <div style={{ fontSize: 11, color: '#444', textAlign: 'center', marginBottom: 16 }}>Yeh din YouTube pe FREE hai — koi video nahi</div>
+                <div style={{ fontSize: 11, color: '#444', textAlign: 'center', marginBottom: 16 }}>Yeh din YouTube pe FREE hai</div>
                 <div style={{ background: 'rgba(68,136,255,0.1)', border: '1px solid #4488ff33', borderRadius: 14, padding: '18px', textAlign: 'center', marginBottom: 14 }}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#ccc', marginBottom: 6 }}>{formatSlotDisplay(scheduleSlot).split('—')[0].trim()}</div>
                   <div style={{ fontSize: 32, fontWeight: 900, color: '#4488ff', marginBottom: 6 }}>{formatSlotDisplay(scheduleSlot).split('—')[1]?.trim()}</div>
-                  <div style={{ fontSize: 10, color: '#555' }}>
-                    {scheduleSlot.getDay() === 6 ? '🗓 Saturday — 1:00 PM fixed' : scheduleSlot.getDay() === 0 ? '🗓 Sunday — 10:00 AM fixed' : '🗓 Weekday — 3:00 PM fixed'}
-                  </div>
+                  <div style={{ fontSize: 10, color: '#555' }}>{scheduleSlot.getDay()===6?'🗓 Saturday — 1:00 PM fixed':scheduleSlot.getDay()===0?'🗓 Sunday — 10:00 AM fixed':'🗓 Weekday — 3:00 PM fixed'}</div>
                 </div>
                 <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#555', fontFamily: 'monospace', marginBottom: 14, wordBreak: 'break-all' }}>{scheduleSlot.toISOString()}</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => { navigator.clipboard.writeText(scheduleSlot.toISOString()); setScheduleCopied(true); toast('📋 ISO time copied!'); }}
-                    style={{ flex: 2, background: scheduleCopied ? 'rgba(68,187,102,0.15)' : 'linear-gradient(135deg,#0a1a44,#05102a)', border: `1px solid ${scheduleCopied ? '#44bb66' : '#4488ff'}`, color: scheduleCopied ? '#44bb66' : '#4488ff', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                    style={{ flex: 2, background: scheduleCopied?'rgba(68,187,102,0.15)':'linear-gradient(135deg,#0a1a44,#05102a)', border:`1px solid ${scheduleCopied?'#44bb66':'#4488ff'}`, color: scheduleCopied?'#44bb66':'#4488ff', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                     {scheduleCopied ? '✅ Copied!' : '📋 ISO Copy Karo'}
                   </button>
                   <button onClick={() => setScheduleModal(false)} style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Close</button>
@@ -763,13 +761,13 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
             return (
-              <div key={sec.key} style={{ background: '#0f0f0f', border: `1px solid ${isDone ? '#1a3a1a' : '#1e1e1e'}`, borderRadius: 12, overflow: 'hidden' }}>
+              <div key={sec.key} style={{ background: '#0f0f0f', border: `1px solid ${isDone?'#1a3a1a':'#1e1e1e'}`, borderRadius: 12, overflow: 'hidden' }}>
                 <div onClick={() => setOpenSection(isOpen ? null : sec.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: isDone ? '#44bb66' : '#ccc' }}>{sec.title}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: isDone?'#44bb66':'#ccc' }}>{sec.title}</span>
                     {isDone && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
                   </div>
-                  <span style={{ fontSize: 13, color: '#444' }}>{isOpen ? '▲' : '▼'}</span>
+                  <span style={{ fontSize: 13, color: '#444' }}>{isOpen?'▲':'▼'}</span>
                 </div>
                 {isOpen && (
                   <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -778,33 +776,33 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
                         <button onClick={() => { setAnimModal(true); setAnimPage(0); }}
                           style={{ background: '#0a0a1a', border: '1px solid #334', borderRadius: 10, padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#88aaff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <span>🎬 Animation Chuno</span>
-                          <span style={{ color: '#4488ff' }}>{INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.emoji} {INTRO_ANIMATIONS.find(a => a.id === chosenAnim)?.label}</span>
+                          <span style={{ color: '#4488ff' }}>{INTRO_ANIMATIONS.find(a=>a.id===chosenAnim)?.emoji} {INTRO_ANIMATIONS.find(a=>a.id===chosenAnim)?.label}</span>
                         </button>
                         {animModal && (
                           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
                             <div style={{ background: '#0a0a1a', border: '1px solid #334', borderRadius: 20, padding: 20, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
                               <div style={{ fontSize: 14, fontWeight: 800, color: '#88aaff', marginBottom: 4, textAlign: 'center' }}>🎬 Animation Chuno</div>
-                              <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 16 }}>Page {animPage + 1} / {Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE)}</div>
+                              <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 16 }}>Page {animPage+1} / {Math.ceil(INTRO_ANIMATIONS.length/ANIM_PER_PAGE)}</div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-                                {INTRO_ANIMATIONS.slice(animPage * ANIM_PER_PAGE, (animPage + 1) * ANIM_PER_PAGE).map(anim => (
+                                {INTRO_ANIMATIONS.slice(animPage*ANIM_PER_PAGE,(animPage+1)*ANIM_PER_PAGE).map(anim => (
                                   <button key={anim.id} onClick={() => setChosenAnim(anim.id)}
-                                    style={{ background: chosenAnim === anim.id ? 'rgba(68,136,255,0.2)' : '#0f0f0f', border: `1px solid ${chosenAnim === anim.id ? '#4488ff' : '#222'}`, borderRadius: 12, padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+                                    style={{ background: chosenAnim===anim.id?'rgba(68,136,255,0.2)':'#0f0f0f', border:`1px solid ${chosenAnim===anim.id?'#4488ff':'#222'}`, borderRadius: 12, padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
                                     <span style={{ fontSize: 24 }}>{anim.emoji}</span>
                                     <div style={{ flex: 1 }}>
-                                      <div style={{ fontSize: 13, fontWeight: 700, color: chosenAnim === anim.id ? '#4488ff' : '#eee', marginBottom: 2 }}>{anim.label}</div>
+                                      <div style={{ fontSize: 13, fontWeight: 700, color: chosenAnim===anim.id?'#4488ff':'#eee', marginBottom: 2 }}>{anim.label}</div>
                                       <div style={{ fontSize: 10, color: '#666', lineHeight: 1.4 }}>{anim.desc}</div>
                                     </div>
-                                    {chosenAnim === anim.id && <span style={{ fontSize: 16 }}>✅</span>}
+                                    {chosenAnim===anim.id && <span style={{ fontSize: 16 }}>✅</span>}
                                   </button>
                                 ))}
                               </div>
                               <div style={{ display: 'flex', gap: 8 }}>
-                                <button onClick={() => setAnimPage(p => Math.max(0, p - 1))} disabled={animPage === 0}
-                                  style={{ flex: 1, background: animPage === 0 ? '#111' : '#1a1a2a', border: `1px solid ${animPage === 0 ? '#222' : '#334'}`, color: animPage === 0 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage === 0 ? 'not-allowed' : 'pointer' }}>← Prev</button>
+                                <button onClick={() => setAnimPage(p=>Math.max(0,p-1))} disabled={animPage===0}
+                                  style={{ flex:1, background: animPage===0?'#111':'#1a1a2a', border:`1px solid ${animPage===0?'#222':'#334'}`, color: animPage===0?'#333':'#88aaff', borderRadius:10, padding:'11px', fontSize:13, fontWeight:700, cursor: animPage===0?'not-allowed':'pointer' }}>← Prev</button>
                                 <button onClick={() => setAnimModal(false)}
-                                  style={{ flex: 2, background: 'linear-gradient(135deg,#1a2255,#0a1133)', border: '1px solid #4488ff', color: '#4488ff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>✅ Select Karo</button>
-                                <button onClick={() => setAnimPage(p => Math.min(Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1, p + 1))} disabled={animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1}
-                                  style={{ flex: 1, background: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#111' : '#1a1a2a', border: `1px solid ${animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#222' : '#334'}`, color: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? '#333' : '#88aaff', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: animPage >= Math.ceil(INTRO_ANIMATIONS.length / ANIM_PER_PAGE) - 1 ? 'not-allowed' : 'pointer' }}>Next →</button>
+                                  style={{ flex:2, background:'linear-gradient(135deg,#1a2255,#0a1133)', border:'1px solid #4488ff', color:'#4488ff', borderRadius:10, padding:'11px', fontSize:13, fontWeight:800, cursor:'pointer' }}>✅ Select Karo</button>
+                                <button onClick={() => setAnimPage(p=>Math.min(Math.ceil(INTRO_ANIMATIONS.length/ANIM_PER_PAGE)-1,p+1))} disabled={animPage>=Math.ceil(INTRO_ANIMATIONS.length/ANIM_PER_PAGE)-1}
+                                  style={{ flex:1, background: animPage>=Math.ceil(INTRO_ANIMATIONS.length/ANIM_PER_PAGE)-1?'#111':'#1a1a2a', border:`1px solid ${animPage>=Math.ceil(INTRO_ANIMATIONS.length/ANIM_PER_PAGE)-1?'#222':'#334'}`, color: animPage>=Math.ceil(INTRO_ANIMATIONS.length/ANIM_PER_PAGE)-1?'#333':'#88aaff', borderRadius:10, padding:'11px', fontSize:13, fontWeight:700, cursor: animPage>=Math.ceil(INTRO_ANIMATIONS.length/ANIM_PER_PAGE)-1?'not-allowed':'pointer' }}>Next →</button>
                               </div>
                             </div>
                           </div>
@@ -818,13 +816,13 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
                           <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>{p.type}</div>
                           <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>{p.text}</div>
                           <button onClick={() => copy(bck, p.text)}
-                            style={{ background: copiedKey===bck ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey===bck ? '#4488ff' : '#223355'}`, color: copiedKey===bck ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%', marginTop: 6 }}>
+                            style={{ background: copiedKey===bck?'rgba(68,136,255,0.15)':'#0a0a1a', border:`1px solid ${copiedKey===bck?'#4488ff':'#223355'}`, color: copiedKey===bck?'#4488ff':'#4477cc', borderRadius:10, padding:'11px', fontSize:12, fontWeight:700, cursor:'pointer', width:'100%', marginTop:6 }}>
                             {copiedKey===bck ? '✅ Copied!' : `📋 Copy ${p.type}`}
                           </button>
                         </div>
                       );
                     })}
-                    <button onClick={() => markDone(s, sec.key, isDone)} style={{ background: isDone ? 'rgba(68,187,102,0.12)' : '#0a1a0a', border: `1px solid ${isDone ? 'rgba(68,187,102,0.4)' : '#224422'}`, color: isDone ? '#44bb66' : '#44aa44', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
+                    <button onClick={() => markDone(s, sec.key, isDone)} style={{ background: isDone?'rgba(68,187,102,0.12)':'#0a1a0a', border:`1px solid ${isDone?'rgba(68,187,102,0.4)':'#224422'}`, color: isDone?'#44bb66':'#44aa44', borderRadius:10, padding:'11px', fontSize:13, fontWeight:700, cursor:'pointer', width:'100%' }}>
                       {isDone ? '✅ Done ho gaya!' : '✔ Mark as Done'}
                     </button>
                   </div>
@@ -860,18 +858,14 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
           ) : seriesInFolder.map(s => {
             const total = (s.items || []).length + 2;
             const uploaded = checkUploaded(s);
-            // ── Upload status ──
             const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
-            const uploadColor = uploaded===true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded==='private' ? '#cc88ff' : uploaded===false ? '#ff8866' : '#555';
-            // ── Scheduled time show karo ──
+            const uploadColor = uploaded===true?'#44bb66':isScheduledObj?'#4488ff':uploaded==='private'?'#cc88ff':uploaded===false?'#ff8866':'#555';
             const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
-            const uploadText = ytLoading ? '🔍...'
-              : uploaded===true ? '✅ YouTube pe hai'
-              : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}`
-              : uploaded==='private' ? '🔒 Private'
-              : '⏳ Upload baaki';
+            const uploadText = ytLoading ? '🔍...' : uploaded===true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime||'Scheduled'}` : uploaded==='private' ? '🔒 Private' : '⏳ Upload baaki';
             const nextPartExists = hasNextPart(s, seriesList);
             const isContinuing = continuing === s.id;
+            const isFixing = fixingFolder === s.id;
+            const needsFix = needsFolderFix(s);
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: `1px solid #1e1e1e`, borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -887,8 +881,15 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
                   </div>
                   {!nextPartExists && (
                     <button onClick={(e) => continueSeries(e, s)} disabled={isContinuing}
-                      style={{ marginTop: 10, background: isContinuing ? '#111' : `${s.color}18`, border: `1px solid ${s.color}55`, color: isContinuing ? '#555' : s.color, borderRadius: 8, padding: '7px 12px', fontSize: 11, fontWeight: 700, cursor: isContinuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
-                      {isContinuing ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</> : `➕ Continue → Part ${(s.part || 1) + 1}`}
+                      style={{ marginTop: 10, background: isContinuing?'#111':`${s.color}18`, border:`1px solid ${s.color}55`, color: isContinuing?'#555':s.color, borderRadius:8, padding:'7px 12px', fontSize:11, fontWeight:700, cursor: isContinuing?'not-allowed':'pointer', display:'flex', alignItems:'center', gap:6, width:'100%', justifyContent:'center' }}>
+                      {isContinuing ? <><div className="spinner" style={{ width:12, height:12, borderTopColor:s.color }} /> Generating...</> : `➕ Continue → Part ${(s.part||1)+1}`}
+                    </button>
+                  )}
+                  {/* ── Fix Folder button — sirf wahi series jisme zarurat hai ── */}
+                  {needsFix && (
+                    <button onClick={(e) => fixFolderMeta(e, s)} disabled={isFixing}
+                      style={{ marginTop: 8, background: isFixing?'#111':'rgba(255,170,0,0.08)', border:'1px solid #443300', color: isFixing?'#555':'#ffaa44', borderRadius:8, padding:'7px 12px', fontSize:11, fontWeight:700, cursor: isFixing?'not-allowed':'pointer', display:'flex', alignItems:'center', gap:6, width:'100%', justifyContent:'center' }}>
+                      {isFixing ? <><div className="spinner" style={{ width:12, height:12, borderTopColor:'#ffaa44' }} /> Fixing...</> : '🔧 Fix Folder'}
                     </button>
                   )}
                 </div>
@@ -937,7 +938,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <button onClick={loadSuggestions} style={{ background: 'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', borderRadius: 14, padding: '16px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 32 }}>🤖</span>
-                  <div><div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 3 }}>AI Suggest Kare</div><div style={{ fontSize: 11, color: '#777' }}>AI 4 topics suggest karega based on channel</div></div>
+                  <div><div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 3 }}>AI Suggest Kare</div><div style={{ fontSize: 11, color: '#777' }}>AI 4 topics suggest karega</div></div>
                 </button>
                 <button onClick={() => setModal('custom')} style={{ background: '#0f0f0f', border: '1px solid #333', borderRadius: 14, padding: '16px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 32 }}>✏️</span>
@@ -980,8 +981,8 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
               </div>
               {customName.trim() && <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span></div>}
               <button onClick={loadCustomSuggestions} disabled={customSugLoading}
-                style={{ width: '100%', background: customSugLoading ? '#111' : 'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading ? '#555' : '#cc88ff', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: customSugLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
-                {customSugLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#cc88ff' }} />AI soch raha hai...</> : '🤖 AI se Ideas Lo'}
+                style={{ width: '100%', background: customSugLoading?'#111':'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading?'#555':'#cc88ff', borderRadius:10, padding:'11px', fontSize:12, fontWeight:700, cursor: customSugLoading?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:10 }}>
+                {customSugLoading ? <><div className="spinner" style={{ width:14, height:14, borderTopColor:'#cc88ff' }} />AI soch raha hai...</> : '🤖 AI se Ideas Lo'}
               </button>
               {aiSuggestions.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
@@ -989,7 +990,7 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {aiSuggestions.map((sug, i) => (
                       <button key={i} onClick={() => setCustomName(sug)}
-                        style={{ background: customName === sug ? 'rgba(204,136,255,0.2)' : '#1a001a', border: `1px solid ${customName === sug ? '#cc88ff' : '#440044'}`, color: customName === sug ? '#cc88ff' : '#aaa', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        style={{ background: customName===sug?'rgba(204,136,255,0.2)':'#1a001a', border:`1px solid ${customName===sug?'#cc88ff':'#440044'}`, color: customName===sug?'#cc88ff':'#aaa', borderRadius:20, padding:'7px 14px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
                         {sug}
                       </button>
                     ))}
@@ -998,9 +999,9 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
               )}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={submitCustom} disabled={!customName.trim()}
-                  style={{ flex: 2, background: customName.trim() ? 'linear-gradient(135deg,#550055,#330033)' : '#111', border: '1px solid #660066', color: customName.trim() ? '#cc88ff' : '#444', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: customName.trim() ? 'pointer' : 'not-allowed' }}>Next →</button>
+                  style={{ flex:2, background: customName.trim()?'linear-gradient(135deg,#550055,#330033)':'#111', border:'1px solid #660066', color: customName.trim()?'#cc88ff':'#444', borderRadius:10, padding:'12px', fontSize:13, fontWeight:800, cursor: customName.trim()?'pointer':'not-allowed' }}>Next →</button>
                 <button onClick={() => { setModal('choose'); setAiSuggestions([]); setCustomName(''); }}
-                  style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
+                  style={{ flex:1, background:'#111', border:'1px solid #333', color:'#666', borderRadius:10, padding:'12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>← Back</button>
               </div>
             </div>
           </div>
@@ -1012,18 +1013,18 @@ RETURN ONLY JSON: {"title":"...","description":"..."}`);
               {selectedTopic.description && <div style={{ fontSize: 11, color: '#666', textAlign: 'center', marginBottom: 14 }}>{selectedTopic.description}</div>}
               <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>EMOJI CHUNO</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                {EMOJIS.map(e => <button key={e} onClick={() => setSelectedEmoji(e)} style={{ fontSize: 22, padding: '6px 8px', borderRadius: 10, cursor: 'pointer', background: selectedEmoji===e ? 'rgba(204,136,255,0.2)' : '#1a1a1a', border: `1px solid ${selectedEmoji===e ? '#cc88ff' : '#333'}` }}>{e}</button>)}
+                {EMOJIS.map(e => <button key={e} onClick={() => setSelectedEmoji(e)} style={{ fontSize:22, padding:'6px 8px', borderRadius:10, cursor:'pointer', background: selectedEmoji===e?'rgba(204,136,255,0.2)':'#1a1a1a', border:`1px solid ${selectedEmoji===e?'#cc88ff':'#333'}` }}>{e}</button>)}
               </div>
               <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>COLOR CHUNO</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {COLORS.map(c => <div key={c} onClick={() => setSelectedColor(c)} style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: `3px solid ${selectedColor===c ? '#fff' : 'transparent'}`, transform: selectedColor===c ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.15s' }} />)}
+                {COLORS.map(c => <div key={c} onClick={() => setSelectedColor(c)} style={{ width:28, height:28, borderRadius:'50%', background:c, cursor:'pointer', border:`3px solid ${selectedColor===c?'#fff':'transparent'}`, transform: selectedColor===c?'scale(1.2)':'scale(1)', transition:'all 0.15s' }} />)}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={generateSeries} disabled={generating}
-                  style={{ flex: 2, background: generating ? '#1a001a' : 'linear-gradient(135deg,#550055,#330033)', border: '1px solid #660066', color: '#cc88ff', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: generating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  {generating ? <><div className="spinner" style={{ borderTopColor: '#cc88ff', width: 16, height: 16 }} />Generating...</> : '🤖 Generate Karo'}
+                  style={{ flex:2, background: generating?'#1a001a':'linear-gradient(135deg,#550055,#330033)', border:'1px solid #660066', color:'#cc88ff', borderRadius:10, padding:'12px', fontSize:13, fontWeight:800, cursor: generating?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                  {generating ? <><div className="spinner" style={{ borderTopColor:'#cc88ff', width:16, height:16 }} />Generating...</> : '🤖 Generate Karo'}
                 </button>
-                <button onClick={() => setModal('none')} style={{ flex: 1, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => setModal('none')} style={{ flex:1, background:'#111', border:'1px solid #333', color:'#666', borderRadius:10, padding:'12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>Cancel</button>
               </div>
             </div>
           </div>
@@ -1068,44 +1069,44 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
   const [desc, setDesc]       = useState(series.ytDescription || '');
   useEffect(() => { setTitle(series.ytTitle || ''); setDesc(series.ytDescription || ''); }, [series.ytTitle, series.ytDescription]);
   return (
-    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc?'#1a3a2a':'#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
       <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
-          {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
-          {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
+          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc?'#44bb66':'#ffaa44' }}>📝 Title & Description</span>
+          {hasTitleDesc && <span style={{ fontSize:9, background:'rgba(68,187,102,0.15)', color:'#44bb66', border:'1px solid rgba(68,187,102,0.3)', padding:'2px 8px', borderRadius:20, fontWeight:700 }}>✅</span>}
+          {!hasTitleDesc && <span style={{ fontSize:9, background:'rgba(255,170,0,0.1)', color:'#ffaa44', border:'1px solid rgba(255,170,0,0.3)', padding:'2px 8px', borderRadius:20, fontWeight:700 }}>Zaroori</span>}
         </div>
-        <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 13, color: '#444' }}>{editing?'▲':'▼'}</span>
       </div>
       {editing && (
         <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {!allPromptsDone && !hasTitleDesc && (
-            <div style={{ background: 'rgba(255,170,0,0.07)', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#aa7700' }}>
+            <div style={{ background:'rgba(255,170,0,0.07)', border:'1px solid #2a2000', borderRadius:10, padding:'10px 12px', fontSize:11, color:'#aa7700' }}>
               💡 Pehle saare prompts mark as done karo, phir title generate karo
             </div>
           )}
           <button onClick={onGenerate} disabled={genTD}
-            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
+            style={{ background: genTD?'#111':'linear-gradient(135deg,#1a1000,#2a1800)', border:'1px solid #443300', color: genTD?'#555':'#ffaa44', borderRadius:10, padding:'11px', fontSize:12, fontWeight:700, cursor: genTD?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            {genTD ? <><div className="spinner" style={{ width:14, height:14, borderTopColor:'#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
           </button>
           <div>
-            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 YouTube Title</div>
+            <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>📌 YouTube Title</div>
             <div style={{ position: 'relative' }}>
               <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-              <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey==='ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey==='ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey==='ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey==='ytTitle' ? '✅' : '📋'}</button>
+                style={{ width:'100%', background:'#0a0a0a', border:'1px solid #2a2000', borderRadius:10, padding:'10px 44px 10px 12px', fontSize:12, color:'#eee', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
+              <button onClick={() => onCopy('ytTitle', title)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytTitle'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytTitle'?'#44bb66':'#333'}`, color: copiedKey==='ytTitle'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytTitle'?'✅':'📋'}</button>
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 YouTube Description</div>
+            <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>📄 YouTube Description</div>
             <div style={{ position: 'relative' }}>
               <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
-              <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey==='ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey==='ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey==='ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey==='ytDesc' ? '✅' : '📋'}</button>
+                style={{ width:'100%', background:'#0a0a0a', border:'1px solid #2a2000', borderRadius:10, padding:'10px 44px 10px 12px', fontSize:12, color:'#eee', outline:'none', boxSizing:'border-box', fontFamily:'inherit', resize:'vertical', lineHeight:1.6 }} />
+              <button onClick={() => onCopy('ytDesc', desc)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytDesc'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytDesc'?'#44bb66':'#333'}`, color: copiedKey==='ytDesc'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytDesc'?'✅':'📋'}</button>
             </div>
           </div>
           <button onClick={() => { onSave(title, desc); setEditing(false); }}
-            style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
+            style={{ background:'rgba(68,187,102,0.12)', border:'1px solid rgba(68,187,102,0.4)', color:'#44bb66', borderRadius:10, padding:'11px', fontSize:13, fontWeight:700, cursor:'pointer', width:'100%' }}>
             💾 Save Karo
           </button>
         </div>
