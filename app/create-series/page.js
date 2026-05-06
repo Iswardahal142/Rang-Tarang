@@ -1140,10 +1140,10 @@ RETURN ONLY JSON (no markdown):
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                 {EMOJIS.map(e => <button key={e} onClick={() => setSelectedEmoji(e)} style={{ fontSize:22, padding:'6px 8px', borderRadius:10, cursor:'pointer', background: selectedEmoji===e?'rgba(204,136,255,0.2)':'#1a1a1a', border:`1px solid ${selectedEmoji===e?'#cc88ff':'#333'}` }}>{e}</button>)}
               </div>
-              <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>COLOR CHUNO</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {COLORS.map(c => <div key={c} onClick={() => setSelectedColor(c)} style={{ width:28, height:28, borderRadius:'50%', background:c, cursor:'pointer', border:`3px solid ${selectedColor===c?'#fff':'transparent'}`, transform: selectedColor===c?'scale(1.2)':'scale(1)', transition:'all 0.15s' }} />)}
-              </div>
+             // <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>COLOR CHUNO</div>
+              //<div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                //{COLORS.map(c => <div key={c} onClick={() => setSelectedColor(c)} style={{ width:28, height:28, borderRadius:'50%', background:c, cursor:'pointer', border:`3px solid ${selectedColor===c?'#fff':'transparent'}`, transform: selectedColor===c?'scale(1.2)':'scale(1)', transition:'all 0.15s' }} />)}
+             // </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={generateSeries} disabled={generating}
                   style={{ flex:2, background: generating?'#1a001a':'linear-gradient(135deg,#550055,#330033)', border:'1px solid #660066', color:'#cc88ff', borderRadius:10, padding:'12px', fontSize:13, fontWeight:800, cursor: generating?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
