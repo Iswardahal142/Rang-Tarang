@@ -425,6 +425,21 @@ function CreateSeriesPage({ user }) {
   const [playlistStatus, setPlaylistStatus] = useState({});
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
+  useEffect(() => {
+  if (!seriesList.length || ytLoading) return;
+  
+  const pending = seriesList.find(s => {
+    const uploaded = checkUploaded(s);
+    const nextExists = hasNextPart(s, seriesList);
+    return uploaded === false && !nextExists;
+  });
+
+  if (pending) {
+    setTimeout(() => {
+      toast(`🎬 "${pending.name}" abhi tak upload nahi hua — pehle yeh karo!`);
+    }, 1500);
+  }
+}, [seriesList, ytLoading]);
 
   async function loadList() {
     setLoadingList(true);
@@ -547,10 +562,21 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
     setCustomSugLoading(false);
   }
 
-  async function generateSeries() {
+
+async function generateSeries() {
   if (!selectedTopic) return;
   setGenerating(true);
   try {
+    // ── Duplicate check ──
+    const duplicate = seriesList.find(s =>
+      s.name.toLowerCase() === selectedTopic.name.toLowerCase()
+    );
+    if (duplicate) {
+      toast(`⚠️ "${selectedTopic.name}" already exist karta hai!`);
+      setGenerating(false);
+      return;
+    }
+
     const existing = seriesList.map(s => s.name).join(', ');
     const autoColor = getNextColor();
 
@@ -592,6 +618,7 @@ RULES for "object" field: Describe ONLY the item itself, max 6 words, no locatio
   } catch (e) { toast('❌ ' + e.message); }
   setGenerating(false);
 }
+  
 
 
 async function continueSeries(e, series) {
