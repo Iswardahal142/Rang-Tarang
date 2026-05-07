@@ -37,7 +37,6 @@ export async function GET() {
   if (!apiKey)    return Response.json({ error: 'YOUTUBE_API_KEY not set' },    { status: 500, headers: CORS });
   if (!channelId) return Response.json({ error: 'YOUTUBE_CHANNEL_ID not set' }, { status: 500, headers: CORS });
 
-  // OAuth token lo
   let accessToken = null;
   try {
     accessToken = await getAccessToken();
@@ -51,7 +50,6 @@ export async function GET() {
   const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
   try {
-    // ── Channel ──────────────────────────────────────────
     const channelRes = await fetch(
       buildUrl(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet,statistics&id=${channelId}`),
       { headers }
@@ -70,7 +68,6 @@ export async function GET() {
     const subscriberCount   = channel.statistics?.subscriberCount || '0';
     const videoCount        = channel.statistics?.videoCount || '0';
 
-    // ── Playlist — OAuth se private/scheduled bhi aayenge ──
     const playlistRes = await fetch(
       buildUrl(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${uploadsPlaylistId}&maxResults=50`),
       { headers }
@@ -82,7 +79,6 @@ export async function GET() {
       return Response.json({ channelId: channelId_out, channelName, channelThumb, subscriberCount, videoCount, videos: [] }, { headers: CORS });
     }
 
-    // ── Video stats + privacy ─────────────────────────────
     const statsRes = await fetch(
       buildUrl(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,contentDetails,status&id=${videoIds}`),
       { headers }
@@ -114,7 +110,8 @@ export async function GET() {
         isShort,
         privacyStatus,
         isScheduled,
-        scheduledAt: publishAt,
+        scheduledAt:   publishAt,
+        tags:          v.snippet?.tags || [],  // ✅ ADDED
       };
     }) || [];
 
