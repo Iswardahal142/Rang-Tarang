@@ -1213,6 +1213,8 @@ RETURN ONLY JSON (no markdown):
             const isContinuing = continuing === s.id;
             const isFixing = fixingFolder === s.id;
             const needsFix = needsFolderFix(s);
+            const matchedVideo = getMatchedVideo(s);
+            const hasTags = matchedVideo && matchedVideo.tags && matchedVideo.tags.length > 0;
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: `1px solid #1e1e1e`, borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1222,6 +1224,12 @@ RETURN ONLY JSON (no markdown):
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount||0}/{total} done</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
+                    {matchedVideo && (
+                      <span style={{ fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        🏷️
+                        <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: hasTags ? '#44bb66' : '#ff4444' }} />
+                      </span>
+                    )}
                   </div>
                   <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (s.progress||0)+'%', background: s.color, borderRadius: 4 }} />
