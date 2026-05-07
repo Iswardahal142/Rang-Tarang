@@ -824,7 +824,8 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
       const userInputLabel = customName.trim()
         ? customName.trim().replace(/\b\w/g, c => c.toUpperCase())
         : selectedTopic.name.replace(/^Five\s+/i, '').replace(/\s+Name$/i, '').trim();
-      const folderMeta = { folderLabel: userInputLabel, folderEmoji: selectedEmoji, folderColoconst noteLine = seriesNote.trim() ? `\nIMPORTANT NOTE from creator: ${seriesNote.trim()}` : '';
+     const folderMeta = { folderLabel: userInputLabel, folderEmoji: selectedEmoji, folderColor: autoColor };
+const noteLine = seriesNote.trim() ? `\nIMPORTANT NOTE from creator: ${seriesNote.trim()}` : '';
 const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".${noteLine}
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
