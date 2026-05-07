@@ -393,18 +393,28 @@ function needsFolderFix(series) {
 // ══════════════════════════════════════════════════════
 function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey, isUploaded, matchedVideoId, matchedCategoryId }) {
   const toast = useToast();
-  const [editing, setEditing]   = useState(false);
-  const [title, setTitle]       = useState(series.ytTitle || '');
-  const [desc, setDesc]         = useState(series.ytDescription || '');
-  const [tags, setTags]         = useState(series.ytTags || '');
 
-  // Per-field update states
-  const [savingTitle, setSavingTitle]   = useState(false);
-  const [savingDesc, setSavingDesc]     = useState(false);
-  const [savingTags, setSavingTags]     = useState(false);
-  const [titleStatus, setTitleStatus]   = useState('idle');
-  const [descStatus, setDescStatus]     = useState('idle');
-  const [tagsStatus, setTagsStatus]     = useState('idle');
+  // Shared values — teeno fields ek jagah (link na toote)
+  const [title, setTitle] = useState(series.ytTitle || '');
+  const [desc,  setDesc]  = useState(series.ytDescription || '');
+  const [tags,  setTags]  = useState(series.ytTags || '');
+
+  // Which sub-section is open
+  const [openField, setOpenField] = useState(null); // 'title' | 'desc' | 'tags' | null
+
+  // Per-field loading states
+  const [regenTitle, setRegenTitle] = useState(false);
+  const [regenDesc,  setRegenDesc]  = useState(false);
+  const [regenTags,  setRegenTags]  = useState(false);
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [savingDesc,  setSavingDesc]  = useState(false);
+  const [savingTags,  setSavingTags]  = useState(false);
+  const [statusTitle, setStatusTitle] = useState('idle');
+  const [statusDesc,  setStatusDesc]  = useState('idle');
+  const [statusTags,  setStatusTags]  = useState('idle');
+
+  // Outer collapse
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setTitle(series.ytTitle || '');
@@ -412,34 +422,81 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
     setTags(series.ytTags || '');
   }, [series.ytTitle, series.ytDescription, series.ytTags]);
 
-  // YouTube pe directly update karo (ek field ke liye — baaki current values bhejo)
-  async function ytUpdate(field, newTitle, newDesc, newTags, setStatus, setSaving) {
+  // ── AI regenerate — baaki dono current values use karo ──
+  async function regenField(field) {
+    const setRegen = field === 'title' ? setRegenTitle : field === 'desc' ? setRegenDesc : setRegenTags;
+    setRegen(true);
+    try {
+      const baseName = series.name.replace(/ Part \d+$/, '').trim();
+      const partText = (series.part || 1) > 1 ? ` Part ${series.part}` : '';
+      const itemNames = (series.items || []).map(i => i.name).join(', ');
+
+      let prompt = '';
+      if (field === 'title') {
+        prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
+Series: "${baseName}${partText}" | Items: ${itemNames}
+Current description: "${desc.slice(0, 100)}"
+Current tags: "${tags.slice(0, 100)}"
+
+Generate ONE improved YouTube title that matches the description and tags above.
+RULES: Exactly "[count] [Hindi name] | [count] [English name] | Rang Tarang" pattern. Max 60 chars. NO emoji.
+Return ONLY the title text, nothing else.`;
+      } else if (field === 'desc') {
+        prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
+Series: "${baseName}${partText}" | Items: ${itemNames}
+Current title: "${title}"
+Current tags: "${tags.slice(0, 150)}"
+
+Generate YouTube description that matches the title and tags above.
+FORMAT:
+Line 1: Hook in Hindi (1 line)
+Line 2: ✅ इस video में: ${(series.items||[]).slice(0,5).map(i=>i.name).join(', ')}...
+Line 3: 👶 2-6 साल के बच्चों के लिए perfect!
+Line 4: 🔔 Rang Tarang Subscribe karo: https://youtube.com/@RangTarangHindi
+Line 5: Relevant hashtags
+Return ONLY the description text, nothing else.`;
+      } else {
+        prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
+Series: "${baseName}${partText}" | Items: ${itemNames}
+Current title: "${title}"
+Current description: "${desc.slice(0, 150)}"
+
+Generate exactly 15 YouTube tags that match the title and description above.
+RULES: Comma separated, mix Hindi + English, topic-specific + general kids tags. No # symbol.
+Return ONLY the comma-separated tags, nothing else.`;
+      }
+
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai/gpt-4o-mini', max_tokens: 500, temperature: 0.7, messages: [{ role: 'user', content: prompt }] }),
+      });
+      const data = await res.json();
+      const text = (data.choices?.[0]?.message?.content || '').trim();
+      if (field === 'title') { setTitle(text); setStatusTitle('idle'); }
+      else if (field === 'desc') { setDesc(text); setStatusDesc('idle'); }
+      else { setTags(text); setStatusTags('idle'); }
+      toast(`🔄 ${field === 'title' ? 'Title' : field === 'desc' ? 'Description' : 'Tags'} regenerated!`);
+    } catch (e) { toast('❌ ' + e.message); }
+    setRegen(false);
+  }
+
+  // ── YouTube update — hamesha teeno fields saath ──
+  async function ytUpdate(field, setSaving, setStatus) {
     if (!matchedVideoId) { toast('❌ VideoId nahi mila'); return; }
     setSaving(true); setStatus('saving');
     try {
       const res = await fetch('/api/audit', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId:     matchedVideoId,
-          categoryId:  matchedCategoryId || '22',
-          title:       newTitle,
-          description: newDesc,
-          tags:        newTags,
-        }),
+        body: JSON.stringify({ videoId: matchedVideoId, categoryId: matchedCategoryId || '22', title, description: desc, tags }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Update fail');
-      // Firestore mein bhi save karo
-      onSave(newTitle, newDesc, newTags);
+      onSave(title, desc, tags);
       setStatus('saved');
       toast(`✅ ${field} YouTube pe update ho gaya!`);
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (e) {
-      setStatus('error');
-      toast('❌ ' + e.message);
-      setTimeout(() => setStatus('idle'), 3000);
-    }
+    } catch (e) { setStatus('error'); toast('❌ ' + e.message); setTimeout(() => setStatus('idle'), 3000); }
     setSaving(false);
   }
 
@@ -447,171 +504,138 @@ function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGener
   const descDirty  = desc  !== (series.ytDescription || '');
   const tagsDirty  = tags  !== (series.ytTags || '');
 
-  // Status badge helper
-  function StatusBadge({ status, dirty }) {
-    if (status === 'saved')  return <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.12)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>✅ Updated</span>;
-    if (status === 'saving') return <span style={{ fontSize: 9, color: '#ffaa00', fontWeight: 700 }}>⏳ Saving...</span>;
-    if (dirty) return <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid #442200', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>Unsaved</span>;
+  // ── Small helpers ──
+  function Badge({ status, dirty }) {
+    if (status === 'saved') return <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.12)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 6px', borderRadius: 20, fontWeight: 700 }}>✅</span>;
+    if (dirty) return <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid #442200', padding: '2px 6px', borderRadius: 20, fontWeight: 700 }}>●</span>;
     return null;
   }
 
-  // Update button helper
-  function UpdateBtn({ saving, dirty, onClick, label = 'Update' }) {
-    return (
-      <button onClick={onClick} disabled={saving || !dirty}
-        style={{
-          background: saving ? '#111' : dirty ? 'linear-gradient(135deg,#0a1a44,#05102a)' : '#111',
-          border: `1px solid ${saving ? '#333' : dirty ? '#4488ff' : '#222'}`,
-          color: saving ? '#555' : dirty ? '#4488ff' : '#333',
-          borderRadius: 8, padding: '8px 14px', fontSize: 11, fontWeight: 700,
-          cursor: saving || !dirty ? 'not-allowed' : 'pointer',
-          display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
-        }}>
-        {saving ? <><div className="spinner" style={{ width: 11, height: 11, borderTopColor: '#4488ff' }} />Updating...</> : `🚀 ${label}`}
-      </button>
-    );
-  }
+  const fieldDefs = [
+    { key: 'title', label: '📌 Title',       color: '#ff8800', badge: <Badge status={statusTitle} dirty={titleDirty} /> },
+    { key: 'desc',  label: '📄 Description', color: '#4488ff', badge: <Badge status={statusDesc}  dirty={descDirty}  /> },
+    { key: 'tags',  label: '🏷️ Tags',        color: '#44bb66', badge: <Badge status={statusTags}  dirty={tagsDirty}  /> },
+  ];
 
   return (
     <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
-      <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+      {/* ── Outer header ── */}
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
           {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
           {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
-          {/* Upload status indicator */}
-          {isUploaded && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.1)', color: '#44bb66', border: '1px solid #1a3a1a', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>🔗 Linked</span>}
+          {isUploaded && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.1)', color: '#44bb66', border: '1px solid #1a3a1a', padding: '2px 6px', borderRadius: 20, fontWeight: 700 }}>🔗</span>}
         </div>
-        <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 13, color: '#444' }}>{open ? '▲' : '▼'}</span>
       </div>
 
-      {editing && (
-        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {open && (
+        <div style={{ padding: '0 14px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-          {/* ── Mode indicator ── */}
-          {isUploaded ? (
-            <div style={{ background: 'rgba(68,136,255,0.07)', border: '1px solid #223355', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#4466aa', lineHeight: 1.5 }}>
-              🔗 Video YouTube pe upload hai — changes seedha YouTube pe update honge + Firestore mein bhi save honge.
-            </div>
-          ) : (
-            <div style={{ background: 'rgba(255,170,0,0.06)', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#aa7700', lineHeight: 1.5 }}>
-              📋 Video abhi upload nahi hua — Title/Desc copy karo, YouTube pe paste karke upload karo. Match hone ke baad yahan se direct update hoga.
-            </div>
-          )}
+          {/* Mode banner */}
+          <div style={{ marginTop: 10, background: isUploaded ? 'rgba(68,136,255,0.07)' : 'rgba(255,170,0,0.06)', border: `1px solid ${isUploaded ? '#223355' : '#2a2000'}`, borderRadius: 10, padding: '9px 12px', fontSize: 10, color: isUploaded ? '#4466aa' : '#aa7700', lineHeight: 1.5 }}>
+            {isUploaded ? '🔗 Linked — Update dabao toh seedha YouTube pe jayega + Firestore save hoga.' : '📋 Upload nahi hua — Copy karo → YouTube pe paste karo → Upload karo → Phir yahan se update hoga.'}
+          </div>
 
-          {/* ── AI Generate button ── */}
+          {/* All-in-one generate */}
           {!allPromptsDone && !hasTitleDesc && (
-            <div style={{ background: 'rgba(255,170,0,0.07)', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#aa7700' }}>
-              💡 Pehle saare prompts mark as done karo, phir title generate karo
+            <div style={{ background: 'rgba(255,170,0,0.07)', border: '1px solid #2a2000', borderRadius: 10, padding: '9px 12px', fontSize: 10, color: '#aa7700' }}>
+              💡 Pehle saare prompts mark as done karo
             </div>
           )}
           <button onClick={onGenerate} disabled={genTD}
-            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo (Title + Desc + Tags)'}
+            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '10px', fontSize: 11, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {genTD ? <><div className="spinner" style={{ width: 13, height: 13, borderTopColor: '#ffaa44' }} />Generating...</> : '🤖 Generate All (Title + Desc + Tags)'}
           </button>
 
-          {/* ══════ TITLE ══════ */}
-          <div style={{ background: '#0a0a0a', border: `1px solid ${titleDirty ? '#ff880044' : '#1e1e1e'}`, borderRadius: 10, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 9, color: '#ff8800', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📌 YouTube Title</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <StatusBadge status={titleStatus} dirty={titleDirty} />
-                <span style={{ fontSize: 9, color: title.length > 100 ? '#ff4455' : '#444', fontWeight: 600 }}>{title.length}/100</span>
-              </div>
-            </div>
-            <input value={title} onChange={e => { setTitle(e.target.value); setTitleStatus('idle'); }} placeholder="Video ka title..."
-              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #222', color: '#eee', fontSize: 12, outline: 'none', padding: '6px 0', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 10 }} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => onCopy('ytTitle', title)}
-                style={{ flex: 1, background: copiedKey === 'ytTitle' ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                {copiedKey === 'ytTitle' ? '✅ Copied!' : '📋 Copy'}
-              </button>
-              {isUploaded && (
-                <UpdateBtn
-                  saving={savingTitle} dirty={titleDirty} label="Update Title"
-                  onClick={() => ytUpdate('Title', title, desc, tags, setTitleStatus, setSavingTitle)}
-                />
-              )}
-              {!isUploaded && (
-                <button onClick={() => { onSave(title, desc, tags); toast('💾 Firestore mein save!'); }}
-                  style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  💾 Save
-                </button>
-              )}
-            </div>
-          </div>
+          {/* ── 3 Collapse sub-sections ── */}
+          {fieldDefs.map(({ key, label, color, badge }) => {
+            const isFieldOpen = openField === key;
+            const isRegen  = key === 'title' ? regenTitle  : key === 'desc' ? regenDesc  : regenTags;
+            const isSaving = key === 'title' ? savingTitle : key === 'desc' ? savingDesc : savingTags;
+            const isDirty  = key === 'title' ? titleDirty  : key === 'desc' ? descDirty  : tagsDirty;
+            const status   = key === 'title' ? statusTitle : key === 'desc' ? statusDesc : statusTags;
+            const setStatus = key === 'title' ? setStatusTitle : key === 'desc' ? setStatusDesc : setStatusTags;
+            const setSaving = key === 'title' ? setSavingTitle : key === 'desc' ? setSavingDesc : setSavingTags;
+            const copyKey  = key === 'title' ? 'ytTitle' : key === 'desc' ? 'ytDesc' : 'ytTags';
+            const value    = key === 'title' ? title : key === 'desc' ? desc : tags;
 
-          {/* ══════ DESCRIPTION ══════ */}
-          <div style={{ background: '#0a0a0a', border: `1px solid ${descDirty ? '#4488ff44' : '#1e1e1e'}`, borderRadius: 10, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 9, color: '#4488ff', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📄 YouTube Description</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <StatusBadge status={descStatus} dirty={descDirty} />
-                <span style={{ fontSize: 9, color: '#444', fontWeight: 600 }}>{desc.length} chars</span>
-              </div>
-            </div>
-            <textarea value={desc} onChange={e => { setDesc(e.target.value); setDescStatus('idle'); }} placeholder="Video ki description..." rows={4}
-              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #222', color: '#eee', fontSize: 12, outline: 'none', padding: '6px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6, marginBottom: 10 }} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => onCopy('ytDesc', desc)}
-                style={{ flex: 1, background: copiedKey === 'ytDesc' ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                {copiedKey === 'ytDesc' ? '✅ Copied!' : '📋 Copy'}
-              </button>
-              {isUploaded && (
-                <UpdateBtn
-                  saving={savingDesc} dirty={descDirty} label="Update Desc"
-                  onClick={() => ytUpdate('Description', title, desc, tags, setDescStatus, setSavingDesc)}
-                />
-              )}
-              {!isUploaded && (
-                <button onClick={() => { onSave(title, desc, tags); toast('💾 Firestore mein save!'); }}
-                  style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  💾 Save
-                </button>
-              )}
-            </div>
-          </div>
+            return (
+              <div key={key} style={{ background: '#0a0a0a', border: `1px solid ${isDirty ? color + '44' : '#1e1e1e'}`, borderRadius: 10, overflow: 'hidden' }}>
+                {/* Sub-header */}
+                <div onClick={() => setOpenField(isFieldOpen ? null : key)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color, fontWeight: 700 }}>{label}</span>
+                    {badge}
+                    {status === 'saved' && <span style={{ fontSize: 9, color: '#44bb66', fontWeight: 700 }}>✅ Updated</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {key === 'title' && <span style={{ fontSize: 9, color: title.length > 100 ? '#ff4455' : '#444' }}>{title.length}/100</span>}
+                    {key === 'tags'  && <span style={{ fontSize: 9, color: tags.split(',').filter(t=>t.trim()).length < 10 ? '#ffaa00' : '#44bb66', fontWeight: 700 }}>{tags.split(',').filter(t=>t.trim()).length} tags</span>}
+                    <span style={{ fontSize: 11, color: '#333' }}>{isFieldOpen ? '▲' : '▼'}</span>
+                  </div>
+                </div>
 
-          {/* ══════ TAGS ══════ */}
-          <div style={{ background: '#0a0a0a', border: `1px solid ${tagsDirty ? '#44bb6644' : '#1e1e1e'}`, borderRadius: 10, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 9, color: '#44bb66', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>🏷️ YouTube Tags</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <StatusBadge status={tagsStatus} dirty={tagsDirty} />
-                <span style={{ fontSize: 9, color: tags.split(',').filter(t => t.trim()).length < 10 ? '#ffaa00' : '#44bb66', fontWeight: 700 }}>
-                  {tags.split(',').filter(t => t.trim()).length} tags
-                </span>
+                {isFieldOpen && (
+                  <div style={{ padding: '0 12px 12px', borderTop: '1px solid #111', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {/* Input */}
+                    {key === 'title' ? (
+                      <input value={title} onChange={e => { setTitle(e.target.value); setStatusTitle('idle'); }}
+                        placeholder="Video ka title..."
+                        style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${isDirty ? color + '66' : '#222'}`, color: '#eee', fontSize: 12, outline: 'none', padding: '8px 0', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                    ) : key === 'desc' ? (
+                      <textarea value={desc} onChange={e => { setDesc(e.target.value); setStatusDesc('idle'); }}
+                        placeholder="Video ki description..." rows={4}
+                        style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${isDirty ? color + '66' : '#222'}`, color: '#eee', fontSize: 12, outline: 'none', padding: '8px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+                    ) : (
+                      <>
+                        <textarea value={tags} onChange={e => { setTags(e.target.value); setStatusTags('idle'); }}
+                          placeholder="tag1, tag2, tag3..." rows={3}
+                          style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${isDirty ? color + '66' : '#222'}`, color: '#eee', fontSize: 12, outline: 'none', padding: '8px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+                        {tags.trim() && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {tags.split(',').filter(t=>t.trim()).map((t,i) => (
+                              <span key={i} style={{ background: '#1a2a1a', border: '1px solid #44bb6633', color: '#44bb66aa', borderRadius: 20, padding: '2px 7px', fontSize: 9, fontWeight: 600 }}>{t.trim()}</span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Action buttons row */}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {/* 🔄 Regenerate */}
+                      <button onClick={() => regenField(key)} disabled={isRegen}
+                        style={{ background: isRegen ? '#111' : '#0a0a1a', border: `1px solid ${isRegen ? '#333' : color + '55'}`, color: isRegen ? '#444' : color, borderRadius: 8, padding: '8px 10px', fontSize: 11, fontWeight: 700, cursor: isRegen ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        {isRegen ? <div className="spinner" style={{ width: 11, height: 11, borderTopColor: color }} /> : '🔄'}
+                      </button>
+
+                      {/* 📋 Copy */}
+                      <button onClick={() => onCopy(copyKey, value)}
+                        style={{ flex: 1, background: copiedKey === copyKey ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedKey === copyKey ? '#44bb66' : '#333'}`, color: copiedKey === copyKey ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                        {copiedKey === copyKey ? '✅ Copied!' : '📋 Copy'}
+                      </button>
+
+                      {/* 🚀 Update / 💾 Save */}
+                      {isUploaded ? (
+                        <button onClick={() => ytUpdate(label, setSaving, setStatus)} disabled={isSaving || !isDirty}
+                          style={{ flex: 1, background: isSaving ? '#111' : isDirty ? 'linear-gradient(135deg,#0a1a44,#05102a)' : '#111', border: `1px solid ${isSaving ? '#333' : isDirty ? '#4488ff' : '#222'}`, color: isSaving ? '#555' : isDirty ? '#4488ff' : '#333', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: isSaving || !isDirty ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                          {isSaving ? <><div className="spinner" style={{ width: 11, height: 11, borderTopColor: '#4488ff' }} />...</> : isDirty ? '🚀 Update' : '✓ Saved'}
+                        </button>
+                      ) : (
+                        <button onClick={() => { onSave(title, desc, tags); toast('💾 Saved!'); }}
+                          style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                          💾 Save
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-            <textarea value={tags} onChange={e => { setTags(e.target.value); setTagsStatus('idle'); }} placeholder="Tags comma se separate..." rows={3}
-              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #222', color: '#eee', fontSize: 12, outline: 'none', padding: '6px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6, marginBottom: 8 }} />
-            {/* Tag chips */}
-            {tags.trim() && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                {tags.split(',').filter(t => t.trim()).map((t, i) => (
-                  <span key={i} style={{ background: '#1a2a1a', border: '1px solid #44bb6633', color: '#44bb66aa', borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 600 }}>{t.trim()}</span>
-                ))}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => onCopy('ytTags', tags)}
-                style={{ flex: 1, background: copiedKey === 'ytTags' ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedKey === 'ytTags' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTags' ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                {copiedKey === 'ytTags' ? '✅ Copied!' : '📋 Copy'}
-              </button>
-              {isUploaded && (
-                <UpdateBtn
-                  saving={savingTags} dirty={tagsDirty} label="Update Tags"
-                  onClick={() => ytUpdate('Tags', title, desc, tags, setTagsStatus, setSavingTags)}
-                />
-              )}
-              {!isUploaded && (
-                <button onClick={() => { onSave(title, desc, tags); toast('💾 Firestore mein save!'); }}
-                  style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  💾 Save
-                </button>
-              )}
-            </div>
-          </div>
+            );
+          })}
 
         </div>
       )}
