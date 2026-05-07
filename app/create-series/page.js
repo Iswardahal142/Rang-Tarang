@@ -676,6 +676,9 @@ function CreateSeriesPage({ user }) {
   const [scheduleCopied, setScheduleCopied] = useState(false);
   const [fixingFolder, setFixingFolder]     = useState(null);
   const [playlistStatus, setPlaylistStatus] = useState({});
+  const [seriesNote, setSeriesNote] = useState('');
+const [customMode, setCustomMode] = useState('five'); // 'five' | 'custom'
+const [customFullTitle, setCustomFullTitle] = useState('');
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -780,13 +783,19 @@ Return ONLY JSON array, no markdown: [{"name":"Five Clothes Name","emoji":"👕"
   }
 
   async function submitCustom() {
+  let fullName = '';
+  if (customMode === 'five') {
     if (!customName.trim()) { toast('⚠️ Beech wala part likho!'); return; }
-    const fullName = `Five ${customName.trim()} Name`;
-    const detectedEmoji = await detectEmoji(fullName);
-    setSelectedEmoji(detectedEmoji);
-    setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
-    setAiSuggestions([]); setModal('picker');
+    fullName = `Five ${customName.trim()} Name`;
+  } else {
+    if (!customFullTitle.trim()) { toast('⚠️ Title likho!'); return; }
+    fullName = customFullTitle.trim();
   }
+  const detectedEmoji = await detectEmoji(fullName);
+  setSelectedEmoji(detectedEmoji);
+  setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
+  setAiSuggestions([]); setModal('picker');
+}
 
   async function loadCustomSuggestions() {
     setCustomSugLoading(true); setAiSuggestions([]);
@@ -815,8 +824,8 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
       const userInputLabel = customName.trim()
         ? customName.trim().replace(/\b\w/g, c => c.toUpperCase())
         : selectedTopic.name.replace(/^Five\s+/i, '').replace(/\s+Name$/i, '').trim();
-      const folderMeta = { folderLabel: userInputLabel, folderEmoji: selectedEmoji, folderColor: autoColor };
-      const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
+      const folderMeta = { folderLabel: userInputLabel, folderEmoji: selectedEmoji, folderColoconst noteLine = seriesNote.trim() ? `\nIMPORTANT NOTE from creator: ${seriesNote.trim()}` : '';
+const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".${noteLine}
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
 [{"name":"Lion","object":"golden lion with fluffy mane"}]
@@ -827,7 +836,7 @@ RULES for "object" field: Describe ONLY the item itself, max 6 words, no locatio
       }
       await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: autoColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '', type: detectedType, ...folderMeta });
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
-      setModal('none'); setSelectedTopic(null); setCustomName(''); loadList();
+      setModal('none'); setSelectedTopic(null); setCustomName(''); setSeriesNote(''); setCustomMode('five'); setCustomFullTitle(''); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setGenerating(false);
   }
@@ -1305,44 +1314,93 @@ RETURN ONLY JSON (no markdown):
             </div>
           </div>
         )}
-        {modal === 'custom' && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
-            <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>FIVE</span>
-                <input value={customName} onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }} placeholder="flowers, wild animals..." maxLength={30}
-                  style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>Name</span>
-              </div>
-              {customName.trim() && <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span></div>}
-              <button onClick={loadCustomSuggestions} disabled={customSugLoading}
-                style={{ width: '100%', background: customSugLoading?'#111':'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading?'#555':'#cc88ff', borderRadius:10, padding:'11px', fontSize:12, fontWeight:700, cursor: customSugLoading?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:10 }}>
-                {customSugLoading ? <><div className="spinner" style={{ width:14, height:14, borderTopColor:'#cc88ff' }} />AI soch raha hai...</> : '🤖 AI se Ideas Lo'}
-              </button>
-              {aiSuggestions.length > 0 && (
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {aiSuggestions.map((sug, i) => (
-                      <button key={i} onClick={() => setCustomName(sug)}
-                        style={{ background: customName===sug?'rgba(204,136,255,0.2)':'#1a001a', border:`1px solid ${customName===sug?'#cc88ff':'#440044'}`, color: customName===sug?'#cc88ff':'#aaa', borderRadius:20, padding:'7px 14px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                        {sug}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={submitCustom} disabled={!customName.trim()}
-                  style={{ flex:2, background: customName.trim()?'linear-gradient(135deg,#550055,#330033)':'#111', border:'1px solid #660066', color: customName.trim()?'#cc88ff':'#444', borderRadius:10, padding:'12px', fontSize:13, fontWeight:800, cursor: customName.trim()?'pointer':'not-allowed' }}>Next →</button>
-                <button onClick={() => { setModal('choose'); setAiSuggestions([]); setCustomName(''); }}
-                  style={{ flex:1, background:'#111', border:'1px solid #333', color:'#666', borderRadius:10, padding:'12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>← Back</button>
+       {modal === 'custom' && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
+    <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+      
+      <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 16, textAlign: 'center' }}>✏️ Custom Series</div>
+
+      {/* Toggle */}
+      <div style={{ display: 'flex', background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: 4, marginBottom: 14, gap: 4 }}>
+        <button onClick={() => setCustomMode('five')}
+          style={{ flex: 1, background: customMode==='five' ? 'linear-gradient(135deg,#550055,#330033)' : 'none', border: customMode==='five' ? '1px solid #cc88ff' : '1px solid transparent', color: customMode==='five' ? '#cc88ff' : '#555', borderRadius: 10, padding: '8px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+          Five...Name
+        </button>
+        <button onClick={() => setCustomMode('custom')}
+          style={{ flex: 1, background: customMode==='custom' ? 'linear-gradient(135deg,#550055,#330033)' : 'none', border: customMode==='custom' ? '1px solid #cc88ff' : '1px solid transparent', color: customMode==='custom' ? '#cc88ff' : '#555', borderRadius: 10, padding: '8px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+          Custom Title
+        </button>
+      </div>
+
+      {/* Five...Name mode */}
+      {customMode === 'five' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>FIVE</span>
+            <input value={customName} onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }} placeholder="flowers, wild animals..." maxLength={30}
+              style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
+            <span style={{ fontSize: 16, fontWeight: 800, color: '#cc88ff', whiteSpace: 'nowrap' }}>Name</span>
+          </div>
+          {customName.trim() && (
+            <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
+              👁 <span style={{ color: '#eee', fontWeight: 700 }}>Five {customName.trim()} Name</span>
+            </div>
+          )}
+          <button onClick={loadCustomSuggestions} disabled={customSugLoading}
+            style={{ width: '100%', background: customSugLoading?'#111':'linear-gradient(135deg,#1a0033,#0d0020)', border: '1px solid #660066', color: customSugLoading?'#555':'#cc88ff', borderRadius:10, padding:'11px', fontSize:12, fontWeight:700, cursor: customSugLoading?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginBottom:10 }}>
+            {customSugLoading ? <><div className="spinner" style={{ width:14, height:14, borderTopColor:'#cc88ff' }} />AI soch raha hai...</> : '🤖 AI se Ideas Lo'}
+          </button>
+          {aiSuggestions.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {aiSuggestions.map((sug, i) => (
+                  <button key={i} onClick={() => setCustomName(sug)}
+                    style={{ background: customName===sug?'rgba(204,136,255,0.2)':'#1a001a', border:`1px solid ${customName===sug?'#cc88ff':'#440044'}`, color: customName===sug?'#cc88ff':'#aaa', borderRadius:20, padding:'7px 14px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    {sug}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-        )}
-        {modal === 'picker' && selectedTopic && (
+          )}
+        </>
+      )}
+
+      {/* Custom Title mode */}
+      {customMode === 'custom' && (
+        <>
+          <input value={customFullTitle} onChange={e => setCustomFullTitle(e.target.value)} placeholder="e.g. 5 Type of Clothes, 5 Footwear Name..." maxLength={60}
+            style={{ width: '100%', background: '#1a001a', border: '1px solid #440044', borderRadius: 12, padding: '12px 14px', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+          {customFullTitle.trim() && (
+            <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
+              👁 <span style={{ color: '#eee', fontWeight: 700 }}>{customFullTitle.trim()}</span>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Note field — dono mode mein dikhega */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 6, letterSpacing: 1 }}>📝 AI KO NOTE (OPTIONAL)</div>
+        <textarea value={seriesNote} onChange={e => setSeriesNote(e.target.value)}
+          placeholder="e.g. Only real clothes like shirt, dress, kurta. No hat or shoes."
+          maxLength={200}
+          style={{ width: '100%', background: '#1a001a', border: '1px solid #440044', borderRadius: 10, padding: '10px 12px', color: '#eee', fontSize: 12, fontWeight: 600, outline: 'none', resize: 'none', minHeight: 65, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+      </div>
+
+      {/* Buttons */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={submitCustom} disabled={customMode==='five' ? !customName.trim() : !customFullTitle.trim()}
+          style={{ flex:2, background: (customMode==='five'?customName.trim():customFullTitle.trim())?'linear-gradient(135deg,#550055,#330033)':'#111', border:'1px solid #660066', color: (customMode==='five'?customName.trim():customFullTitle.trim())?'#cc88ff':'#444', borderRadius:10, padding:'12px', fontSize:13, fontWeight:800, cursor: (customMode==='five'?customName.trim():customFullTitle.trim())?'pointer':'not-allowed' }}>Next →</button>
+        <button onClick={() => { setModal('choose'); setAiSuggestions([]); setCustomName(''); setCustomMode('five'); setCustomFullTitle(''); setSeriesNote(''); }}
+          style={{ flex:1, background:'#111', border:'1px solid #333', color:'#666', borderRadius:10, padding:'12px', fontSize:13, fontWeight:700, cursor:'pointer' }}>← Back</button>
+      </div>
+
+    </div>
+  </div>
+)}
+
+{modal === 'picker' && selectedTopic && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff', marginBottom: 4, textAlign: 'center' }}>{selectedEmoji} {selectedTopic.name}</div>
