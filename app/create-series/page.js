@@ -1359,4 +1359,28 @@ RETURN ONLY JSON (no markdown):
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
           const canContinue = seriesInFolder.find(s => !hasNextPart(s, seriesList));
           return (
-    
+            <div key={type} onClick={() => setOpenFolder(type)}
+              style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{folder.emoji}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
+                <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
+                {canContinue && !ytLoading && (
+                  <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginTop: 4, background: 'rgba(68,136,255,0.08)', border: '1px solid #223355', borderRadius: 6, padding: '3px 8px', display: 'inline-block' }}>
+                    ✨ Part {(canContinue.part || 1) + 1} ban sakta hai
+                  </div>
+                )}
+              </div>
+              <span style={{ fontSize: 22, color: `${folder.color}66` }}>›</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function CreateSeriesWrapper() {
+  return <ToastProvider><AuthWrapper>{({ user }) => <CreateSeriesPage user={user} />}</AuthWrapper></ToastProvider>;
+}
