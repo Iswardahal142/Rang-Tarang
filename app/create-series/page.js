@@ -34,7 +34,7 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
-// ── Fallback type detect (old series ke liye) ──
+// ── Fallback type detect ──
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
   if (n.includes('flower'))                                                                    return 'flower';
@@ -89,8 +89,6 @@ const KNOWN_FOLDERS = {
   tool:            { label: 'Tools',            emoji: '🔧', color: '#aaaaaa' },
   computer_part:   { label: 'Computer Parts',   emoji: '💻', color: '#44bbff' },
 };
-
-
 
 function getFolder(type, seriesList = []) {
   if (KNOWN_FOLDERS[type]) return KNOWN_FOLDERS[type];
@@ -213,7 +211,6 @@ const INTRO_ANIMATIONS = [
 ];
 
 function buildIntroVideoPrompt(seriesName, part = 1, items = [], animationId = 'random') {
-  // ── FIX: Base name nikalo (Part X hata do) ──
   const baseName = seriesName.replace(/ Part \d+$/, '').trim();
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
@@ -223,7 +220,6 @@ function buildIntroVideoPrompt(seriesName, part = 1, items = [], animationId = '
     const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
     anim = nonRandom[Math.floor(Math.random() * nonRandom.length)];
   }
-  // baseName use karo (Part X without suffix), partMention alag se
   return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${baseName}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${baseName}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
@@ -392,6 +388,240 @@ function needsFolderFix(series) {
   return !series.folderLabel || !series.folderEmoji || !series.folderColor;
 }
 
+// ══════════════════════════════════════════════════════
+// TITLE DESC SECTION — Smart: Copy mode OR Direct Update mode
+// ══════════════════════════════════════════════════════
+function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey, isUploaded, matchedVideoId, matchedCategoryId }) {
+  const toast = useToast();
+  const [editing, setEditing]   = useState(false);
+  const [title, setTitle]       = useState(series.ytTitle || '');
+  const [desc, setDesc]         = useState(series.ytDescription || '');
+  const [tags, setTags]         = useState(series.ytTags || '');
+
+  // Per-field update states
+  const [savingTitle, setSavingTitle]   = useState(false);
+  const [savingDesc, setSavingDesc]     = useState(false);
+  const [savingTags, setSavingTags]     = useState(false);
+  const [titleStatus, setTitleStatus]   = useState('idle');
+  const [descStatus, setDescStatus]     = useState('idle');
+  const [tagsStatus, setTagsStatus]     = useState('idle');
+
+  useEffect(() => {
+    setTitle(series.ytTitle || '');
+    setDesc(series.ytDescription || '');
+    setTags(series.ytTags || '');
+  }, [series.ytTitle, series.ytDescription, series.ytTags]);
+
+  // YouTube pe directly update karo (ek field ke liye — baaki current values bhejo)
+  async function ytUpdate(field, newTitle, newDesc, newTags, setStatus, setSaving) {
+    if (!matchedVideoId) { toast('❌ VideoId nahi mila'); return; }
+    setSaving(true); setStatus('saving');
+    try {
+      const res = await fetch('/api/audit', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId:     matchedVideoId,
+          categoryId:  matchedCategoryId || '22',
+          title:       newTitle,
+          description: newDesc,
+          tags:        newTags,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Update fail');
+      // Firestore mein bhi save karo
+      onSave(newTitle, newDesc, newTags);
+      setStatus('saved');
+      toast(`✅ ${field} YouTube pe update ho gaya!`);
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch (e) {
+      setStatus('error');
+      toast('❌ ' + e.message);
+      setTimeout(() => setStatus('idle'), 3000);
+    }
+    setSaving(false);
+  }
+
+  const titleDirty = title !== (series.ytTitle || '');
+  const descDirty  = desc  !== (series.ytDescription || '');
+  const tagsDirty  = tags  !== (series.ytTags || '');
+
+  // Status badge helper
+  function StatusBadge({ status, dirty }) {
+    if (status === 'saved')  return <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.12)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>✅ Updated</span>;
+    if (status === 'saving') return <span style={{ fontSize: 9, color: '#ffaa00', fontWeight: 700 }}>⏳ Saving...</span>;
+    if (dirty) return <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid #442200', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>Unsaved</span>;
+    return null;
+  }
+
+  // Update button helper
+  function UpdateBtn({ saving, dirty, onClick, label = 'Update' }) {
+    return (
+      <button onClick={onClick} disabled={saving || !dirty}
+        style={{
+          background: saving ? '#111' : dirty ? 'linear-gradient(135deg,#0a1a44,#05102a)' : '#111',
+          border: `1px solid ${saving ? '#333' : dirty ? '#4488ff' : '#222'}`,
+          color: saving ? '#555' : dirty ? '#4488ff' : '#333',
+          borderRadius: 8, padding: '8px 14px', fontSize: 11, fontWeight: 700,
+          cursor: saving || !dirty ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+        }}>
+        {saving ? <><div className="spinner" style={{ width: 11, height: 11, borderTopColor: '#4488ff' }} />Updating...</> : `🚀 ${label}`}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
+      <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
+          {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
+          {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
+          {/* Upload status indicator */}
+          {isUploaded && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.1)', color: '#44bb66', border: '1px solid #1a3a1a', padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>🔗 Linked</span>}
+        </div>
+        <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
+      </div>
+
+      {editing && (
+        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* ── Mode indicator ── */}
+          {isUploaded ? (
+            <div style={{ background: 'rgba(68,136,255,0.07)', border: '1px solid #223355', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#4466aa', lineHeight: 1.5 }}>
+              🔗 Video YouTube pe upload hai — changes seedha YouTube pe update honge + Firestore mein bhi save honge.
+            </div>
+          ) : (
+            <div style={{ background: 'rgba(255,170,0,0.06)', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#aa7700', lineHeight: 1.5 }}>
+              📋 Video abhi upload nahi hua — Title/Desc copy karo, YouTube pe paste karke upload karo. Match hone ke baad yahan se direct update hoga.
+            </div>
+          )}
+
+          {/* ── AI Generate button ── */}
+          {!allPromptsDone && !hasTitleDesc && (
+            <div style={{ background: 'rgba(255,170,0,0.07)', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: '#aa7700' }}>
+              💡 Pehle saare prompts mark as done karo, phir title generate karo
+            </div>
+          )}
+          <button onClick={onGenerate} disabled={genTD}
+            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo (Title + Desc + Tags)'}
+          </button>
+
+          {/* ══════ TITLE ══════ */}
+          <div style={{ background: '#0a0a0a', border: `1px solid ${titleDirty ? '#ff880044' : '#1e1e1e'}`, borderRadius: 10, padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 9, color: '#ff8800', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📌 YouTube Title</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <StatusBadge status={titleStatus} dirty={titleDirty} />
+                <span style={{ fontSize: 9, color: title.length > 100 ? '#ff4455' : '#444', fontWeight: 600 }}>{title.length}/100</span>
+              </div>
+            </div>
+            <input value={title} onChange={e => { setTitle(e.target.value); setTitleStatus('idle'); }} placeholder="Video ka title..."
+              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #222', color: '#eee', fontSize: 12, outline: 'none', padding: '6px 0', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 10 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => onCopy('ytTitle', title)}
+                style={{ flex: 1, background: copiedKey === 'ytTitle' ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                {copiedKey === 'ytTitle' ? '✅ Copied!' : '📋 Copy'}
+              </button>
+              {isUploaded && (
+                <UpdateBtn
+                  saving={savingTitle} dirty={titleDirty} label="Update Title"
+                  onClick={() => ytUpdate('Title', title, desc, tags, setTitleStatus, setSavingTitle)}
+                />
+              )}
+              {!isUploaded && (
+                <button onClick={() => { onSave(title, desc, tags); toast('💾 Firestore mein save!'); }}
+                  style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  💾 Save
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ══════ DESCRIPTION ══════ */}
+          <div style={{ background: '#0a0a0a', border: `1px solid ${descDirty ? '#4488ff44' : '#1e1e1e'}`, borderRadius: 10, padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 9, color: '#4488ff', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📄 YouTube Description</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <StatusBadge status={descStatus} dirty={descDirty} />
+                <span style={{ fontSize: 9, color: '#444', fontWeight: 600 }}>{desc.length} chars</span>
+              </div>
+            </div>
+            <textarea value={desc} onChange={e => { setDesc(e.target.value); setDescStatus('idle'); }} placeholder="Video ki description..." rows={4}
+              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #222', color: '#eee', fontSize: 12, outline: 'none', padding: '6px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6, marginBottom: 10 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => onCopy('ytDesc', desc)}
+                style={{ flex: 1, background: copiedKey === 'ytDesc' ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                {copiedKey === 'ytDesc' ? '✅ Copied!' : '📋 Copy'}
+              </button>
+              {isUploaded && (
+                <UpdateBtn
+                  saving={savingDesc} dirty={descDirty} label="Update Desc"
+                  onClick={() => ytUpdate('Description', title, desc, tags, setDescStatus, setSavingDesc)}
+                />
+              )}
+              {!isUploaded && (
+                <button onClick={() => { onSave(title, desc, tags); toast('💾 Firestore mein save!'); }}
+                  style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  💾 Save
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ══════ TAGS ══════ */}
+          <div style={{ background: '#0a0a0a', border: `1px solid ${tagsDirty ? '#44bb6644' : '#1e1e1e'}`, borderRadius: 10, padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 9, color: '#44bb66', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>🏷️ YouTube Tags</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <StatusBadge status={tagsStatus} dirty={tagsDirty} />
+                <span style={{ fontSize: 9, color: tags.split(',').filter(t => t.trim()).length < 10 ? '#ffaa00' : '#44bb66', fontWeight: 700 }}>
+                  {tags.split(',').filter(t => t.trim()).length} tags
+                </span>
+              </div>
+            </div>
+            <textarea value={tags} onChange={e => { setTags(e.target.value); setTagsStatus('idle'); }} placeholder="Tags comma se separate..." rows={3}
+              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #222', color: '#eee', fontSize: 12, outline: 'none', padding: '6px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6, marginBottom: 8 }} />
+            {/* Tag chips */}
+            {tags.trim() && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                {tags.split(',').filter(t => t.trim()).map((t, i) => (
+                  <span key={i} style={{ background: '#1a2a1a', border: '1px solid #44bb6633', color: '#44bb66aa', borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 600 }}>{t.trim()}</span>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => onCopy('ytTags', tags)}
+                style={{ flex: 1, background: copiedKey === 'ytTags' ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedKey === 'ytTags' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTags' ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                {copiedKey === 'ytTags' ? '✅ Copied!' : '📋 Copy'}
+              </button>
+              {isUploaded && (
+                <UpdateBtn
+                  saving={savingTags} dirty={tagsDirty} label="Update Tags"
+                  onClick={() => ytUpdate('Tags', title, desc, tags, setTagsStatus, setSavingTags)}
+                />
+              )}
+              {!isUploaded && (
+                <button onClick={() => { onSave(title, desc, tags); toast('💾 Firestore mein save!'); }}
+                  style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  💾 Save
+                </button>
+              )}
+            </div>
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════
 function CreateSeriesPage({ user }) {
   const toast = useToast();
   const [seriesList, setSeriesList]         = useState([]);
@@ -420,12 +650,10 @@ function CreateSeriesPage({ user }) {
   const [scheduleSlot, setScheduleSlot]     = useState(null);
   const [scheduleModal, setScheduleModal]   = useState(false);
   const [scheduleCopied, setScheduleCopied] = useState(false);
-  // ── Fix folder states ──
-  const [fixingFolder, setFixingFolder]     = useState(null); // series id
+  const [fixingFolder, setFixingFolder]     = useState(null);
   const [playlistStatus, setPlaylistStatus] = useState({});
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
-  
 
   async function loadList() {
     setLoadingList(true);
@@ -457,6 +685,17 @@ function CreateSeriesPage({ user }) {
     return true;
   }
 
+  // ── Matched video full object nikalo (videoId + categoryId ke liye) ──
+  function getMatchedVideo(series) {
+    if (!ytVideos.length) return null;
+    const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
+    if (!matchStr || matchStr.length < 3) return null;
+    return ytVideos.find(v => {
+      const ytTitle = (v.title || '').toLowerCase();
+      return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
+    }) || null;
+  }
+
   function isDeleteDisabled(series) {
     const u = checkUploaded(series);
     if (u === true || u === 'private') return true;
@@ -464,30 +703,22 @@ function CreateSeriesPage({ user }) {
     return false;
   }
 
-  // ── Fix folder for a series ──
   async function fixFolderMeta(e, series) {
     e.stopPropagation();
     setFixingFolder(series.id);
     try {
       const baseName = series.name.replace(/ Part \d+$/, '').trim();
-      // Step 1: Type detect
       const typeText = await aiCall(`What single category does "${baseName}" belong to for a kids YouTube channel?
 Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
 If none match exactly, return a short 1-2 word lowercase category using underscores (e.g. computer_part, clothing, stationery, toy, furniture).
 Return ONLY the single word or phrase, nothing else.`);
       const detectedType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
-      // Step 2: Folder meta
       let folderMeta = {};
-if (KNOWN_FOLDERS[detectedType]) {
-  folderMeta = {
-    folderLabel: KNOWN_FOLDERS[detectedType].label,
-    folderEmoji: KNOWN_FOLDERS[detectedType].emoji,
-    folderColor: KNOWN_FOLDERS[detectedType].color,
-  };
-} else {
-  folderMeta = await generateFolderMeta(baseName, detectedType);
-}
-      // Step 3: Save
+      if (KNOWN_FOLDERS[detectedType]) {
+        folderMeta = { folderLabel: KNOWN_FOLDERS[detectedType].label, folderEmoji: KNOWN_FOLDERS[detectedType].emoji, folderColor: KNOWN_FOLDERS[detectedType].color };
+      } else {
+        folderMeta = await generateFolderMeta(baseName, detectedType);
+      }
       await updateSeries(user.uid, series.id, { type: detectedType, ...folderMeta });
       toast('✅ Folder fix ho gaya!');
       loadList();
@@ -548,66 +779,36 @@ Return ONLY a JSON array of single words or short phrases (max 2 words each), no
     setCustomSugLoading(false);
   }
 
-
-async function generateSeries() {
-  if (!selectedTopic) return;
-  setGenerating(true);
-  try {
-    // ── Duplicate check ──
-    const duplicate = seriesList.find(s =>
-      s.name.toLowerCase() === selectedTopic.name.toLowerCase()
-    );
-    if (duplicate) {
-      toast(`⚠️ "${selectedTopic.name}" already exist karta hai!`);
-      setGenerating(false);
-      return;
-    }
-
-    const existing = seriesList.map(s => s.name).join(', ');
-    const autoColor = getNextColor();
-
-    // ── Type detect ──
-    const detectedType = getSeriesType(selectedTopic.name) || 'other';
-
-    // ── Folder meta — hamesha user input se ──
-    const userInputLabel = customName.trim()
-      ? customName.trim().replace(/\b\w/g, c => c.toUpperCase())
-      : selectedTopic.name.replace(/^Five\s+/i, '').replace(/\s+Name$/i, '').trim();
-
-    const folderMeta = {
-      folderLabel: userInputLabel,
-      folderEmoji: selectedEmoji,
-      folderColor: autoColor,
-    };
-
-    const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
+  async function generateSeries() {
+    if (!selectedTopic) return;
+    setGenerating(true);
+    try {
+      const duplicate = seriesList.find(s => s.name.toLowerCase() === selectedTopic.name.toLowerCase());
+      if (duplicate) { toast(`⚠️ "${selectedTopic.name}" already exist karta hai!`); setGenerating(false); return; }
+      const existing = seriesList.map(s => s.name).join(', ');
+      const autoColor = getNextColor();
+      const detectedType = getSeriesType(selectedTopic.name) || 'other';
+      const userInputLabel = customName.trim()
+        ? customName.trim().replace(/\b\w/g, c => c.toUpperCase())
+        : selectedTopic.name.replace(/^Five\s+/i, '').replace(/\s+Name$/i, '').trim();
+      const folderMeta = { folderLabel: userInputLabel, folderEmoji: selectedEmoji, folderColor: autoColor };
+      const text = await aiCall(`Generate exactly 5 unique items for English learning kids YouTube series about "${selectedTopic.name}".
 Avoid overlap with: ${existing}
 Return ONLY JSON array, no markdown:
 [{"name":"Lion","object":"golden lion with fluffy mane"}]
 RULES for "object" field: Describe ONLY the item itself, max 6 words, no location or scene.`);
-    const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
-    if (getSeriesType(selectedTopic.name) === 'number') {
-      items.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
-    }
-    await saveSeries(user.uid, {
-      name: selectedTopic.name,
-      emoji: selectedEmoji,
-      color: autoColor,
-      items,
-      doneSections: {}, doneCount: 0, progress: 0,
-      part: 1, ytTitle: '', ytDescription: '',
-      type: detectedType,
-      ...folderMeta,
-    });
-    toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
-    setModal('none'); setSelectedTopic(null); setCustomName(''); loadList();
-  } catch (e) { toast('❌ ' + e.message); }
-  setGenerating(false);
-}
-  
+      const items = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+      if (getSeriesType(selectedTopic.name) === 'number') {
+        items.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
+      }
+      await saveSeries(user.uid, { name: selectedTopic.name, emoji: selectedEmoji, color: autoColor, items, doneSections: {}, doneCount: 0, progress: 0, part: 1, ytTitle: '', ytDescription: '', type: detectedType, ...folderMeta });
+      toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
+      setModal('none'); setSelectedTopic(null); setCustomName(''); loadList();
+    } catch (e) { toast('❌ ' + e.message); }
+    setGenerating(false);
+  }
 
-
-async function continueSeries(e, series) {
+  async function continueSeries(e, series) {
     e.stopPropagation();
     setContinuing(series.id);
     try {
@@ -623,34 +824,20 @@ RULES for "object" field: Describe ONLY the item itself, max 6 words, no locatio
       }
       const newPart = (series.part || 1) + 1;
       const baseName = series.name.replace(/ Part \d+$/, '').trim();
-
       let parentType = series.type && series.type !== 'other' ? series.type : null;
       let parentFolderMeta = {};
-      if (series.folderLabel) {
-        parentFolderMeta = { folderLabel: series.folderLabel, folderEmoji: series.folderEmoji, folderColor: series.folderColor };
-      }
+      if (series.folderLabel) { parentFolderMeta = { folderLabel: series.folderLabel, folderEmoji: series.folderEmoji, folderColor: series.folderColor }; }
       if (!parentType) {
         const typeText = await aiCall(`What single category does "${baseName}" belong to for a kids YouTube channel?
 Choose ONLY one from: number, wild_animal, domestic_animal, water_animal, bird, insect, animal_sound, fruit, vegetable, color, alphabet, shape, flower, festival, vehicle, food, sport, body, instrument, space, weather, tool
 If none match exactly, return a short 1-2 word lowercase category using underscores.
 Return ONLY the single word or phrase, nothing else.`);
         parentType = typeText.trim().toLowerCase().replace(/\s+/g,'_').split(/[^a-z_]/)[0] || 'other';
-        if (!KNOWN_FOLDERS[parentType] && !parentFolderMeta.folderLabel) {
-          parentFolderMeta = await generateFolderMeta(baseName, parentType);
-        }
+        if (!KNOWN_FOLDERS[parentType] && !parentFolderMeta.folderLabel) { parentFolderMeta = await generateFolderMeta(baseName, parentType); }
         await updateSeries(user.uid, series.id, { type: parentType, ...parentFolderMeta });
       }
-
-      await saveSeries(user.uid, {
-        name: `${baseName} Part ${newPart}`,
-        emoji: series.emoji, color: series.color,
-        items: newItems, doneSections: {}, doneCount: 0, progress: 0,
-        part: newPart, ytTitle: '', ytDescription: '',
-        type: parentType,
-        ...parentFolderMeta,
-      });
-      toast(`🎉 Part ${newPart} ready!`);
-      loadList();
+      await saveSeries(user.uid, { name: `${baseName} Part ${newPart}`, emoji: series.emoji, color: series.color, items: newItems, doneSections: {}, doneCount: 0, progress: 0, part: newPart, ytTitle: '', ytDescription: '', type: parentType, ...parentFolderMeta });
+      toast(`🎉 Part ${newPart} ready!`); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setContinuing(null);
   }
@@ -659,11 +846,7 @@ Return ONLY the single word or phrase, nothing else.`);
     setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
     try {
       const folderLabel = series.folderLabel || getFolder(series.type || getSeriesType(series.name), seriesList).label;
-      const res = await fetch('/api/youtube/playlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId, playlistTitle: folderLabel }),
-      });
+      const res = await fetch('/api/youtube/playlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoId, playlistTitle: folderLabel }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setPlaylistStatus(p => ({ ...p, [series.id]: 'added' }));
@@ -691,18 +874,14 @@ Return ONLY the single word or phrase, nothing else.`);
     toast(wasDone ? 'Undone!' : '✅ Done!');
   }
 
-  
-
   async function generateTitleDesc(series) {
-  setGenTD(true);
-  try {
-    const itemNames = (series.items || []).map(i => i.name).join(', ');
-    const count = (series.items || []).length;
-    const baseName = series.name.replace(/ Part \d+$/, '').trim();
-    const partText = (series.part || 1) > 1 ? ` Part ${series.part}` : '';
-    const partHindi = (series.part || 1) > 1 ? ` भाग ${series.part}` : '';
-
-    const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
+    setGenTD(true);
+    try {
+      const itemNames = (series.items || []).map(i => i.name).join(', ');
+      const count = (series.items || []).length;
+      const baseName = series.name.replace(/ Part \d+$/, '').trim();
+      const partText = (series.part || 1) > 1 ? ` Part ${series.part}` : '';
+      const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
 Series: "${baseName}${partText}"
 Items: ${itemNames}
 Count: ${count}
@@ -731,23 +910,23 @@ TAGS RULES:
 
 RETURN ONLY JSON (no markdown):
 {"title":"...","description":"...","tags":"..."}`);
+      const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
+      await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags });
+      const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags };
+      setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+      setOpenSeries(updated);
+      toast('✅ Title, Description & Tags ready!');
+    } catch (e) { toast('❌ ' + e.message); }
+    setGenTD(false);
+  }
 
-    const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
-    await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags });
-    const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags };
+  async function saveTitleDesc(series, title, desc, tags = '') {
+    await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc, ytTags: tags });
+    const updated = { ...series, ytTitle: title, ytDescription: desc, ytTags: tags };
     setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
     setOpenSeries(updated);
-    toast('✅ Title, Description & Tags ready!');
-  } catch (e) { toast('❌ ' + e.message); }
-  setGenTD(false);
-}
-  async function saveTitleDesc(series, title, desc, tags = '') {
-  await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc, ytTags: tags });
-  const updated = { ...series, ytTitle: title, ytDescription: desc, ytTags: tags };
-  setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
-  setOpenSeries(updated);
-  toast('💾 Saved!');
-}
+    toast('💾 Saved!');
+  }
 
   function copy(key, text) {
     navigator.clipboard.writeText(text).then(() => { setCopiedKey(key); setTimeout(() => setCopiedKey(''), 2000); toast('📋 Copied!'); });
@@ -761,9 +940,7 @@ RETURN ONLY JSON (no markdown):
 
   // ══════════════════════════════════════════════
   // LEVEL 3: SERIES DETAIL VIEW
-
-
-// ══════════════════════════════════════════════
+  // ══════════════════════════════════════════════
   if (openSeries) {
     const s = openSeries;
     const done = s.doneSections || {};
@@ -772,13 +949,10 @@ RETURN ONLY JSON (no markdown):
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const deleteDisabled = isDeleteDisabled(s);
 
-    // ── VideoId nikalo title match se ──
-    const matchedVideo = ytVideos.find(v => {
-      const matchStr = (s.ytTitle || s.name || '').trim().toLowerCase();
-      return (v.title || '').toLowerCase().includes(matchStr) ||
-             matchStr.includes((v.title || '').toLowerCase().slice(0, 20));
-    });
+    const matchedVideo = getMatchedVideo(s);
     const videoId = matchedVideo?.videoId || null;
+    const uploaded = checkUploaded(s);
+    const isUploaded = uploaded === true || uploaded === 'private' || (uploaded && typeof uploaded === 'object');
     const folderLabel = s.folderLabel || getFolder(s.type || getSeriesType(s.name), seriesList).label;
 
     const sections = [
@@ -852,7 +1026,7 @@ RETURN ONLY JSON (no markdown):
             </div>
           )}
 
-          {/* ── Playlist Section ── */}
+          {/* Playlist Section */}
           {videoId ? (
             <div style={{ background: '#0f0f0f', border: `1px solid ${s.playlistAdded || playlistStatus[s.id] === 'added' ? '#1a3a1a' : '#1a2a1a'}`, borderRadius: 12, padding: '13px 14px' }}>
               <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>🎵 PLAYLIST</div>
@@ -865,13 +1039,9 @@ RETURN ONLY JSON (no markdown):
                   </div>
                 </div>
               ) : (
-                <button
-                  onClick={() => addToPlaylist(s, videoId)}
-                  disabled={playlistStatus[s.id] === 'loading'}
+                <button onClick={() => addToPlaylist(s, videoId)} disabled={playlistStatus[s.id] === 'loading'}
                   style={{ width: '100%', background: playlistStatus[s.id] === 'loading' ? '#111' : 'linear-gradient(135deg,#0a1a0a,#0a2a0a)', border: '1px solid #224422', color: playlistStatus[s.id] === 'loading' ? '#555' : '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: playlistStatus[s.id] === 'loading' ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  {playlistStatus[s.id] === 'loading'
-                    ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#44bb66' }} />Adding...</>
-                    : `➕ Add to Playlist — ${folderLabel}`}
+                  {playlistStatus[s.id] === 'loading' ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#44bb66' }} />Adding...</> : `➕ Add to Playlist — ${folderLabel}`}
                 </button>
               )}
             </div>
@@ -881,10 +1051,20 @@ RETURN ONLY JSON (no markdown):
             </div>
           )}
 
-          <TitleDescSection series={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
-            genTD={genTD} onGenerate={() => generateTitleDesc(s)}
+          {/* ── Smart TitleDescSection ── */}
+          <TitleDescSection
+            series={s}
+            allPromptsDone={allPromptsDone}
+            hasTitleDesc={hasTitleDesc}
+            genTD={genTD}
+            onGenerate={() => generateTitleDesc(s)}
             onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)}
-            onCopy={copy} copiedKey={copiedKey} />
+            onCopy={copy}
+            copiedKey={copiedKey}
+            isUploaded={isUploaded}
+            matchedVideoId={matchedVideo?.videoId || null}
+            matchedCategoryId={matchedVideo?.categoryId || '22'}
+          />
 
           {sections.map(sec => {
             const isDone = !!done[sec.key];
@@ -965,17 +1145,16 @@ RETURN ONLY JSON (no markdown):
   }
 
   // ══════════════════════════════════════════════
-
-    // LEVEL 2: FOLDER VIEW
+  // LEVEL 2: FOLDER VIEW
   // ══════════════════════════════════════════════
- if (openFolder) {
+  if (openFolder) {
     const grouped = groupSeriesByFolder(seriesList);
     const folderSeries = grouped[openFolder] || [];
     const folder = {
-  label: folderSeries[0]?.folderLabel || KNOWN_FOLDERS[openFolder]?.label || openFolder,
-  emoji: folderSeries[0]?.folderEmoji || KNOWN_FOLDERS[openFolder]?.emoji || '📦',
-  color: folderSeries[0]?.folderColor || KNOWN_FOLDERS[openFolder]?.color || '#888',
-};
+      label: folderSeries[0]?.folderLabel || KNOWN_FOLDERS[openFolder]?.label || openFolder,
+      emoji: folderSeries[0]?.folderEmoji || KNOWN_FOLDERS[openFolder]?.emoji || '📦',
+      color: folderSeries[0]?.folderColor || KNOWN_FOLDERS[openFolder]?.color || '#888',
+    };
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
@@ -1035,10 +1214,8 @@ RETURN ONLY JSON (no markdown):
     );
   }
 
-
-
-
-// LEVEL 1: FOLDER LIST
+  // ══════════════════════════════════════════════
+  // LEVEL 1: FOLDER LIST
   // ══════════════════════════════════════════════
   const grouped = groupSeriesByFolder(seriesList);
   const sortedFolderOrder = Object.keys(grouped).sort((a, b) => {
@@ -1141,7 +1318,6 @@ RETURN ONLY JSON (no markdown):
             </div>
           </div>
         )}
-
         {modal === 'picker' && selectedTopic && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d000d', border: '1px solid #440044', borderRadius: 20, padding: 20, width: '100%' }}>
@@ -1162,127 +1338,25 @@ RETURN ONLY JSON (no markdown):
           </div>
         )}
 
- 
-{loadingList ? (
-  <div style={{ textAlign: 'center', padding: 32 }}>
-    <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} />
-    <div style={{ fontSize: 12, color: '#555' }}>Loading...</div>
-  </div>
-) : seriesList.length === 0 ? (
-  <div style={{ textAlign: 'center', padding: 40 }}>
-    <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
-    <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
-    <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
-  </div>
-) : sortedFolderOrder.map(type => {
-  const seriesInFolder = grouped[type];
-  const folder = {
-    label: seriesInFolder[0]?.folderLabel || KNOWN_FOLDERS[type]?.label || type,
-    emoji: seriesInFolder[0]?.folderEmoji || KNOWN_FOLDERS[type]?.emoji || '📦',
-    color: seriesInFolder[0]?.folderColor || KNOWN_FOLDERS[type]?.color || '#888888',
-  };
-  const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
-  const canContinue = seriesInFolder.find(s => !hasNextPart(s, seriesList));
-  return (
-    <div key={type} onClick={() => setOpenFolder(type)}
-      style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
-      <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{folder.emoji}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
-        <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
-        {canContinue && !ytLoading && (
-          <div style={{
-            fontSize: 10, color: '#4488ff', fontWeight: 700, marginTop: 4,
-            background: 'rgba(68,136,255,0.08)', border: '1px solid #223355',
-            borderRadius: 6, padding: '3px 8px', display: 'inline-block'
-          }}>
-            ✨ Part {(canContinue.part || 1) + 1} ban sakta hai
+        {loadingList ? (
+          <div style={{ textAlign: 'center', padding: 32 }}>
+            <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#cc88ff' }} />
+            <div style={{ fontSize: 12, color: '#555' }}>Loading...</div>
           </div>
-        )}
-      </div>
-      <span style={{ fontSize: 22, color: `${folder.color}66` }}>›</span>
-    </div>
-  );
-})}
-    </div>
-  </div>
-);
-}
-
-
-function TitleDescSection({ series, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle]     = useState(series.ytTitle || '');
-  const [desc, setDesc]       = useState(series.ytDescription || '');
-  const [tags, setTags]       = useState(series.ytTags || '');
-  useEffect(() => {
-    setTitle(series.ytTitle || '');
-    setDesc(series.ytDescription || '');
-    setTags(series.ytTags || '');
-  }, [series.ytTitle, series.ytDescription, series.ytTags]);
-  return (
-    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc?'#1a3a2a':'#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
-      <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc?'#44bb66':'#ffaa44' }}>📝 Title & Description</span>
-          {hasTitleDesc && <span style={{ fontSize:9, background:'rgba(68,187,102,0.15)', color:'#44bb66', border:'1px solid rgba(68,187,102,0.3)', padding:'2px 8px', borderRadius:20, fontWeight:700 }}>✅</span>}
-          {!hasTitleDesc && <span style={{ fontSize:9, background:'rgba(255,170,0,0.1)', color:'#ffaa44', border:'1px solid rgba(255,170,0,0.3)', padding:'2px 8px', borderRadius:20, fontWeight:700 }}>Zaroori</span>}
-        </div>
-        <span style={{ fontSize: 13, color: '#444' }}>{editing?'▲':'▼'}</span>
-      </div>
-      {editing && (
-        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {!allPromptsDone && !hasTitleDesc && (
-            <div style={{ background:'rgba(255,170,0,0.07)', border:'1px solid #2a2000', borderRadius:10, padding:'10px 12px', fontSize:11, color:'#aa7700' }}>
-              💡 Pehle saare prompts mark as done karo, phir title generate karo
-            </div>
-          )}
-          <button onClick={onGenerate} disabled={genTD}
-            style={{ background: genTD?'#111':'linear-gradient(135deg,#1a1000,#2a1800)', border:'1px solid #443300', color: genTD?'#555':'#ffaa44', borderRadius:10, padding:'11px', fontSize:12, fontWeight:700, cursor: genTD?'not-allowed':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-            {genTD ? <><div className="spinner" style={{ width:14, height:14, borderTopColor:'#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
-          </button>
-
-          {/* Title */}
-          <div>
-            <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>📌 YouTube Title</div>
-            <div style={{ position: 'relative' }}>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
-                style={{ width:'100%', background:'#0a0a0a', border:'1px solid #2a2000', borderRadius:10, padding:'10px 44px 10px 12px', fontSize:12, color:'#eee', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
-              <button onClick={() => onCopy('ytTitle', title)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytTitle'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytTitle'?'#44bb66':'#333'}`, color: copiedKey==='ytTitle'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytTitle'?'✅':'📋'}</button>
-            </div>
+        ) : seriesList.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi series nahi hai</div>
+            <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
-
-          {/* Description */}
-          <div>
-            <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>📄 YouTube Description</div>
-            <div style={{ position: 'relative' }}>
-              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
-                style={{ width:'100%', background:'#0a0a0a', border:'1px solid #2a2000', borderRadius:10, padding:'10px 44px 10px 12px', fontSize:12, color:'#eee', outline:'none', boxSizing:'border-box', fontFamily:'inherit', resize:'vertical', lineHeight:1.6 }} />
-              <button onClick={() => onCopy('ytDesc', desc)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytDesc'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytDesc'?'#44bb66':'#333'}`, color: copiedKey==='ytDesc'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytDesc'?'✅':'📋'}</button>
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <div style={{ fontSize:9, color:'#ffaa44', letterSpacing:1.5, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>🏷️ YouTube Tags</div>
-            <div style={{ position: 'relative' }}>
-              <textarea value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags comma se separate..." rows={3}
-                style={{ width:'100%', background:'#0a0a0a', border:'1px solid #2a2000', borderRadius:10, padding:'10px 44px 10px 12px', fontSize:12, color:'#eee', outline:'none', boxSizing:'border-box', fontFamily:'inherit', resize:'vertical', lineHeight:1.6 }} />
-              <button onClick={() => onCopy('ytTags', tags)} style={{ position:'absolute', top:6, right:6, background: copiedKey==='ytTags'?'#44bb66':'#1a1a1a', border:`1px solid ${copiedKey==='ytTags'?'#44bb66':'#333'}`, color: copiedKey==='ytTags'?'#fff':'#666', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, cursor:'pointer' }}>{copiedKey==='ytTags'?'✅':'📋'}</button>
-            </div>
-          </div>
-
-          <button onClick={() => { onSave(title, desc, tags); setEditing(false); }}
-            style={{ background:'rgba(68,187,102,0.12)', border:'1px solid rgba(68,187,102,0.4)', color:'#44bb66', borderRadius:10, padding:'11px', fontSize:13, fontWeight:700, cursor:'pointer', width:'100%' }}>
-            💾 Save Karo
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function CreateSeriesWrapper() {
-  return <ToastProvider><AuthWrapper>{({ user }) => <CreateSeriesPage user={user} />}</AuthWrapper></ToastProvider>;
-}
+        ) : sortedFolderOrder.map(type => {
+          const seriesInFolder = grouped[type];
+          const folder = {
+            label: seriesInFolder[0]?.folderLabel || KNOWN_FOLDERS[type]?.label || type,
+            emoji: seriesInFolder[0]?.folderEmoji || KNOWN_FOLDERS[type]?.emoji || '📦',
+            color: seriesInFolder[0]?.folderColor || KNOWN_FOLDERS[type]?.color || '#888888',
+          };
+          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
+          const canContinue = seriesInFolder.find(s => !hasNextPart(s, seriesList));
+          return (
+    
