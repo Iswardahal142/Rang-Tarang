@@ -142,17 +142,68 @@ async function detectEmoji(name) {
 }
 
 // ── TitleDescSection Component ──
-function TitleDescSection({ series, genTD, onGenerate, onSave, onCopy, copiedKey }) {
+function TitleDescSection({ series, genTD, onGenerate, onSave, onCopy, copiedKey, videoId }) {
   const hasTitleDesc = !!(series.ytTitle && series.ytDescription);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(series.ytTitle || '');
   const [desc, setDesc]   = useState(series.ytDescription || '');
   const [tags, setTags]   = useState(series.ytTags || '');
+  const [regenLoading, setRegenLoading] = useState({ title: false, desc: false, tags: false });
+  const [ytUpdating, setYtUpdating] = useState(false);
+  const toast = useToast();
+
   useEffect(() => {
     setTitle(series.ytTitle || '');
     setDesc(series.ytDescription || '');
     setTags(series.ytTags || '');
   }, [series.ytTitle, series.ytDescription, series.ytTags]);
+
+  async function regenField(field) {
+    setRegenLoading(p => ({ ...p, [field]: true }));
+    try {
+      const itemNames = (series.items || []).map(i => i.name).join(', ');
+      const baseName = series.name.replace(/ Part \d+$/i, '').trim();
+      const partText = (series.part || 1) > 1 ? ` Part ${series.part}` : '';
+
+      let prompt = '';
+      if (field === 'title') {
+        prompt = `Generate ONLY a YouTube title for Hindi kids series "${baseName}${partText}". Items: ${itemNames}. Max 60 chars, Hindi+English mix, end with "| Rang Tarang". NO emoji. Return ONLY the title text, nothing else.`;
+      } else if (field === 'desc') {
+        prompt = `Generate ONLY a YouTube description for Hindi kids series "${baseName}${partText}". Items: ${itemNames}. Hook in Hindi, items list, subscribe line with https://youtube.com/@RangTarangHindi, hashtags. Return ONLY the description text, nothing else.`;
+      } else if (field === 'tags') {
+        prompt = `Generate ONLY YouTube tags for Hindi kids series "${baseName}${partText}". Items: ${itemNames}. Comma separated, max 15 tags, mix Hindi+English. Return ONLY the tags string, nothing else.`;
+      }
+
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai/gpt-4o-mini', max_tokens: 400, temperature: 0.7, messages: [{ role: 'user', content: prompt }] }),
+      });
+      const data = await res.json();
+      const text = (data.choices?.[0]?.message?.content || '').trim();
+      if (field === 'title') setTitle(text);
+      else if (field === 'desc') setDesc(text);
+      else if (field === 'tags') setTags(text);
+      toast(`✅ ${field} regenerated!`);
+    } catch (e) { toast('❌ ' + e.message); }
+    setRegenLoading(p => ({ ...p, [field]: false }));
+  }
+
+  async function updateYouTube() {
+    if (!videoId) { toast('❌ Video ID nahi mila'); return; }
+    setYtUpdating(true);
+    try {
+      const res = await fetch('/api/youtube/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, title, description: desc, tags }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast(data.message);
+    } catch (e) { toast('❌ ' + e.message); }
+    setYtUpdating(false);
+  }
+
   return (
     <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
       <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
@@ -163,49 +214,81 @@ function TitleDescSection({ series, genTD, onGenerate, onSave, onCopy, copiedKey
         </div>
         <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
       </div>
+
       {editing && (
         <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Generate All */}
           <button onClick={onGenerate} disabled={genTD}
             style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
+            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 Teeno AI se Generate Karo'}
           </button>
+
           {/* Title */}
           <div>
-            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 YouTube Title</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📌 YouTube Title</div>
+              <button onClick={() => regenField('title')} disabled={regenLoading.title}
+                style={{ background: regenLoading.title ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.title ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.title ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {regenLoading.title ? <><div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /></> : '🔄 Regen'}
+              </button>
+            </div>
             <div style={{ position: 'relative' }}>
               <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
                 style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
               <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTitle' ? '✅' : '📋'}</button>
             </div>
           </div>
+
           {/* Description */}
           <div>
-            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 YouTube Description</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📄 YouTube Description</div>
+              <button onClick={() => regenField('desc')} disabled={regenLoading.desc}
+                style={{ background: regenLoading.desc ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.desc ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.desc ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {regenLoading.desc ? <><div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /></> : '🔄 Regen'}
+              </button>
+            </div>
             <div style={{ position: 'relative' }}>
               <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
                 style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
               <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytDesc' ? '✅' : '📋'}</button>
             </div>
           </div>
+
           {/* Tags */}
           <div>
-            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>🏷️ YouTube Tags</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>🏷️ YouTube Tags</div>
+              <button onClick={() => regenField('tags')} disabled={regenLoading.tags}
+                style={{ background: regenLoading.tags ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.tags ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.tags ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {regenLoading.tags ? <><div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /></> : '🔄 Regen'}
+              </button>
+            </div>
             <div style={{ position: 'relative' }}>
               <textarea value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags comma se separate..." rows={3}
                 style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
               <button onClick={() => onCopy('ytTags', tags)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTags' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTags' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTags' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTags' ? '✅' : '📋'}</button>
             </div>
           </div>
-          <button onClick={() => { onSave(title, desc, tags); setEditing(false); }}
-            style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
-            💾 Save Karo
-          </button>
+
+          {/* Save + YouTube Update */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { onSave(title, desc, tags); setEditing(false); }}
+              style={{ flex: 1, background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              💾 Save
+            </button>
+            {videoId && (
+              <button onClick={updateYouTube} disabled={ytUpdating}
+                style={{ flex: 1, background: ytUpdating ? '#111' : 'rgba(255,0,0,0.1)', border: '1px solid #cc000044', color: ytUpdating ? '#555' : '#ff4444', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: ytUpdating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {ytUpdating ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ff4444' }} />Updating...</> : '▶️ YT Update'}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
-
 function CompareActionPage({ user }) {
   const toast = useToast();
   const [list, setList]               = useState([]);
@@ -515,6 +598,7 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
             onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)}
             onCopy={copy}
             copiedKey={copiedKey}
+              videoId={videoId} 
           />
 
           {/* Sections */}
