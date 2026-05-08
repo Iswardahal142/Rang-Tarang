@@ -36,10 +36,9 @@ async function deleteShort(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_shorts', id));
 }
 
-// ── Voice constant ────────────────────────────────────────────
 const VOICE_DESC = `13 year old Indian boy voice — medium-deep, confident, clear Hindi diction, same consistent voice in every scene. Pure Hindi Indian accent. No background music.`;
 
-// ── Category Map ─────────────────────────────────────────────
+// ── Category Map ──────────────────────────────────────────────
 const CATEGORY_MAP = {
   fruit:           { label: 'Fruits',           emoji: '🍎', color: '#ff4488', bg: 'a colorful fruit basket on a wooden kitchen counter with soft morning light' },
   vegetable:       { label: 'Vegetables',       emoji: '🥦', color: '#44bb66', bg: 'a fresh vegetable garden with green plants and soil' },
@@ -65,48 +64,180 @@ const CATEGORY_MAP = {
   stationery:      { label: 'Stationery',       emoji: '✏️', color: '#44ccbb', bg: 'a colorful classroom desk with books and art supplies' },
 };
 
-const CONCEPT_MAP = {
+// ── Category groups — concepts filter karne ke liye ──────────
+// "edible" = khaane wali cheezein (fruit, vegetable, food)
+// "animal" = sab janwar (wild, domestic, water, bird, insect)
+// "object" = baaki sab cheezein
+function getCategoryGroup(type) {
+  if (['fruit', 'vegetable', 'food'].includes(type)) return 'edible';
+  if (['wild_animal', 'domestic_animal', 'water_animal', 'bird', 'insect'].includes(type)) return 'animal';
+  return 'object';
+}
+
+// ── CONCEPT MAP — group ke hisaab se alag-alag ───────────────
+// EDIBLE concepts (fruit/vegetable/food)
+const EDIBLE_CONCEPTS = {
   dukh: {
     label: '😢 Mera Dukh',
+    desc: 'Koi nahi khata — rote hue apna dard sunata hai',
     scenes: [
-      { title: 'Rota Hua Entry',  hint: 'Object rote hue enter karta hai' },
-      { title: 'Pehla Dukh',      hint: 'Apna pehla dard batata hai' },
-      { title: 'Aur Rona',        hint: 'Aur zyada dukh, koi nahi sunta' },
-      { title: 'Bahut Udaas',     hint: 'Corner mein baith jaata hai' },
-      { title: 'Rota Rehta Hai',  hint: 'Sad ending — phir bhi rota hai' },
+      { title: 'Rota Hua Entry',  hint: 'Rote hue enter, aankhon mein aansu' },
+      { title: 'Pehla Dukh',     hint: 'Koi nahi khata — pehla dard batata hai' },
+      { title: 'Aur Rona',       hint: 'Aur zyada dukh — koi nahi sunta' },
+      { title: 'Bilkul Akela',   hint: 'Corner mein baith jaata hai, akela feel' },
+      { title: 'Sad Ending',     hint: 'Phir bhi rota hua baith jaata hai' },
     ],
   },
   fayde: {
     label: '💪 Mere Fayde',
+    desc: 'Proudly apne benefits bacchon ko batata hai',
     scenes: [
-      { title: 'Proud Entry',    hint: 'Confidently enter, chest out' },
-      { title: 'Pehla Fayda',   hint: 'Pehla benefit excitedly batata hai' },
-      { title: 'Doosra Fayda',  hint: 'Doosra benefit, dancing karta hai' },
-      { title: 'Teesra Fayda',  hint: 'Teesra benefit, wow reaction' },
-      { title: 'Khao Mujhe!',   hint: '"Ab toh khaao mujhe!" — thumbs up' },
-    ],
-  },
-  intro: {
-    label: '👋 Khud Ko Milao',
-    scenes: [
-      { title: 'Hello Bacchon!', hint: 'Excited greeting, waving' },
-      { title: 'Main Kaun Hoon', hint: 'Naam aur family batata hai' },
-      { title: 'Meri Khasiyat', hint: 'Special cheez batata hai' },
-      { title: 'Mera Ghar',     hint: 'Kahan rehta hai, duniya dikhata hai' },
-      { title: 'Dosto Bano!',   hint: '"Mujhse dosti karoge?" — pyara ending' },
+      { title: 'Proud Entry',   hint: 'Confidently enter, chest out, smile' },
+      { title: 'Pehla Fayda',  hint: 'Pehla benefit excitedly batata hai' },
+      { title: 'Doosra Fayda', hint: 'Doosra benefit — dancing karta hai' },
+      { title: 'Teesra Fayda', hint: 'Teesra benefit — sab bacche wow bolte hain' },
+      { title: 'Khao Mujhe!',  hint: '"Ab toh khaao mujhe!" — thumbs up' },
     ],
   },
   dono: {
     label: '🎭 Dukh + Fayde',
+    desc: 'Pehle rota hai, phir proudly fayde batata hai',
     scenes: [
-      { title: 'Rota Hua Entry',  hint: 'Rote hue enter karta hai' },
-      { title: 'Dukh Sunata Hai', hint: 'Koi nahi khata — dard batata hai' },
-      { title: 'Himmat Karta Hai',hint: '"Ruko main batata hoon main kyu khaas hoon!"' },
-      { title: 'Fayde Batata Hai',hint: 'Proudly apne benefits sunata hai' },
-      { title: 'Happy Ending!',   hint: '"Ab khao mujhe!" — baccha aata hai, dono khush' },
+      { title: 'Rota Hua Entry',   hint: 'Rote hue enter karta hai' },
+      { title: 'Dukh Sunata Hai',  hint: 'Koi nahi khata — dard batata hai' },
+      { title: 'Himmat Karta Hai', hint: '"Ruko! Main batata hoon main kyu khaas hoon!"' },
+      { title: 'Fayde Batata Hai', hint: 'Proudly apne benefits sunata hai' },
+      { title: 'Happy Ending!',    hint: '"Ab khao mujhe!" — baccha aata hai, dono khush' },
+    ],
+  },
+  intro: {
+    label: '👋 Khud Ko Milao',
+    desc: 'Apna naam, family aur ghar bacchon ko batata hai',
+    scenes: [
+      { title: 'Hello Bacchon!', hint: 'Excited greeting, waving at camera' },
+      { title: 'Main Kaun Hoon', hint: 'Naam aur family batata hai' },
+      { title: 'Meri Khasiyat', hint: 'Apna rang, shape, taste batata hai' },
+      { title: 'Mera Ghar',     hint: 'Kahan paaya jaata hai — batata hai' },
+      { title: 'Dosto Bano!',   hint: '"Khaao mujhe aur dosti karo!" pyara ending' },
     ],
   },
 };
+
+// ANIMAL concepts (wild/domestic/water/bird/insect)
+const ANIMAL_CONCEPTS = {
+  parichay: {
+    label: '🦁 Mujhe Pahchano!',
+    desc: 'Main kaun hoon, kahan rehta hoon, kya khata hoon',
+    scenes: [
+      { title: 'Hello Bacchon!',  hint: 'Excited entry, roar/sound karta hai' },
+      { title: 'Main Kaun Hoon',  hint: 'Apna naam aur animal family batata hai' },
+      { title: 'Mera Ghar',       hint: 'Jungle/farm/ocean/sky mein rehta hai — dikhata hai' },
+      { title: 'Main Kya Khata',  hint: 'Apna khaana batata hai — grass/meat/fish etc' },
+      { title: 'Yaad Rakhna!',    hint: '"${name} ko yaad rakhna!" — pyara wave goodbye' },
+    ],
+  },
+  awaaz: {
+    label: '🔊 Meri Awaaz',
+    desc: 'Apni unique awaaz aur khasiyat bacchon ko sikhata hai',
+    scenes: [
+      { title: 'Entry',           hint: 'Confidently enter karta hai' },
+      { title: 'Meri Awaaz',      hint: 'Apni awaaz karta hai — roar/moo/tweet etc' },
+      { title: 'Phir Se Bolo!',   hint: 'Bacchon ko repeat karne ke liye kehta hai' },
+      { title: 'Meri Khasiyat',   hint: 'Special cheez batata hai — dhaari/patchy/wings etc' },
+      { title: 'Suno Mujhe!',     hint: '"Rang Tarang pe phir milenge!" — happy ending' },
+    ],
+  },
+  taakat: {
+    label: '💪 Meri Taakat',
+    desc: 'Apni power, speed, aur khaas kaam batata hai',
+    scenes: [
+      { title: 'Superhero Entry', hint: 'Chest out, powerful pose karta hai' },
+      { title: 'Meri Power',      hint: 'Apni sabse badi khasiyat batata hai' },
+      { title: 'Main Kya Kar Sakta', hint: 'Kya khaas kaam karta hai — dikhata hai' },
+      { title: 'Meri Dost Species', hint: 'Kaun sa animal uska dost hai' },
+      { title: 'Main Hoon Hero!', hint: '"${name} hoon main — yaad rakhna!" — victory pose' },
+    ],
+  },
+  dono_animal: {
+    label: '😢➡️💪 Dukh + Taakat',
+    desc: 'Pehle akela feel karta hai, phir proudly apni taakat batata hai',
+    scenes: [
+      { title: 'Akela Entry',     hint: 'Sad face, slowly enter karta hai' },
+      { title: 'Mera Dukh',       hint: '"Koi nahi jaanta mujhe..." — sad voice' },
+      { title: 'Himmat Karta Hai',hint: '"Ruko! Main batata hoon main kaun hoon!"' },
+      { title: 'Meri Taakat',     hint: 'Proudly apni power aur khasiyat sunata hai' },
+      { title: 'Happy Ending!',   hint: 'Baccha aata hai, dono khush, thumbs up' },
+    ],
+  },
+};
+
+// OBJECT concepts (vehicle, toy, instrument, tool, furniture, etc.)
+const OBJECT_CONCEPTS = {
+  kaam: {
+    label: '🔧 Mera Kaam',
+    desc: 'Main kya kaam aata hoon — bacchon ko batata hai',
+    scenes: [
+      { title: 'Hello Bacchon!', hint: 'Excited entry with a proud pose' },
+      { title: 'Main Kya Hoon',  hint: 'Apna naam aur category batata hai' },
+      { title: 'Mera Pehla Kaam',hint: 'Pehla use-case excitedly batata hai' },
+      { title: 'Mera Doosra Kaam', hint: 'Doosra use-case — dancing karta hai' },
+      { title: 'Mere Bina Nahi!', hint: '"Mujhse kaam lo!" — thumbs up, happy ending' },
+    ],
+  },
+  parichay: {
+    label: '👋 Mujhe Pahchano!',
+    desc: 'Apna naam, shape, rang aur ghar bacchon ko batata hai',
+    scenes: [
+      { title: 'Hello Bacchon!', hint: 'Wave karta hai, excited greeting' },
+      { title: 'Main Kaun Hoon', hint: 'Apna naam aur type batata hai' },
+      { title: 'Meri Khasiyat', hint: 'Apna rang, size, shape dikhata hai' },
+      { title: 'Mera Ghar',     hint: 'Kahan milta hai — school/road/ghar' },
+      { title: 'Yaad Rakhna!',  hint: '"${name} ko yaad rakhna!" — wave goodbye' },
+    ],
+  },
+  dono_object: {
+    label: '😢➡️🔧 Dukh + Kaam',
+    desc: 'Koi use nahi karta — phir proudly apna kaam batata hai',
+    scenes: [
+      { title: 'Udaas Entry',    hint: 'Sad face, slowly enter karta hai' },
+      { title: 'Mera Dukh',      hint: '"Koi mujhe use nahi karta..." — sad voice' },
+      { title: 'Himmat Karta',   hint: '"Ruko! Main batata hoon main kyu zaroori hoon!"' },
+      { title: 'Mera Kaam',      hint: 'Proudly apna kaam aur fayde sunata hai' },
+      { title: 'Happy Ending!',  hint: 'Baccha aata hai, use karta hai, dono khush' },
+    ],
+  },
+  superpower: {
+    label: '✨ Meri Superpower',
+    desc: 'Apni special khasiyat aur power ke baare mein batata hai',
+    scenes: [
+      { title: 'Superhero Entry', hint: 'Superhero pose ke saath enter karta hai' },
+      { title: 'Meri Khasiyat',   hint: 'Sabse khaas cheez batata hai proudly' },
+      { title: 'Main Kar Sakta',  hint: 'Kya special kaam karta hai — live demo' },
+      { title: 'Mera Best Feature', hint: 'Best feature highlight karta hai' },
+      { title: 'Main Hoon Best!', hint: '"${name} hoon main — use karo mujhe!" — victory' },
+    ],
+  },
+};
+
+// ── Get concepts by category type ────────────────────────────
+function getConceptsForType(type) {
+  const group = getCategoryGroup(type);
+  if (group === 'edible') return EDIBLE_CONCEPTS;
+  if (group === 'animal') return ANIMAL_CONCEPTS;
+  return OBJECT_CONCEPTS;
+}
+
+function getDefaultConcept(type) {
+  const group = getCategoryGroup(type);
+  if (group === 'edible') return 'dukh';
+  if (group === 'animal') return 'parichay';
+  return 'kaam';
+}
+
+function getConceptDef(type, concept) {
+  const map = getConceptsForType(type);
+  return map[concept] || Object.values(map)[0];
+}
 
 function getCategory(type) {
   if (CATEGORY_MAP[type]) return CATEGORY_MAP[type];
@@ -136,12 +267,7 @@ function formatScheduledTime(isoString) {
 
 const COLORS = ['#ff4400', '#44bb66', '#4488ff', '#cc88ff', '#ff8800', '#ff4488', '#00ccbb', '#ffcc00'];
 
-// ── Prompt Builders ───────────────────────────────────────────
-function getBackground(type, objectName) {
-  const cat = CATEGORY_MAP[type];
-  return cat ? cat.bg : `a colorful bright background suitable for ${objectName}`;
-}
-
+// ── Object visual helper ──────────────────────────────────────
 function getObjectVisual(objectName) {
   const visuals = {
     Apple: 'shiny red apple with a green leaf on top',
@@ -158,77 +284,203 @@ function getObjectVisual(objectName) {
     Lion: 'golden lion with big fluffy mane',
     Tiger: 'orange tiger with black stripes',
     Elephant: 'big grey elephant with large ears',
+    Giraffe: 'tall giraffe with long neck and yellow-brown patches',
+    Monkey: 'brown monkey with long tail and big curious eyes',
+    Cow: 'black and white cow with big gentle eyes',
+    Dog: 'fluffy brown dog with wagging tail',
+    Cat: 'orange striped cat with bright green eyes',
+    Fish: 'colorful tropical fish with shiny scales',
+    Dolphin: 'blue-grey dolphin jumping with a big smile',
+    Frog: 'bright green frog with round big eyes',
+    Butterfly: 'colorful butterfly with patterned wings',
+    Parrot: 'bright green and red parrot',
+    Peacock: 'beautiful peacock with colorful tail feathers spread wide',
+    Sparrow: 'small brown sparrow with tiny beak',
     Rose: 'beautiful red rose with thorny green stem',
     Sunflower: 'tall bright yellow sunflower with brown center',
+    Car: 'shiny red sports car with four wheels',
+    Bus: 'yellow school bus with windows',
+    Bicycle: 'blue bicycle with round wheels',
+    Guitar: 'brown acoustic guitar with strings',
+    Drum: 'red drum set with drumsticks',
+    Football: 'black and white football',
+    Cricket: 'cricket bat and red cricket ball',
   };
   return visuals[objectName] || `${objectName.toLowerCase()}`;
+}
+
+function getBackground(type, objectName) {
+  const cat = CATEGORY_MAP[type];
+  return cat ? cat.bg : `a colorful bright background suitable for ${objectName}`;
 }
 
 // ── 1. INTRO IMAGE PROMPT ─────────────────────────────────────
 function buildIntroImagePrompt(short) {
   const bg = getBackground(short.type, short.objectName);
   const visual = getObjectVisual(short.objectName);
-  const emotion = short.concept === 'dukh'
-    ? 'sad teary eyes, a small frown, looking down'
-    : short.concept === 'fayde'
-    ? 'big confident smile, chest puffed out, arms wide open'
-    : 'big happy smile, waving hand at camera';
-  const conceptLabel = CONCEPT_MAP[short.concept]?.label || '';
-  return `Pixar 3D style vertical 9:16 image. Background: ${bg}. Center of image: one big cute animated ${visual} character — chubby Pixar body, tiny arms and legs, very expressive face with ${emotion}. Bold glowing rainbow text "${short.objectName}" floating above the character with colorful sparkles. Bottom text: "${conceptLabel}" in bold Hindi font. Bright colorful lighting. No teacher. No other characters. Studio quality render. THIS IS THE REFERENCE IMAGE — all video scenes must match this exact background and character style.`;
+  const group = getCategoryGroup(short.type);
+  const conceptDef = getConceptDef(short.type, short.concept);
+
+  let emotion = 'big happy smile, waving hand at camera';
+  if (short.concept === 'dukh') emotion = 'sad teary eyes, small frown, looking down';
+  else if (short.concept === 'fayde' || short.concept === 'taakat' || short.concept === 'kaam' || short.concept === 'superpower') emotion = 'big confident smile, chest puffed out, arms wide';
+  else if (short.concept === 'dono' || short.concept === 'dono_animal' || short.concept === 'dono_object') emotion = 'half sad half hopeful expression';
+
+  return `Pixar 3D style vertical 9:16 image. Background: ${bg}. Center of image: one big cute animated ${visual} character — chubby Pixar body, tiny arms and legs, very expressive face with ${emotion}. Bold glowing rainbow text "${short.objectName}" floating above the character with colorful sparkles. Bottom text: "${conceptDef.label}" in bold Hindi font. Bright colorful lighting. No teacher. No other characters. Studio quality render. THIS IS THE REFERENCE IMAGE — all video scenes must match this exact background and character style.`;
 }
 
 // ── 2. INTRO VIDEO PROMPT ─────────────────────────────────────
 function buildIntroVideoPrompt(short) {
   const visual = getObjectVisual(short.objectName);
-  const greeting = short.concept === 'dukh'
-    ? `"हैलो बच्चों... मैं हूँ ${short.objectName}..." (sad, slow voice, sniffling)`
-    : short.concept === 'fayde'
-    ? `"हैलो बच्चों! मैं हूँ ${short.objectName}! आज मैं बताऊँगा — मैं कितना ज़रूरी हूँ!" (loud, proud, excited)`
-    : `"हैलो बच्चों! मैं हूँ ${short.objectName}! आओ मुझसे दोस्ती करो!" (cheerful, warm, friendly)`;
-  return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting in any way. Same Pixar 3D animated ${visual} character already standing at center of screen — chubby body, tiny arms and legs, very expressive anime-style eyes. NO entry animation — character is already present when video starts, do not walk in or fly in. Character says: ${greeting}. Bold glowing text "${short.objectName}" appears at top with sparkles. 8 seconds. Perfect lip sync. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
+  const name = short.objectName;
+  const group = getCategoryGroup(short.type);
+
+  let greeting = '';
+  if (short.concept === 'dukh') {
+    greeting = `"हैलो बच्चों... मैं हूँ ${name}..." (sad, slow voice, sniffling)`;
+  } else if (short.concept === 'fayde') {
+    greeting = `"हैलो बच्चों! मैं हूँ ${name}! आज मैं बताऊँगा — मैं कितना ज़रूरी हूँ!" (loud, proud, excited)`;
+  } else if (short.concept === 'dono') {
+    greeting = `"हैलो बच्चों... मैं हूँ ${name}..." (starts sad, voice breaks slightly)`;
+  } else if (short.concept === 'parichay') {
+    if (group === 'animal') greeting = `"हैलो बच्चों! मैं हूँ ${name}!" (makes animal sound, excited wave)`;
+    else greeting = `"हैलो बच्चों! मैं हूँ ${name}! आओ मुझे पहचानो!" (cheerful, waving)`;
+  } else if (short.concept === 'awaaz') {
+    greeting = `"हैलो बच्चों! सुनो मेरी आवाज़ — मैं हूँ ${name}!" (confident, makes sound)`;
+  } else if (short.concept === 'taakat') {
+    greeting = `"हैलो बच्चों! मैं हूँ ${name} — और मैं बहुत powerful हूँ!" (superhero pose, loud)`;
+  } else if (short.concept === 'dono_animal') {
+    greeting = `"हैलो बच्चों... मैं हूँ ${name}..." (sad entry, slow voice)`;
+  } else if (short.concept === 'kaam') {
+    greeting = `"हैलो बच्चों! मैं हूँ ${name}! जानते हो मैं क्या काम करता हूँ?" (excited, curious)`;
+  } else if (short.concept === 'dono_object') {
+    greeting = `"हैलो बच्चों... मैं हूँ ${name}..." (sad entry, nobody uses me)`;
+  } else if (short.concept === 'superpower') {
+    greeting = `"हैलो बच्चों! मैं हूँ ${name} — और मेरे पास है एक superpower!" (dramatic pose)`;
+  } else {
+    greeting = `"हैलो बच्चों! मैं हूँ ${name}! आओ दोस्ती करो मुझसे!" (cheerful, friendly wave)`;
+  }
+
+  return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Same Pixar 3D animated ${visual} character already standing at center of screen — chubby body, tiny arms and legs, very expressive anime-style eyes. NO entry animation — character is already present when video starts. Character says: ${greeting}. Bold glowing text "${name}" appears at top with sparkles. 8 seconds. Perfect lip sync. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
 }
 
-// ── 3. SCENE PROMPT — unique per object ──────────────────────
+// ── 3. SCENE PROMPT — fully dynamic per object + concept ──────
 function buildScenePrompt(short, sceneIndex) {
   const visual = getObjectVisual(short.objectName);
-  const concept = CONCEPT_MAP[short.concept];
-  const scene = concept.scenes[sceneIndex];
+  const conceptDef = getConceptDef(short.type, short.concept);
+  const scene = conceptDef.scenes[sceneIndex];
   const name = short.objectName;
   const catLabel = getCategory(short.type).label;
+  const group = getCategoryGroup(short.type);
 
-  // Each concept has unique dialogues that actually mention the object by name
-  const dialogues = {
+  // ── EDIBLE dialogues ──────────────────────────────────────
+  const edibleDialogues = {
     dukh: [
       `"बच्चों... कोई मुझे नहीं खाता... मैं ${name} हूँ और मैं बहुत उदास हूँ!" (${name} wiping tears with tiny hand, lip trembling)`,
-      `"देखो... मैं यहाँ रखा रहता हूँ... कोई ${name} को नहीं चुनता!" (pointing to self, more tears falling)`,
-      `"मैंने सोचा था आज कोई मुझे खाएगा... पर किसी ने ${name} की तरफ देखा तक नहीं!" (sits down, crying harder, hugging self)`,
+      `"देखो... मैं यहाँ रखा रहता हूँ... कोई ${name} को नहीं चुनता!" (pointing to self sadly, more tears)`,
+      `"मैंने सोचा था आज कोई मुझे खाएगा... पर किसी ने ${name} की तरफ देखा तक नहीं!" (sits down, crying harder)`,
       `"अकेला हूँ मैं... कोई नहीं है मेरा... ${name} का कोई दोस्त नहीं!" (curled up in corner, sobbing quietly)`,
-      `"शायद ${name} काम का नहीं है किसी के..." (last tear rolls down, slow fade out, still sitting sadly)`,
+      `"शायद ${name} काम का नहीं है किसी के..." (last tear rolls down, slow sad fade out)`,
     ],
     fayde: [
-      `"सुनो बच्चों! ${name} का पहला फायदा — मैं तुम्हारी आँखें तेज़ करता हूँ! 👁️" (${name} pointing to eyes excitedly, bouncing up and down)`,
-      `"${name} का दूसरा फायदा — मैं तुम्हारा पेट मज़बूत बनाता हूँ! 💪" (flexing tiny arms, showing muscles, big smile)`,
-      `"और ${name} का तीसरा फायदा — मैं बहुत tasty भी हूँ! 😋" (rubbing tummy in circles, licking lips, eyes closed in joy)`,
-      `"Doctor भी कहता है — रोज़ खाओ ${name} और healthy रहो! 🩺" (wagging finger at camera confidently, winking)`,
-      `"तो बच्चों — देर किस बात की? खाओ ${name} और healthy रहो! 🌟" (big thumbs up, happy victory dance)`,
-    ],
-    intro: [
-      `"मैं हूँ ${name}! और मैं ${catLabel} family से आता हूँ!" (${name} pointing to self proudly, spinning once to show off)`,
-      `"मेरा नाम है ${name} — और मेरा घर है यह ${catLabel} की दुनिया!" (${name} gesturing around at background with tiny arms)`,
-      `"${name} की सबसे ख़ास बात? मैं इतना cute और colorful हूँ!" (${name} doing a little pose, winking at camera)`,
-      `"बच्चों, क्या आप ${name} को पहचानते हो? बताओ — मैं कौन हूँ?" (${name} leaning forward toward camera with curious big eyes)`,
-      `"आओ ${name} से दोस्ती करो! Rang Tarang पर हम फिर मिलेंगे!" (${name} big wave goodbye, colorful hearts floating around)`,
+      `"सुनो बच्चों! ${name} का पहला फायदा — मैं तुम्हारी सेहत बनाता हूँ! 💪" (${name} pointing to muscles excitedly, bouncing)`,
+      `"${name} का दूसरा फायदा — मैं तुम्हारी आँखें तेज़ करता हूँ! 👁️" (pointing to eyes, big smile, happy dance)`,
+      `"और ${name} का तीसरा फायदा — मैं बहुत tasty भी हूँ! 😋" (rubbing tummy in circles, licking lips)`,
+      `"Doctor भी कहता है — रोज़ खाओ ${name}! 🩺" (wagging finger at camera confidently, winking)`,
+      `"तो बच्चों — खाओ ${name} और healthy रहो! 🌟" (big thumbs up, victory dance)`,
     ],
     dono: [
-      `"हैलो बच्चों... मैं ${name} हूँ... कोई मुझे नहीं खाता..." (${name} enters slowly, tears in eyes, voice cracking)`,
-      `"देखो, मैं ${name} यहाँ रखा रहता हूँ... कोई नहीं आता मेरे पास..." (${name} pointing to self sadly, small sob)`,
-      `"रुको! रोना बंद! मैं ${name} बताता हूँ — मैं कितना ज़रूरी हूँ!" (${name} wipes tears dramatically, stands straight, determined face)`,
-      `"मैं ${name} हूँ — मैं तुम्हें healthy बनाता हूँ, tasty भी हूँ, और तुम्हारा सबसे अच्छा दोस्त!" (${name} proudly listing on fingers, chest out)`,
-      `"अब तो खाओ मुझे — ${name} को मत भूलना!" (a child's hand appears and picks up ${name}, both are happy, big smile, confetti falls)`,
+      `"बच्चों... कोई मुझे नहीं खाता... मैं ${name} हूँ और बहुत उदास हूँ..." (slow entry, tears, sad voice)`,
+      `"देखो, मैं ${name} यहाँ रखा रहता हूँ... कोई नहीं आता मेरे पास..." (pointing sadly, small sob)`,
+      `"रुको! रोना बंद! मैं ${name} बताता हूँ — मैं कितना ज़रूरी हूँ!" (wipes tears dramatically, stands straight, determined)`,
+      `"मैं ${name} हूँ — मैं तुम्हें healthy बनाता हूँ, tasty हूँ, और तुम्हारा दोस्त!" (proudly listing on fingers)`,
+      `"अब तो खाओ मुझे — ${name} को मत भूलना!" (child's hand appears, picks up ${name}, both happy, confetti falls)`,
+    ],
+    intro: [
+      `"मैं हूँ ${name}! और मैं ${catLabel} family से आता हूँ!" (${name} pointing to self proudly, spinning to show off)`,
+      `"मेरा नाम है ${name} — यहाँ देखो मुझे!" (pointing to self with both tiny arms, big smile)`,
+      `"${name} की सबसे ख़ास बात? मैं इतना colorful और tasty हूँ!" (doing a little pose, winking at camera)`,
+      `"बच्चों, क्या आप ${name} को पहचानते हो?" (leaning forward toward camera with curious big eyes)`,
+      `"आओ ${name} खाओ और दोस्ती करो! Rang Tarang पर मिलते रहेंगे!" (big wave, hearts floating around)`,
     ],
   };
 
-  const dialogue = dialogues[short.concept]?.[sceneIndex] || dialogues.dukh[sceneIndex];
+  // ── ANIMAL dialogues ──────────────────────────────────────
+  const animalDialogues = {
+    parichay: [
+      `"बच्चों! मैं हूँ ${name}! मैं ${catLabel} हूँ!" (${name} makes its animal sound — roar/moo/tweet, excited wave)`,
+      `"मेरा नाम है ${name} — और मैं ${catLabel} family से आता हूँ!" (${name} proudly points to self with tiny arms)`,
+      `"मेरा घर है ${getCategory(short.type).bg.split(' with')[0].replace('a ', '').replace('an ', '')}! यहाँ रहता हूँ मैं!" (${name} gestures around at background happily)`,
+      `"मैं ${name} खाता हूँ — यही मेरी पसंद है!" (${name} pretends to eat, rubs tummy with satisfied smile)`,
+      `"${name} को याद रखना बच्चों! Rang Tarang पर मिलते रहेंगे!" (${name} waves goodbye with tiny arm, big smile)`,
+    ],
+    awaaz: [
+      `"बच्चों! मैं हूँ ${name}! देखो मैं कैसे enter करता हूँ!" (${name} enters confidently, strikes a pose)`,
+      `"सुनो मेरी आवाज़! मैं ${name} हूँ और मेरी आवाज़ है बहुत ख़ास!" (${name} opens mouth, makes its unique sound boldly)`,
+      `"बच्चों! आप भी बोलो मेरे साथ! ${name} की आवाज़ करो!" (${name} cups ears, waiting for kids to repeat, excited)`,
+      `"और देखो मेरी ख़ास बात — मेरा रंग, मेरा shape, सब unique!" (${name} shows off its features — stripes/spots/wings)`,
+      `"${name} को याद रखो — Rang Tarang subscribe करना!" (big cheerful wave, sparkles around ${name})`,
+    ],
+    taakat: [
+      `"बच्चों! मैं हूँ ${name} — सबसे powerful!" (${name} enters with superhero landing pose, muscles flexed)`,
+      `"मेरी सबसे बड़ी power? देखो!" (${name} shows off its biggest feature — roar/jump/run/swim demonstration)`,
+      `"मैं ${name} — यह कर सकता हूँ जो कोई नहीं कर सकता!" (${name} does its special move proudly)`,
+      `"मेरा दोस्त कौन है? जो मेरे साथ रहता है — हम साथ powerful हैं!" (${name} makes a friendly gesture)`,
+      `"मैं हूँ ${name} — hero! याद रखना बच्चों!" (${name} victory pose, fist pump, big smile)`,
+    ],
+    dono_animal: [
+      `"बच्चों... मैं ${name} हूँ... कोई मुझे नहीं जानता..." (slow entry, sad face, drooping)`,
+      `"देखो... कोई ${name} को नहीं पहचानता... बड़ा दुख होता है..." (pointing to self sadly, a tear)`,
+      `"रुको! रोना बंद! मैं ${name} बताता हूँ — मैं कितना amazing हूँ!" (wipes tear, stands straight, determined)`,
+      `"मैं ${name} हूँ — मेरी power है, मेरी आवाज़ है, मेरा घर है!" (proudly shows off features one by one)`,
+      `"अब पहचानो मुझे! ${name} तुम्हारा दोस्त है!" (child appears, ${name} waves happily, confetti)`,
+    ],
+  };
+
+  // ── OBJECT dialogues ──────────────────────────────────────
+  const objectDialogues = {
+    kaam: [
+      `"हैलो बच्चों! मैं हूँ ${name}! मैं ${catLabel} हूँ!" (${name} enters confidently, does a little bow)`,
+      `"मेरा नाम है ${name} — और मैं यह काम करता हूँ!" (${name} points to self proudly, explains what it is)`,
+      `"${name} का पहला काम — देखो मैं क्या करता हूँ! 🌟" (${name} demonstrates its primary use excitedly)`,
+      `"मेरा दूसरा काम — यह भी कर सकता हूँ मैं! 💪" (${name} shows another use, dancing happily)`,
+      `"मेरे बिना यह काम नहीं होगा! Use करो ${name} को!" (${name} thumbs up, victory pose, big smile)`,
+    ],
+    parichay: [
+      `"हैलो बच्चों! मैं हूँ ${name} — क्या पहचाना मुझे?" (${name} waves excitedly, curious expression)`,
+      `"मेरा नाम है ${name}! मैं ${catLabel} family से हूँ!" (${name} points to self, stands tall proudly)`,
+      `"देखो मेरा रंग, मेरा shape — मैं कितना unique हूँ!" (${name} spins to show off from all sides)`,
+      `"मैं ${name} मिलता हूँ — बच्चों बताओ कहाँ पाओगे मुझे?" (${name} leans toward camera curiously)`,
+      `"${name} को याद रखना! Rang Tarang पर मिलते रहेंगे!" (big cheerful wave, hearts and sparkles)`,
+    ],
+    dono_object: [
+      `"बच्चों... मैं ${name} हूँ... कोई मुझे use नहीं करता..." (slow entry, sad face, slumped)`,
+      `"देखो, मैं ${name} यहाँ रखा हूँ... कोई मुझे नहीं उठाता..." (pointing to self sadly, small sigh)`,
+      `"रुको! मैं ${name} बताता हूँ — मैं कितना ज़रूरी हूँ!" (wipes tear, stands straight, determined face)`,
+      `"मैं ${name} हूँ — मेरे बिना यह काम नहीं होगा! देखो!" (proudly demonstrates use, chest out)`,
+      `"अब use करो ${name} को!" (child's hand appears and uses ${name}, both happy, confetti falls)`,
+    ],
+    superpower: [
+      `"बच्चों! मैं हूँ ${name} — और मेरे पास है एक superpower!" (${name} dramatic superhero pose)`,
+      `"मेरी superpower है — देखो!" (${name} shows off its most impressive feature dramatically)`,
+      `"मैं ${name} — यह कर सकता हूँ जो कोई और नहीं कर सकता!" (${name} live demo of special feature)`,
+      `"मेरा best feature है — यह!" (${name} highlights one key thing about itself with sparkles)`,
+      `"मैं हूँ ${name} — best of the best! Use करो मुझे!" (victory pose, big thumbs up, fireworks)`,
+    ],
+  };
+
+  // Select correct dialogue set
+  let dialogue = '';
+  if (group === 'edible') {
+    dialogue = (edibleDialogues[short.concept] || edibleDialogues.intro)[sceneIndex] || '';
+  } else if (group === 'animal') {
+    dialogue = (animalDialogues[short.concept] || animalDialogues.parichay)[sceneIndex] || '';
+  } else {
+    dialogue = (objectDialogues[short.concept] || objectDialogues.kaam)[sceneIndex] || '';
+  }
+
+  // Replace ${name} placeholder in dialogue strings
+  dialogue = dialogue.replace(/\$\{name\}/g, name);
 
   return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Continue directly from the last frame of the previous scene — same Pixar 3D animated ${visual} character, exact same style, same size, same colors, seamless continuation. Scene ${sceneIndex + 1}: "${scene.title}". Character says: ${dialogue}. Very expressive face — emotions clearly visible. Perfect lip sync. 8-10 seconds. Smooth animation. No glitch. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
 }
@@ -237,9 +489,20 @@ function buildScenePrompt(short, sceneIndex) {
 function buildOutroVideoPrompt(short) {
   const visual = getObjectVisual(short.objectName);
   const name = short.objectName;
-  const outroLine = short.concept === 'dukh'
-    ? `${name} still sitting sadly. Slowly looks up at camera with watery eyes and says: "बच्चों... ${name} को याद रखना... Rang Tarang subscribe करना मत भूलना..." then looks back down sadly.`
-    : `${name} does a happy little dance and says: "तो बच्चों — ${name} को याद रखो! Rang Tarang subscribe करो और bell दबाओ! टाटा! 👋" waves enthusiastically at camera.`;
+  const group = getCategoryGroup(short.type);
+  const isSad = ['dukh', 'dono', 'dono_animal', 'dono_object'].includes(short.concept);
+
+  let outroLine = '';
+  if (short.concept === 'dukh') {
+    outroLine = `${name} still sitting sadly. Slowly looks up at camera with watery eyes and says: "बच्चों... ${name} को याद रखना... Rang Tarang subscribe करना मत भूलना..." then looks back down sadly.`;
+  } else if (group === 'animal') {
+    outroLine = `${name} does a happy little jump and makes its sound, then says: "तो बच्चों — ${name} को याद रखो! Rang Tarang subscribe करो aur bell दबाओ! टाटा! 👋" waves enthusiastically at camera.`;
+  } else if (group === 'edible') {
+    outroLine = `${name} does a happy little dance and says: "तो बच्चों — ${name} को याद रखो और खाओ! Rang Tarang subscribe करो और bell दबाओ! टाटा! 👋" waves enthusiastically at camera.`;
+  } else {
+    outroLine = `${name} does a happy little dance and says: "तो बच्चों — ${name} को याद रखो! Rang Tarang subscribe करो और bell दबाओ! टाटा! 👋" waves enthusiastically at camera.`;
+  }
+
   return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Continue directly from the last frame of the previous scene — same Pixar 3D animated ${visual} character, seamless continuation. ${outroLine} Bold glowing text "Rang Tarang Subscribe Karo! 🔔" appears with colorful sparkles. 8 seconds. Smooth. No glitch. Perfect lip sync. VOICE: ${VOICE_DESC}`;
 }
 
@@ -255,23 +518,19 @@ async function aiCall(prompt) {
 }
 
 async function generateYTTitleDesc(short) {
-  const conceptLabel = CONCEPT_MAP[short.concept]?.label || '';
-  const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
-Short video about: "${short.objectName}" (${getCategory(short.type).label})
-Concept: ${conceptLabel}
-Format: YouTube SHORT (vertical 9:16)
-Target: Indian parents searching kids content in Hindi
-
-TITLE RULES: Max 60 chars, Hindi+English mix, end with "| Rang Tarang", NO emoji
+  const conceptDef = getConceptDef(short.type, short.concept);
+  const text = await aiCall(`YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
+Short about: "${short.objectName}" (${getCategory(short.type).label}) — Concept: ${conceptDef.label}
+Format: YouTube SHORT vertical 9:16. Target: Indian parents, kids 2-6.
+TITLE: Max 60 chars, Hindi+English mix, end with "| Rang Tarang", NO emoji
 DESCRIPTION: Hook in Hindi, content mention, subscribe line, hashtags
-TAGS: Comma separated, max 15 tags, mix Hindi+English, topic specific
-
+TAGS: Comma separated, max 15, mix Hindi+English
 Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
   return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
-// ── TitleDescSection Component ────────────────────────────────
-function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey, videoId }) {
+// ── TitleDescSection ──────────────────────────────────────────
+function TitleDescSection({ short, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey, videoId }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle]     = useState(short.ytTitle || '');
   const [desc, setDesc]       = useState(short.ytDescription || '');
@@ -289,15 +548,11 @@ function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenera
   async function regenField(field) {
     setRegenLoading(p => ({ ...p, [field]: true }));
     try {
-      const conceptLabel = CONCEPT_MAP[short.concept]?.label || '';
+      const conceptDef = getConceptDef(short.type, short.concept);
       let prompt = '';
-      if (field === 'title') {
-        prompt = `Generate ONLY a YouTube title for Hindi kids Shorts about "${short.objectName}" (${conceptLabel}). Max 60 chars, Hindi+English mix, end with "| Rang Tarang". NO emoji. Return ONLY the title text.`;
-      } else if (field === 'desc') {
-        prompt = `Generate ONLY a YouTube description for Hindi kids Shorts about "${short.objectName}" (${conceptLabel}). Hook in Hindi, content mention, subscribe line with https://youtube.com/@RangTarangHindi, hashtags. Return ONLY the description text.`;
-      } else if (field === 'tags') {
-        prompt = `Generate ONLY YouTube tags for Hindi kids Shorts about "${short.objectName}" (${conceptLabel}). Comma separated, max 15 tags, mix Hindi+English. Return ONLY the tags string.`;
-      }
+      if (field === 'title') prompt = `Generate ONLY a YouTube title for Hindi kids Shorts about "${short.objectName}" (${conceptDef.label}). Max 60 chars, Hindi+English mix, end with "| Rang Tarang". NO emoji. Return ONLY the title.`;
+      else if (field === 'desc') prompt = `Generate ONLY a YouTube description for Hindi kids Shorts about "${short.objectName}" (${conceptDef.label}). Hook in Hindi, content, subscribe line https://youtube.com/@RangTarangHindi, hashtags. Return ONLY the description.`;
+      else if (field === 'tags') prompt = `Generate ONLY YouTube tags for Hindi kids Shorts about "${short.objectName}" (${conceptDef.label}). Comma separated, max 15, Hindi+English. Return ONLY tags string.`;
       const res = await fetch('/api/ai', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'openai/gpt-4o-mini', max_tokens: 300, temperature: 0.7, messages: [{ role: 'user', content: prompt }] }),
@@ -316,11 +571,7 @@ function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenera
     if (!videoId) { toast('❌ Video ID nahi mila'); return; }
     setYtUpdating(true);
     try {
-      const res = await fetch('/api/youtube/update', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId, title, description: desc, tags }),
-      });
+      const res = await fetch('/api/youtube/update', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoId, title, description: desc, tags }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       toast(data.message);
@@ -328,13 +579,18 @@ function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenera
     setYtUpdating(false);
   }
 
+  const fieldStyle = { width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' };
+  const regenBtnStyle = (loading) => ({ background: loading ? '#111' : '#1a1000', border: '1px solid #443300', color: loading ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 });
+  const copyBtnStyle = (copied) => ({ position: 'absolute', top: 6, right: 6, background: copied ? '#44bb66' : '#1a1a1a', border: `1px solid ${copied ? '#44bb66' : '#333'}`, color: copied ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' });
+
   return (
     <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
       <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
-          {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
-          {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
+          {hasTitleDesc
+            ? <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>
+            : <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
         </div>
         <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
       </div>
@@ -344,60 +600,29 @@ function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenera
             style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 Teeno AI se Generate Karo'}
           </button>
-
-          {/* Title */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📌 YouTube Title</div>
-              <button onClick={() => regenField('title')} disabled={regenLoading.title}
-                style={{ background: regenLoading.title ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.title ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.title ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                {regenLoading.title ? <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /> : '🔄 Regen'}
-              </button>
+          {[
+            { key: 'title', label: '📌 YouTube Title', val: title, set: setTitle, loading: regenLoading.title, copy: 'ytTitle', multi: false },
+            { key: 'desc',  label: '📄 YouTube Description', val: desc, set: setDesc, loading: regenLoading.desc, copy: 'ytDesc', multi: true, rows: 4 },
+            { key: 'tags',  label: '🏷️ YouTube Tags', val: tags, set: setTags, loading: regenLoading.tags, copy: 'ytTags', multi: true, rows: 2 },
+          ].map(f => (
+            <div key={f.key}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>{f.label}</div>
+                <button onClick={() => regenField(f.key)} disabled={f.loading} style={regenBtnStyle(f.loading)}>
+                  {f.loading ? <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /> : '🔄 Regen'}
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                {f.multi
+                  ? <textarea value={f.val} onChange={e => f.set(e.target.value)} rows={f.rows} style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.6 }} />
+                  : <input value={f.val} onChange={e => f.set(e.target.value)} style={fieldStyle} />}
+                <button onClick={() => onCopy(f.copy, f.val)} style={copyBtnStyle(copiedKey === f.copy)}>{copiedKey === f.copy ? '✅' : '📋'}</button>
+              </div>
             </div>
-            <div style={{ position: 'relative' }}>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-              <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTitle' ? '✅' : '📋'}</button>
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📄 YouTube Description</div>
-              <button onClick={() => regenField('desc')} disabled={regenLoading.desc}
-                style={{ background: regenLoading.desc ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.desc ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.desc ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                {regenLoading.desc ? <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /> : '🔄 Regen'}
-              </button>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
-              <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytDesc' ? '✅' : '📋'}</button>
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>🏷️ YouTube Tags</div>
-              <button onClick={() => regenField('tags')} disabled={regenLoading.tags}
-                style={{ background: regenLoading.tags ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.tags ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.tags ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                {regenLoading.tags ? <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /> : '🔄 Regen'}
-              </button>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <textarea value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags comma se separate..." rows={2}
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
-              <button onClick={() => onCopy('ytTags', tags)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTags' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTags' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTags' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTags' ? '✅' : '📋'}</button>
-            </div>
-          </div>
-
+          ))}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => { onSave(title, desc, tags); setEditing(false); }}
-              style={{ flex: 1, background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-              💾 Save
-            </button>
+              style={{ flex: 1, background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>💾 Save</button>
             {videoId && (
               <button onClick={updateYouTube} disabled={ytUpdating}
                 style={{ flex: 1, background: ytUpdating ? '#111' : 'rgba(255,0,0,0.1)', border: '1px solid #cc000044', color: ytUpdating ? '#555' : '#ff4444', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: ytUpdating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -426,15 +651,14 @@ function ShortsCreatorPage({ user }) {
   const [modal, setModal]                   = useState('none');
   const [generating, setGenerating]         = useState(false);
   const [genTD, setGenTD]                   = useState(false);
-
-  const [step, setStep]                       = useState(1);
-  const [selectedType, setSelectedType]       = useState(null);
-  const [aiObjects, setAiObjects]             = useState([]);
-  const [aiLoading, setAiLoading]             = useState(false);
-  const [selectedObject, setSelectedObject]   = useState('');
-  const [customObject, setCustomObject]       = useState('');
-  const [selectedConcept, setSelectedConcept] = useState('dukh');
-  const [selectedColor, setSelectedColor]     = useState('#ff4488');
+  const [step, setStep]                     = useState(1);
+  const [selectedType, setSelectedType]     = useState(null);
+  const [aiObjects, setAiObjects]           = useState([]);
+  const [aiLoading, setAiLoading]           = useState(false);
+  const [selectedObject, setSelectedObject] = useState('');
+  const [customObject, setCustomObject]     = useState('');
+  const [selectedConcept, setSelectedConcept] = useState('');
+  const [selectedColor, setSelectedColor]   = useState('#ff4488');
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -478,8 +702,7 @@ function ShortsCreatorPage({ user }) {
     try {
       const cat = getCategory(short.type);
       const res = await fetch('/api/youtube/playlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoId, playlistTitle: cat.label }),
       });
       const data = await res.json();
@@ -501,9 +724,8 @@ function ShortsCreatorPage({ user }) {
     const cat = getCategory(type);
     try {
       const text = await aiCall(`List exactly 12 common ${cat.label} items that Indian kids aged 2-6 know well.
-Already created shorts: ${shortsList.map(s => s.objectName).join(', ') || 'none'}
-Return ONLY a JSON array of English names, no markdown:
-["Apple","Banana","Mango"]`);
+Already created: ${shortsList.map(s => s.objectName).join(', ') || 'none'}
+Return ONLY JSON array of English names: ["Apple","Banana","Mango"]`);
       setAiObjects(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ AI se nahi aaya'); }
     setAiLoading(false);
@@ -511,10 +733,16 @@ Return ONLY a JSON array of English names, no markdown:
 
   function openNewModal() {
     setModal('new'); setStep(1); setSelectedType(null); setAiObjects([]);
-    setSelectedObject(''); setCustomObject(''); setSelectedConcept('dukh'); setSelectedColor('#ff4488');
+    setSelectedObject(''); setCustomObject(''); setSelectedConcept(''); setSelectedColor('#ff4488');
   }
 
-  async function selectCategory(type) { setSelectedType(type); setStep(2); await loadAiObjects(type); }
+  async function selectCategory(type) {
+    setSelectedType(type);
+    setSelectedConcept(getDefaultConcept(type));
+    setStep(2);
+    await loadAiObjects(type);
+  }
+
   function selectObject(obj) { setSelectedObject(obj); setCustomObject(obj); setStep(3); }
 
   async function generateShort() {
@@ -584,14 +812,13 @@ Return ONLY a JSON array of English names, no markdown:
   if (openShort) {
     const s = openShort;
     const done = s.doneSections || {};
-    const concept = CONCEPT_MAP[s.concept] || CONCEPT_MAP.dukh;
+    const conceptDef = getConceptDef(s.type, s.concept);
     const cat = getCategory(s.type);
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const deleteDisabled = isDeleteDisabled(s);
     const uploaded = checkUploaded(s);
     const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
     const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
-
     const matchedVideo = ytVideos.find(v => {
       const matchStr = (s.ytTitle || s.objectName || '').trim().toLowerCase();
       return (v.title || '').toLowerCase().includes(matchStr) || matchStr.includes((v.title || '').toLowerCase().slice(0, 20));
@@ -601,7 +828,7 @@ Return ONLY a JSON array of English names, no markdown:
     const sections = [
       { key: 'intro_img', title: '🖼 Intro Image', color: '#4488ff', type: '🖼 IMAGE', prompt: buildIntroImagePrompt(s) },
       { key: 'intro_vid', title: '🎬 Intro Video', color: '#4488ff', type: '🎬 VIDEO', prompt: buildIntroVideoPrompt(s) },
-      ...concept.scenes.map((scene, i) => ({
+      ...conceptDef.scenes.map((scene, i) => ({
         key: `scene_${i}`, title: `🎬 Scene ${i + 1} — ${scene.title}`,
         color: s.color, type: '🎬 VIDEO', prompt: buildScenePrompt(s, i), hint: scene.hint,
       })),
@@ -613,22 +840,21 @@ Return ONLY a JSON array of English names, no markdown:
         <div className="mini-topbar">
           <button onClick={() => setOpenShort(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{cat.emoji} {s.objectName}</span>
-          {deleteDisabled
-            ? <span style={{ fontSize: 18, opacity: 0.2, cursor: 'not-allowed' }}>🗑</span>
-            : <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
-          }
+          {deleteDisabled ? <span style={{ fontSize: 18, opacity: 0.2, cursor: 'not-allowed' }}>🗑</span>
+            : <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Header card */}
           <div style={{ background: '#0f0f0f', border: `1px solid ${s.color}44`, borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>{cat.emoji}</span>
             <div>
               <div style={{ fontSize: 13, fontWeight: 800, color: s.color }}>{s.objectName}</div>
-              <div style={{ fontSize: 11, color: '#555' }}>{concept.label} • {cat.label}</div>
+              <div style={{ fontSize: 11, color: '#555' }}>{conceptDef.label} • {cat.label}</div>
             </div>
           </div>
 
-          {/* Voice info */}
+          {/* Voice */}
           <div style={{ background: '#0a0a14', border: '1px solid #2233aa44', borderRadius: 12, padding: '10px 14px' }}>
             <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 4 }}>🎙 VOICE (sab scenes mein same)</div>
             <div style={{ fontSize: 11, color: '#666', lineHeight: 1.5 }}>{VOICE_DESC}</div>
@@ -647,7 +873,7 @@ Return ONLY a JSON array of English names, no markdown:
 
           {/* Upload Status */}
           {!ytLoading && (
-            <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: '12px 14px' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: uploaded === true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : '#ff8866' }}>
                 {uploaded === true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}` : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki'}
               </span>
@@ -661,10 +887,7 @@ Return ONLY a JSON array of English names, no markdown:
               {s.playlistAdded || playlistStatus[s.id] === 'added' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 20 }}>✅</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#44bb66' }}>Already Added to Playlist</div>
-                    <div style={{ fontSize: 11, color: '#555' }}>{cat.label}</div>
-                  </div>
+                  <div><div style={{ fontSize: 13, fontWeight: 700, color: '#44bb66' }}>Already Added</div><div style={{ fontSize: 11, color: '#555' }}>{cat.label}</div></div>
                 </div>
               ) : (
                 <button onClick={() => addToPlaylist(s, videoId)} disabled={playlistStatus[s.id] === 'loading'}
@@ -679,10 +902,10 @@ Return ONLY a JSON array of English names, no markdown:
             </div>
           )}
 
-          {/* Title Desc Tags */}
+          {/* Title Desc */}
           <TitleDescSection
-            short={s} allPromptsDone={Object.keys(done).length >= 8} hasTitleDesc={hasTitleDesc}
-            genTD={genTD} onGenerate={() => generateTitleDesc(s)}
+            short={s} hasTitleDesc={hasTitleDesc} genTD={genTD}
+            onGenerate={() => generateTitleDesc(s)}
             onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)}
             onCopy={copy} copiedKey={copiedKey} videoId={videoId}
           />
@@ -694,16 +917,16 @@ Return ONLY a JSON array of English names, no markdown:
             return (
               <div key={sec.key} style={{ background: '#0f0f0f', border: `1px solid ${isDone ? '#1a3a1a' : '#1e1e1e'}`, borderRadius: 12, overflow: 'hidden' }}>
                 <div onClick={() => setOpenSection(isOpen ? null : sec.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: isDone ? '#44bb66' : '#ccc' }}>{sec.title}</span>
-                    {isDone && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
-                    {sec.hint && !isDone && <span style={{ fontSize: 9, color: '#444', fontStyle: 'italic' }}>{sec.hint}</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: isDone ? '#44bb66' : '#ccc', flexShrink: 0 }}>{sec.title}</span>
+                    {isDone && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700, flexShrink: 0 }}>✅</span>}
+                    {sec.hint && !isDone && <span style={{ fontSize: 9, color: '#444', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sec.hint}</span>}
                   </div>
-                  <span style={{ fontSize: 13, color: '#444' }}>{isOpen ? '▲' : '▼'}</span>
+                  <span style={{ fontSize: 13, color: '#444', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
                 </div>
                 {isOpen && (
                   <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 2 }}>{sec.type}</div>
+                    <div style={{ fontSize: 9, color: sec.color, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>{sec.type}</div>
                     <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '12px', fontSize: 12, lineHeight: 1.7, color: '#bbb' }}>{sec.prompt}</div>
                     <button onClick={() => copy(sec.key, sec.prompt)}
                       style={{ background: copiedKey === sec.key ? 'rgba(68,136,255,0.15)' : '#0a0a1a', border: `1px solid ${copiedKey === sec.key ? '#4488ff' : '#223355'}`, color: copiedKey === sec.key ? '#4488ff' : '#4477cc', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
@@ -742,14 +965,14 @@ Return ONLY a JSON array of English names, no markdown:
             const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
             const uploadColor = uploaded === true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : uploaded === false ? '#ff8866' : '#555';
             const uploadText = ytLoading ? '🔍...' : uploaded === true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}` : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki';
-            const concept = CONCEPT_MAP[s.concept] || CONCEPT_MAP.dukh;
+            const conceptDef = getConceptDef(s.type, s.concept);
             return (
               <div key={s.id} onClick={() => setOpenShort(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: '1px solid #1e1e1e', borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 28 }}>{cat.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 2 }}>{s.objectName}</div>
-                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>{concept.label}</div>
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>{conceptDef.label}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount || 0}/8 done</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
@@ -843,21 +1066,21 @@ Return ONLY a JSON array of English names, no markdown:
                   <button onClick={() => setStep(1)} style={{ width: '100%', background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
                 </>
               )}
-              {step === 3 && (
+              {step === 3 && selectedType && (
                 <>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 4, textAlign: 'center' }}>{getCategory(selectedType).emoji} {selectedObject || customObject}</div>
                   <div style={{ fontSize: 11, color: '#555', textAlign: 'center', marginBottom: 14 }}>Concept aur color chuno</div>
                   <div style={{ fontSize: 10, color: '#777', marginBottom: 8, fontWeight: 700, letterSpacing: 1 }}>CONCEPT CHUNO</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-                    {Object.entries(CONCEPT_MAP).map(([id, concept]) => (
+                    {Object.entries(getConceptsForType(selectedType)).map(([id, concept]) => (
                       <button key={id} onClick={() => setSelectedConcept(id)}
                         style={{ background: selectedConcept === id ? 'rgba(255,68,136,0.15)' : '#0f0f1a', border: `1px solid ${selectedConcept === id ? '#ff4488' : '#1a1a33'}`, borderRadius: 12, padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
                         <span style={{ fontSize: 20 }}>{concept.label.split(' ')[0]}</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: selectedConcept === id ? '#ff4488' : '#eee' }}>{concept.label}</div>
-                          <div style={{ fontSize: 10, color: '#555' }}>{concept.scenes.map(sc => sc.title).join(' → ')}</div>
+                          <div style={{ fontSize: 10, color: '#555' }}>{concept.desc}</div>
                         </div>
-                        {selectedConcept === id && <span>✅</span>}
+                        {selectedConcept === id && <span style={{ flexShrink: 0 }}>✅</span>}
                       </button>
                     ))}
                   </div>
@@ -869,7 +1092,7 @@ Return ONLY a JSON array of English names, no markdown:
                     ))}
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={generateShort} disabled={generating}
+                    <button onClick={generateShort} disabled={generating || !selectedConcept}
                       style={{ flex: 2, background: generating ? '#1a0010' : 'linear-gradient(135deg,#550022,#330011)', border: '1px solid #ff4488', color: '#ff4488', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: generating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       {generating ? <><div className="spinner" style={{ borderTopColor: '#ff4488', width: 16, height: 16 }} />Saving...</> : '🎬 Banao!'}
                     </button>
