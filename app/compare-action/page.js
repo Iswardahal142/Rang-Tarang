@@ -737,7 +737,16 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
         <span style={{ color: '#ff8800', fontSize: 14, fontWeight: 700 }}>⚔️ Compare & Action</span>
-        <button onClick={() => setModal('create')} style={{ background: '#ff8800', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Naya</button>
+        {ytLoading ? (
+          <button disabled style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.5 }}>+ Naya</button>
+        ) : (() => {
+          const hasUnuploaded = list.some(s => checkUploaded(s) === false);
+          return hasUnuploaded ? (
+            <button onClick={() => toast('⚠️ Pehle purani series upload karo!')} style={{ background: '#333', border: 'none', color: '#666', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6 }}>+ Naya</button>
+          ) : (
+            <button onClick={() => setModal('create')} style={{ background: '#ff8800', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Naya</button>
+          );
+        })()}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -806,6 +815,12 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
           const meta = getFolderMeta(folderKey, list);
           const seriesInFolder = grouped[folderKey];
           const countLabel = folderKey === 'action' ? `${seriesInFolder.length} series` : `${seriesInFolder.length} part${seriesInFolder.length > 1 ? 's' : ''}`;
+          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
+          const canContinue = seriesInFolder.find(s => !hasNextPart(s, list));
+          const allUploaded = !ytLoading && seriesInFolder.every(s => {
+            const u = checkUploaded(s);
+            return u === true || u === 'private' || (u && typeof u === 'object');
+          });
           return (
             <div key={folderKey} onClick={() => setOpenFolder(folderKey)}
               style={{ background: '#0d0d0d', border: `1px solid ${meta.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
@@ -813,7 +828,12 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
               <div style={{ width: 52, height: 52, borderRadius: 16, background: `${meta.color}1a`, border: `1px solid ${meta.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{meta.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: meta.color, marginBottom: 3 }}>{meta.label}</div>
-                <div style={{ fontSize: 11, color: '#555' }}>{countLabel}</div>
+                <div style={{ fontSize: 11, color: '#555', marginBottom: canContinue && !ytLoading ? 4 : 0 }}>{countLabel} • {ytLoading ? '🔍...' : `${uploadedCount} uploaded`}</div>
+                {canContinue && !ytLoading && allUploaded && (
+                  <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, background: 'rgba(68,136,255,0.08)', border: '1px solid #223355', borderRadius: 6, padding: '3px 8px', display: 'inline-block' }}>
+                    ✨ Part {(canContinue.part || 1) + 1} ban sakta hai
+                  </div>
+                )}
               </div>
               <span style={{ fontSize: 22, color: `${meta.color}66` }}>›</span>
             </div>
