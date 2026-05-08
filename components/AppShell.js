@@ -12,12 +12,13 @@ const BOTTOM_TABS = [
   { key: 'activity',       icon: '💬', label: 'Activity',    path: '/activity'       },
   { key: 'create-series',  icon: '🎬', label: 'Series',      path: '/create-series'  },
   { key: 'compare-series', icon: '⚔️', label: 'Compare',     path: '/compare-action' },
-  { key: 'shorts-creator', icon: '🩳', label: 'Shorts',      path: '/shorts-creator' },
+  { key: 'gk-series',      icon: '📖', label: 'Gk',               path: '/gk-series' },
 ];
 
 // ── Sidebar Only Tabs ─────────────────────────────────────────
 const SIDEBAR_ONLY_TABS = [
   { key: 'long-video', icon: '🎥', label: 'Long Video', path: '/long-video' },
+  { key: 'short-creator',   icon: '⚡', label: 'short',   path: '/short-creator'   },
   { key: 'audit',   icon: '🔥', label: 'audit',   path: '/audit'   },
 ];
 
@@ -31,6 +32,7 @@ const TAB_COLORS = {
   'shorts-creator': '#ff4488',
   'long-video':     '#4488ff',
   audit:         '#ff4400',
+  gk-series:      '#ffaa00',
 };
 
 function getNotifStyle(n) {
