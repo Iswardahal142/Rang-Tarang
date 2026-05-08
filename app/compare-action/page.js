@@ -104,6 +104,26 @@ Teacher says: "यह ${item.label2} है! बहुत अच्छे!" Teac
 No "?" anywhere. No background music. 10 seconds total. Smooth. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
+function buildCompareImagePrompt(item) {
+  const obj1Handheld = isHandheld(item.object1);
+  const obj2Handheld = isHandheld(item.object2);
+  let placement;
+  if (obj1Handheld && obj2Handheld) {
+    placement = `Teacher standing center-left, smiling. Teacher holds big Pixar 3D cartoon ${item.object1} in LEFT hand raised toward camera, and big Pixar 3D cartoon ${item.object2} in RIGHT hand raised toward camera. Both objects clearly visible, large, and at eye level.`;
+  } else if (obj1Handheld && !obj2Handheld) {
+    placement = `Teacher standing center-right, smiling. Big Pixar 3D ${item.object2} placed on floor at left side, large and clearly visible. Teacher holds Pixar 3D cartoon ${item.object1} in right hand raised toward camera.`;
+  } else if (!obj1Handheld && obj2Handheld) {
+    placement = `Teacher standing center-left, smiling. Big Pixar 3D ${item.object1} placed on floor at left side, large and clearly visible. Teacher holds Pixar 3D cartoon ${item.object2} in right hand raised toward camera.`;
+  } else {
+    placement = `Teacher standing center-bottom, smiling, arms open wide. Big Pixar 3D ${item.object1} placed on floor at LEFT side, large clearly visible. Big Pixar 3D ${item.object2} placed on floor at RIGHT side, large clearly visible.`;
+  }
+  return `Use reference background exactly. Use reference teacher character exactly. ${placement} Small label "${item.label1}" floating under left object, "${item.label2}" floating under right object, bold colorful text. 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
+}
+
+function buildActionImagePrompt(item) {
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, in the middle of performing this action: ${item.action} Action is clearly visible and expressive. Teacher looks excited and energetic. 9:16 vertical. Pixar style. No text. No "?" anywhere.`;
+}
+
 function buildActionVideoPrompt(item, isFirst = true) {
   const prefix = isFirst ? 'तो बताओ..' : 'अब बताओ..';
   return `Use reference image exactly as background scene. Teacher standing center facing camera.
@@ -529,7 +549,10 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
       ]},
       ...(s.items || []).map((item, i) => ({
         key: `item_${i}`, title: `${i + 1}. ${item.name}`, color: s.color,
-        prompts: [{ type: '🎬 VIDEO', text: s.type === 'compare' ? buildCompareVideoPrompt(item, i === 0) : buildActionVideoPrompt(item, i === 0) }]
+        prompts: [
+          { type: '🖼 IMAGE', text: s.type === 'compare' ? buildCompareImagePrompt(item) : buildActionImagePrompt(item) },
+          { type: '🎬 VIDEO', text: s.type === 'compare' ? buildCompareVideoPrompt(item, i === 0) : buildActionVideoPrompt(item, i === 0) }
+        ]
       })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [
         { type: '🎬 VIDEO', text: buildOutroVideoPrompt() }
