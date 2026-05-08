@@ -32,7 +32,7 @@ const TAB_COLORS = {
   'shorts-creator': '#ff4488',
   'long-video':     '#4488ff',
   audit:         '#ff4400',
-  gk-series:      '#ffaa00',
+  'gk-series':      '#ffaa00',
 };
 
 function getNotifStyle(n) {
