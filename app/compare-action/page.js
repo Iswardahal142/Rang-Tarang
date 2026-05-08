@@ -35,10 +35,6 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_compare', id));
 }
 
-// ── Folder Logic ──────────────────────────────────────
-// Compare: folderKey = slugified series base name (e.g. "big_small")
-// Action:  folderKey = "action" (always one folder)
-
 function nameToFolderKey(name) {
   return name.replace(/ Part \d+$/i, '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 }
@@ -47,7 +43,6 @@ function getFolderMeta(folderKey, seriesList) {
   if (folderKey === 'action') {
     return { label: 'Actions', emoji: '🏃', color: '#44bb66' };
   }
-  // For compare folders, get emoji+color from first series in that folder
   const first = seriesList.find(s => s.folderKey === folderKey);
   const label = folderKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   return { label, emoji: first?.emoji || '⚖️', color: first?.color || '#ff8800' };
@@ -68,7 +63,13 @@ function hasNextPart(series, allSeries) {
   return allSeries.some(s => s.folderKey === series.folderKey && (s.part || 1) === currentPart + 1);
 }
 
-// ── Prompt Builders ───────────────────────────────────
+function isHandheld(objectDesc) {
+  const o = (objectDesc || '').toLowerCase();
+  return !['elephant','giraffe','horse','cow','lion','tiger','bus','truck','car','train',
+    'mountain','hill','tree','house','building','ship','boat','sofa','table','refrigerator',
+    'washing machine','bicycle','bike','motorcycle','airplane','helicopter'].some(w => o.includes(w));
+}
+
 function buildIntroImagePrompt(seriesName, items = []) {
   const itemsDesc = items.slice(0, 3).map(i => i.name).join(', ') || 'colorful educational items';
   return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${seriesName}" floating center with colorful sparkles. Show related items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text.`;
@@ -76,7 +77,7 @@ function buildIntroImagePrompt(seriesName, items = []) {
 
 function buildIntroVideoPrompt(seriesName, part = 1) {
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
-  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${seriesName}" with hand and slides it off screen to the right. Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${seriesName}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Teacher grabs the title text "${seriesName}" with hand and slides it off screen to the right. Teacher says in Hindi: "हेल्लो बच्चों! आज की video में हम ${seriesName} compare करेंगे${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildOutroVideoPrompt() {
@@ -85,14 +86,24 @@ function buildOutroVideoPrompt() {
 
 function buildCompareVideoPrompt(item, isFirst = true) {
   const prefix = isFirst ? 'तो बताओ..' : 'अब बताओ..';
-  return `Use reference image exactly as background scene. Teacher standing center facing camera.
-On the LEFT side of screen: Big Pixar 3D animated ${item.object1} — large, clearly visible, with a small label "${item.label1}" below it.
-On the RIGHT side of screen: Big Pixar 3D animated ${item.object2} — large, clearly visible, with a small label "${item.label2}" below it.
-Both objects gently bobbing up and down. Teacher looks at both objects curiously and points to both alternately.
+  const obj1Handheld = isHandheld(item.object1);
+  const obj2Handheld = isHandheld(item.object2);
+
+  const placement = (obj1Handheld && obj2Handheld)
+    ? `Teacher standing center facing camera. Teacher holds Pixar 3D cartoon ${item.object1} in LEFT hand showing it to camera, and holds Pixar 3D cartoon ${item.object2} in RIGHT hand showing it to camera. Both objects clearly visible and large.`
+    : (obj1Handheld && !obj2Handheld)
+    ? `Teacher standing center-right. Big Pixar 3D ${item.object2} placed on floor at left side. Teacher holds Pixar 3D cartoon ${item.object1} in right hand toward camera.`
+    : (!obj1Handheld && obj2Handheld)
+    ? `Teacher standing center-left. Big Pixar 3D ${item.object1} placed on floor at left side. Teacher holds Pixar 3D cartoon ${item.object2} in right hand toward camera.`
+    : `Teacher standing center. Big Pixar 3D ${item.object1} on floor LEFT side. Big Pixar 3D ${item.object2} on floor RIGHT side.`;
+
+  return `Use reference image exactly as background scene. ${placement}
+Both objects have small labels — "${item.label1}" under left object, "${item.label2}" under right object.
+Teacher looks at both objects curiously and points to both alternately.
 Teacher asks in Hindi: "${prefix} इन दोनों में से ${item.question} कौनसा है?"
 Bold rainbow gradient text "${item.question} कौनसा है?" visible at very bottom center. Pause 2 seconds.
-Teacher walks toward ${item.answer1object} and touches it — it glows brightly. Bottom text changes to glowing bold "यह ${item.label1} है!"
-Teacher says in Hindi: "यह ${item.label1} है!" Then teacher walks to ${item.answer2object} touches it — it glows. Text changes to "यह ${item.label2} है!"
+Teacher touches/points to ${item.answer1object} — it glows brightly. Bottom text changes to glowing bold "यह ${item.label1} है!"
+Teacher says in Hindi: "यह ${item.label1} है!" Then touches ${item.answer2object} — it glows. Text changes to "यह ${item.label2} है!"
 Teacher says: "यह ${item.label2} है! बहुत अच्छे!" Teacher smiles and gives thumbs up.
 No "?" anywhere. No background music. 10 seconds total. Smooth. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
@@ -124,7 +135,6 @@ async function detectEmoji(name) {
   return text.trim().slice(0, 2) || '⚖️';
 }
 
-// ── MAIN PAGE ─────────────────────────────────────────
 function CompareActionPage({ user }) {
   const toast = useToast();
   const [list, setList]               = useState([]);
@@ -162,14 +172,14 @@ function CompareActionPage({ user }) {
     try {
       const existing = list.map(s => s.name).join(', ') || 'none';
       const typeHint = seriesType === 'compare'
-        ? 'comparison topics using opposite quality pairs like: Big Small, Long Short, Hot Cold, Fast Slow, Heavy Light, Tall Short, Thick Thin, Wide Narrow, Old New, Tiny Huge, Hard Soft, Loud Quiet, Near Far, Full Empty, Clean Dirty, Happy Sad, Open Closed, Wet Dry'
+        ? 'comparison topics using opposite quality pairs like: Big Small, Long Short, Hot Cold, Fast Slow, Heavy Light, Tall Short, Thick Thin, Wide Narrow, Old New, Tiny Huge, Hard Soft, Loud Quiet, Near Far, Full Empty, Clean Dirty, Happy Sad, Open Closed, Wet Dry, Sweet Sour, Rough Smooth, Bright Dark'
         : 'action topics like Jump, Run, Walk, Dance, Swim, Clap, Spin, Crawl, Hop, Stretch';
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created: ${existing}
 Suggest exactly 6 NEW unique kids educational ${typeHint} that have NOT been created yet.
 Each suggestion should be exactly 2 words representing opposite qualities.
 Return ONLY a JSON array of short names (2 words each), no markdown:
-${seriesType === 'compare' ? '["Long Short","Tiny Huge","Heavy Light","Tall Short","Hot Cold"]' : '["Jump","Run","Walk","Dance","Swim","Clap"]'}`);
+${seriesType === 'compare' ? '["Long Short","Tiny Huge","Heavy Light","Tall Short","Hot Cold","Sweet Sour"]' : '["Jump","Run","Walk","Dance","Swim","Clap"]'}`);
       setAiSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setSugLoading(false);
@@ -184,37 +194,52 @@ ${seriesType === 'compare' ? '["Long Short","Tiny Huge","Heavy Light","Tall Shor
 
       if (seriesType === 'compare') {
         const text = await aiCall(`You are making a Hindi kids YouTube comparison series called "${customName}".
-The series teaches kids to compare two opposite qualities (e.g. Big vs Small, Long vs Short, Hot vs Cold, Tiny vs Huge, Fast vs Slow, Heavy vs Light, Tall vs Short, Thick vs Thin, Wide vs Narrow, Old vs New, etc.)
 
-Extract the TWO qualities from the series name: "${customName}"
-- quality1 = first word/concept (e.g. "Long", "Tiny", "Hot", "Heavy")
-- quality2 = second word/concept (e.g. "Short", "Huge", "Cold", "Light")
+Analyze the series name "${customName}" and extract exactly TWO opposing qualities/concepts being compared.
+Examples of how to analyze:
+- "Big Small" → quality1=Big, quality2=Small (size)
+- "Sweet Sour" → quality1=Sweet, quality2=Sour (taste)
+- "Hot Cold" → quality1=Hot, quality2=Cold (temperature)
+- "Fast Slow" → quality1=Fast, quality2=Slow (speed)
+- "Tall Short" → quality1=Tall, quality2=Short (height)
+- "Heavy Light" → quality1=Heavy, quality2=Light (weight)
+- "Rough Smooth" → quality1=Rough, quality2=Smooth (texture)
+- "Loud Quiet" → quality1=Loud, quality2=Quiet (sound)
+- "Bright Dark" → quality1=Bright, quality2=Dark (light)
+- "Wet Dry" → quality1=Wet, quality2=Dry (moisture)
 
-Generate exactly 5 comparison items. Each item must:
-1. Use a SPECIFIC real-world object pair that clearly shows this quality difference
-2. label1 = quality1 word in English (e.g. "Long")
-3. label2 = quality2 word in English (e.g. "Short")
-4. question = quality1 word in Hindi (e.g. "लंबा" for Long, "छोटा" for Tiny, "गरम" for Hot, "भारी" for Heavy, "बड़ा" for Big, "ऊंचा" for Tall, "मोटा" for Thick, "चौड़ा" for Wide, "पुराना" for Old, "तेज़" for Fast)
-5. object1 = Pixar 3D animated description of the object that IS quality1
-6. object2 = Pixar 3D animated description of the object that IS quality2
-7. answer1object = "left side object" or "right side object" reference
+Now generate exactly 5 comparison items for "${customName}".
+EVERY item must use objects that BEST represent these exact qualities.
+Choose objects that kids aged 2-6 easily recognize.
+All 5 items must use DIFFERENT objects — no repeats.
 
-Return ONLY JSON array, no markdown, no explanation:
+STRICT RULES:
+- object1 must clearly represent quality1 of "${customName}"
+- object2 must clearly represent quality2 of "${customName}"
+- name = "Object1 vs Object2"
+- label1 = quality1 in English
+- label2 = quality2 in English
+- question = quality1 translated to Hindi
+- object1/object2 = Pixar 3D cartoon description, max 6 words, NO location/scene
+- answer1object = brief reference like "candy on left"
+- answer2object = brief reference like "lemon on right"
+
+Return ONLY JSON array, no markdown:
 [{
-  "name": "Giraffe vs Rabbit",
-  "question": "लंबा",
-  "label1": "Long",
-  "label2": "Short",
-  "object1": "tall majestic Pixar 3D giraffe with long neck standing proudly",
-  "object2": "small fluffy Pixar 3D rabbit sitting cutely",
-  "answer1object": "giraffe on left",
-  "answer2object": "rabbit on right"
+  "name": "Candy vs Lemon",
+  "question": "मीठा",
+  "label1": "Sweet",
+  "label2": "Sour",
+  "object1": "round pink candy with sparkles",
+  "object2": "bright yellow lemon cut in half",
+  "answer1object": "candy on left",
+  "answer2object": "lemon on right"
 }]
 Avoid repeating: ${existing}`);
         items = JSON.parse(text.replace(/```json|```/g, '').trim());
       } else {
         const text = await aiCall(`Generate exactly 5 unique action items for kids YouTube series "${customName}".
-Each item should be a simple physical action a teacher character can perform.
+Each item should be a simple physical action a teacher character can perform clearly on camera.
 Return ONLY JSON array, no markdown:
 [{
   "name": "Jump",
@@ -229,18 +254,12 @@ Avoid overlap with: ${existing}`);
       const folderKey = seriesType === 'action' ? 'action' : nameToFolderKey(baseName);
 
       await saveSeries(user.uid, {
-        name: baseName,
-        emoji,
-        color: selectedColor,
-        type: seriesType,
-        folderKey,
-        items,
-        doneSections: {}, doneCount: 0, progress: 0,
+        name: baseName, emoji, color: selectedColor, type: seriesType, folderKey,
+        items, doneSections: {}, doneCount: 0, progress: 0,
         part: 1, ytTitle: '', ytDescription: ''
       });
       toast(`✅ "${baseName}" ready!`);
-      setModal('none'); setCustomName('');
-      loadList();
+      setModal('none'); setCustomName(''); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setGenerating(false);
   }
@@ -253,9 +272,16 @@ Avoid overlap with: ${existing}`);
       let newItems = [];
 
       if (series.type === 'compare') {
-        const text = await aiCall(`Generate 5 MORE unique comparison items for kids series "${series.name}".
+        const text = await aiCall(`You are making MORE items for Hindi kids YouTube comparison series "${series.name}".
+
+Analyze "${series.name}" — keep ALL new items relevant to these exact qualities only.
+Generate exactly 5 NEW comparison items using DIFFERENT objects than before.
+Every item must clearly show the "${series.name}" quality difference.
+object1/object2 = Pixar 3D description, max 6 words, NO location/scene.
+
 Already done (DO NOT repeat): ${done}
-Return ONLY JSON array:
+
+Return ONLY JSON array, no markdown:
 [{"name":"...","question":"...","label1":"...","label2":"...","object1":"...","object2":"...","answer1object":"...","answer2object":"..."}]`);
         newItems = JSON.parse(text.replace(/```json|```/g, '').trim());
       } else {
@@ -268,7 +294,6 @@ Return ONLY JSON array:
 
       const newPart = (series.part || 1) + 1;
       const baseName = series.name.replace(/ Part \d+$/i, '').trim();
-
       await saveSeries(user.uid, {
         name: `${baseName} Part ${newPart}`,
         emoji: series.emoji, color: series.color, type: series.type,
@@ -335,9 +360,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
         { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) }
       ]},
       ...(s.items || []).map((item, i) => ({
-        key: `item_${i}`,
-        title: `${i + 1}. ${item.name}`,
-        color: s.color,
+        key: `item_${i}`, title: `${i + 1}. ${item.name}`, color: s.color,
         prompts: [{ type: '🎬 VIDEO', text: s.type === 'compare' ? buildCompareVideoPrompt(item, i === 0) : buildActionVideoPrompt(item, i === 0) }]
       })),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [
@@ -354,7 +377,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -365,7 +387,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
             </div>
           </div>
 
-          {/* Title & Desc */}
           <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
             <div style={{ padding: '13px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
@@ -385,7 +406,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
             )}
           </div>
 
-          {/* Sections */}
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -452,7 +472,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
             const total = (s.items || []).length + 2;
             const nextExists = hasNextPart(s, list);
             const isContinuing = continuing === s.id;
-
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: '1px solid #1e1e1e', borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -463,13 +482,10 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
                   <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (s.progress || 0) + '%', background: s.color, borderRadius: 4 }} />
                   </div>
-                  {/* Continue button — only if next part does NOT exist */}
                   {!nextExists && (
                     <button onClick={(e) => continueSeries(e, s)} disabled={isContinuing}
                       style={{ marginTop: 10, background: isContinuing ? '#111' : `${s.color}18`, border: `1px solid ${s.color}55`, color: isContinuing ? '#555' : s.color, borderRadius: 8, padding: '7px 12px', fontSize: 11, fontWeight: 700, cursor: isContinuing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
-                      {isContinuing
-                        ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</>
-                        : `➕ Continue → Part ${(s.part || 1) + 1}`}
+                      {isContinuing ? <><div className="spinner" style={{ width: 12, height: 12, borderTopColor: s.color }} /> Generating...</> : `➕ Continue → Part ${(s.part || 1) + 1}`}
                     </button>
                   )}
                 </div>
@@ -485,7 +501,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
   // ── LEVEL 1: FOLDER LIST ────────────────────────────
   const grouped = groupByFolder(list);
   const sortedFolders = Object.keys(grouped).sort((a, b) => {
-    // Action folder first, then compare folders by latest
     if (a === 'action') return -1;
     if (b === 'action') return 1;
     const aLatest = grouped[a]?.[0]?.createdAt?.seconds || 0;
@@ -501,14 +516,10 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-        {/* CREATE MODAL */}
         {modal === 'create' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d0800', border: '1px solid #443300', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#ff8800', marginBottom: 14, textAlign: 'center' }}>⚔️ Naya Series Banao</div>
-
-              {/* Type selector */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 <button onClick={() => { setSeriesType('compare'); setSelectedColor('#ff8800'); }}
                   style={{ flex: 1, background: seriesType === 'compare' ? 'rgba(255,136,0,0.2)' : '#111', border: `1px solid ${seriesType === 'compare' ? '#ff8800' : '#333'}`, color: seriesType === 'compare' ? '#ff8800' : '#666', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
@@ -519,19 +530,14 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
                   🏃 Action
                 </button>
               </div>
-
-              {/* Series naam */}
               <input value={customName} onChange={e => setCustomName(e.target.value)}
-                placeholder={seriesType === 'compare' ? 'e.g. Big Small, Hot Cold...' : 'e.g. Jump Run, Dance Walk...'}
+                placeholder={seriesType === 'compare' ? 'e.g. Big Small, Hot Cold, Sweet Sour...' : 'e.g. Jump Run, Dance Walk...'}
                 maxLength={40}
                 style={{ width: '100%', background: '#1a1000', border: '1px solid #443300', color: '#eee', borderRadius: 10, padding: '12px 14px', fontSize: 14, outline: 'none', marginBottom: 10, fontFamily: 'inherit', boxSizing: 'border-box' }} />
-
-              {/* AI Suggestions */}
               <button onClick={loadSuggestions} disabled={sugLoading}
                 style={{ width: '100%', background: sugLoading ? '#111' : 'linear-gradient(135deg,#1a0800,#0d0500)', border: '1px solid #663300', color: sugLoading ? '#555' : '#ff8800', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: sugLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
                 {sugLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ff8800' }} />Soch raha hai...</> : '🤖 AI se Ideas Lo'}
               </button>
-
               {aiSuggestions.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
@@ -545,8 +551,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
                   </div>
                 </div>
               )}
-
-              {/* Color */}
               <div style={{ fontSize: 10, color: '#777', marginBottom: 8 }}>COLOR CHUNO</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {COLORS.map(c => (
@@ -554,7 +558,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
                     style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: `3px solid ${selectedColor === c ? '#fff' : 'transparent'}`, transform: selectedColor === c ? 'scale(1.2)' : 'scale(1)', transition: 'all 0.15s' }} />
                 ))}
               </div>
-
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={generateSeries} disabled={generating || !customName.trim()}
                   style={{ flex: 2, background: generating ? '#1a0800' : 'linear-gradient(135deg,#cc5500,#ff8800)', border: 'none', color: generating ? '#555' : '#fff', borderRadius: 12, padding: '13px', fontSize: 13, fontWeight: 800, cursor: generating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -567,7 +570,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
           </div>
         )}
 
-        {/* FOLDER CARDS */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
             <div className="spinner" style={{ margin: '0 auto 10px', borderTopColor: '#ff8800' }} />
@@ -582,12 +584,9 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
         ) : sortedFolders.map(folderKey => {
           const meta = getFolderMeta(folderKey, list);
           const seriesInFolder = grouped[folderKey];
-          // For compare folders: show series count (parts)
-          // For action folder: show series count
           const countLabel = folderKey === 'action'
             ? `${seriesInFolder.length} series`
             : `${seriesInFolder.length} part${seriesInFolder.length > 1 ? 's' : ''}`;
-
           return (
             <div key={folderKey} onClick={() => setOpenFolder(folderKey)}
               style={{ background: '#0d0d0d', border: `1px solid ${meta.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
