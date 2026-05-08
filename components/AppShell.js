@@ -18,7 +18,7 @@ const BOTTOM_TABS = [
 // ── Sidebar Only Tabs ─────────────────────────────────────────
 const SIDEBAR_ONLY_TABS = [
   { key: 'long-video', icon: '🎥', label: 'Long Video', path: '/long-video' },
-  { key: 'short-creator',   icon: '⚡', label: 'short',   path: '/short-creator'   },
+  { key: 'shorts-creator',   icon: '⚡', label: 'short',   path: '/short-creator'   },
   { key: 'audit',   icon: '🔥', label: 'audit',   path: '/audit'   },
 ];
 
