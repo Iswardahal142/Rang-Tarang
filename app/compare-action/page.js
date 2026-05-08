@@ -40,9 +40,7 @@ function nameToFolderKey(name) {
 }
 
 function getFolderMeta(folderKey, seriesList) {
-  if (folderKey === 'action') {
-    return { label: 'Actions', emoji: '🏃', color: '#44bb66' };
-  }
+  if (folderKey === 'action') return { label: 'Actions', emoji: '🏃', color: '#44bb66' };
   const first = seriesList.find(s => s.folderKey === folderKey);
   const label = folderKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   return { label, emoji: first?.emoji || '⚖️', color: first?.color || '#ff8800' };
@@ -88,7 +86,6 @@ function buildCompareVideoPrompt(item, isFirst = true) {
   const prefix = isFirst ? 'तो बताओ..' : 'अब बताओ..';
   const obj1Handheld = isHandheld(item.object1);
   const obj2Handheld = isHandheld(item.object2);
-
   const placement = (obj1Handheld && obj2Handheld)
     ? `Teacher standing center facing camera. Teacher holds Pixar 3D cartoon ${item.object1} in LEFT hand showing it to camera, and holds Pixar 3D cartoon ${item.object2} in RIGHT hand showing it to camera. Both objects clearly visible and large.`
     : (obj1Handheld && !obj2Handheld)
@@ -96,7 +93,6 @@ function buildCompareVideoPrompt(item, isFirst = true) {
     : (!obj1Handheld && obj2Handheld)
     ? `Teacher standing center-left. Big Pixar 3D ${item.object1} placed on floor at left side. Teacher holds Pixar 3D cartoon ${item.object2} in right hand toward camera.`
     : `Teacher standing center. Big Pixar 3D ${item.object1} on floor LEFT side. Big Pixar 3D ${item.object2} on floor RIGHT side.`;
-
   return `Use reference image exactly as background scene. ${placement}
 Both objects have small labels — "${item.label1}" under left object, "${item.label2}" under right object.
 Teacher looks at both objects curiously and points to both alternately.
@@ -119,6 +115,16 @@ Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे
 No floating 3D objects. No "?" anywhere. No background music. 8 seconds total. Smooth. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
+function formatScheduledTime(isoString) {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = date.getHours(); const min = date.getMinutes().toString().padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} • ${h}:${min} ${ampm}`;
+}
+
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
 
 async function aiCall(prompt) {
@@ -133,6 +139,71 @@ async function aiCall(prompt) {
 async function detectEmoji(name) {
   const text = await aiCall(`Given this kids YouTube series name: "${name}" Return ONLY a single most appropriate emoji. No explanation, just one emoji.`);
   return text.trim().slice(0, 2) || '⚖️';
+}
+
+// ── TitleDescSection Component ──
+function TitleDescSection({ series, genTD, onGenerate, onSave, onCopy, copiedKey }) {
+  const hasTitleDesc = !!(series.ytTitle && series.ytDescription);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(series.ytTitle || '');
+  const [desc, setDesc]   = useState(series.ytDescription || '');
+  const [tags, setTags]   = useState(series.ytTags || '');
+  useEffect(() => {
+    setTitle(series.ytTitle || '');
+    setDesc(series.ytDescription || '');
+    setTags(series.ytTags || '');
+  }, [series.ytTitle, series.ytDescription, series.ytTags]);
+  return (
+    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
+      <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
+          {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
+          {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
+        </div>
+        <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
+      </div>
+      {editing && (
+        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button onClick={onGenerate} disabled={genTD}
+            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
+          </button>
+          {/* Title */}
+          <div>
+            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 YouTube Title</div>
+            <div style={{ position: 'relative' }}>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTitle' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+          {/* Description */}
+          <div>
+            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 YouTube Description</div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+              <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytDesc' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+          {/* Tags */}
+          <div>
+            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>🏷️ YouTube Tags</div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags comma se separate..." rows={3}
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+              <button onClick={() => onCopy('ytTags', tags)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTags' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTags' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTags' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTags' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+          <button onClick={() => { onSave(title, desc, tags); setEditing(false); }}
+            style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
+            💾 Save Karo
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CompareActionPage({ user }) {
@@ -152,13 +223,63 @@ function CompareActionPage({ user }) {
   const [generating, setGenerating]   = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [sugLoading, setSugLoading]   = useState(false);
+  const [ytVideos, setYtVideos]       = useState([]);
+  const [ytLoading, setYtLoading]     = useState(true);
+  const [playlistStatus, setPlaylistStatus] = useState({});
 
-  useEffect(() => { loadList(); }, [user.uid]);
+  useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
   async function loadList() {
     setLoading(true);
     try { setList(await getSeries(user.uid)); } catch { toast('❌ Load fail'); }
     setLoading(false);
+  }
+
+  async function fetchYT() {
+    setYtLoading(true);
+    try {
+      const r = await fetch('/api/youtube');
+      const d = await r.json();
+      if (!d.error) setYtVideos(d.videos || []);
+    } catch {}
+    setYtLoading(false);
+  }
+
+  function checkUploaded(series) {
+    if (!ytVideos.length) return null;
+    const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
+    if (!matchStr || matchStr.length < 3) return null;
+    const matched = ytVideos.find(v => {
+      const ytTitle = (v.title || '').toLowerCase();
+      return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
+    });
+    if (!matched) return false;
+    if (matched.isScheduled) return { status: 'scheduled', scheduledAt: matched.scheduledAt };
+    if (matched.privacyStatus === 'private') return 'private';
+    return true;
+  }
+
+  async function addToPlaylist(series, videoId) {
+    setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
+    try {
+      const folderMeta = getFolderMeta(series.folderKey, list);
+      const res = await fetch('/api/youtube/playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, playlistTitle: folderMeta.label }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPlaylistStatus(p => ({ ...p, [series.id]: 'added' }));
+      await updateSeries(user.uid, series.id, { playlistAdded: true });
+      const updated = { ...series, playlistAdded: true };
+      setList(l => l.map(s => s.id === series.id ? updated : s));
+      setOpenSeries(updated);
+      toast(data.message);
+    } catch (e) {
+      setPlaylistStatus(p => ({ ...p, [series.id]: null }));
+      toast('❌ ' + e.message);
+    }
   }
 
   function copy(key, text) {
@@ -177,7 +298,6 @@ function CompareActionPage({ user }) {
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang".
 Already created: ${existing}
 Suggest exactly 6 NEW unique kids educational ${typeHint} that have NOT been created yet.
-Each suggestion should be exactly 2 words representing opposite qualities.
 Return ONLY a JSON array of short names (2 words each), no markdown:
 ${seriesType === 'compare' ? '["Long Short","Tiny Huge","Heavy Light","Tall Short","Hot Cold","Sweet Sour"]' : '["Jump","Run","Walk","Dance","Swim","Clap"]'}`);
       setAiSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
@@ -191,72 +311,29 @@ ${seriesType === 'compare' ? '["Long Short","Tiny Huge","Heavy Light","Tall Shor
     try {
       const existing = list.map(s => s.name).join(', ');
       let items = [];
-
       if (seriesType === 'compare') {
         const text = await aiCall(`You are making a Hindi kids YouTube comparison series called "${customName}".
-
 Analyze the series name "${customName}" and extract exactly TWO opposing qualities/concepts being compared.
-Examples of how to analyze:
-- "Big Small" → quality1=Big, quality2=Small (size)
-- "Sweet Sour" → quality1=Sweet, quality2=Sour (taste)
-- "Hot Cold" → quality1=Hot, quality2=Cold (temperature)
-- "Fast Slow" → quality1=Fast, quality2=Slow (speed)
-- "Tall Short" → quality1=Tall, quality2=Short (height)
-- "Heavy Light" → quality1=Heavy, quality2=Light (weight)
-- "Rough Smooth" → quality1=Rough, quality2=Smooth (texture)
-- "Loud Quiet" → quality1=Loud, quality2=Quiet (sound)
-- "Bright Dark" → quality1=Bright, quality2=Dark (light)
-- "Wet Dry" → quality1=Wet, quality2=Dry (moisture)
-
-Now generate exactly 5 comparison items for "${customName}".
-EVERY item must use objects that BEST represent these exact qualities.
-Choose objects that kids aged 2-6 easily recognize.
-All 5 items must use DIFFERENT objects — no repeats.
-
-STRICT RULES:
-- object1 must clearly represent quality1 of "${customName}"
-- object2 must clearly represent quality2 of "${customName}"
-- name = "Object1 vs Object2"
-- label1 = quality1 in English
-- label2 = quality2 in English
-- question = quality1 translated to Hindi
-- object1/object2 = Pixar 3D cartoon description, max 6 words, NO location/scene
-- answer1object = brief reference like "candy on left"
-- answer2object = brief reference like "lemon on right"
-
+Examples: "Big Small"→Big/Small(size), "Sweet Sour"→Sweet/Sour(taste), "Hot Cold"→Hot/Cold(temp), "Fast Slow"→Fast/Slow(speed), "Tall Short"→Tall/Short(height), "Heavy Light"→Heavy/Light(weight), "Rough Smooth"→Rough/Smooth(texture), "Loud Quiet"→Loud/Quiet(sound).
+Generate exactly 5 comparison items for "${customName}". Every item must use objects that BEST represent these exact qualities. Kids aged 2-6 must recognize them. All 5 must use DIFFERENT objects.
+RULES: object1=quality1, object2=quality2, name="Object1 vs Object2", label1=quality1 English, label2=quality2 English, question=quality1 Hindi, object1/object2=Pixar 3D desc max 6 words NO location/scene.
 Return ONLY JSON array, no markdown:
-[{
-  "name": "Candy vs Lemon",
-  "question": "मीठा",
-  "label1": "Sweet",
-  "label2": "Sour",
-  "object1": "round pink candy with sparkles",
-  "object2": "bright yellow lemon cut in half",
-  "answer1object": "candy on left",
-  "answer2object": "lemon on right"
-}]
-Avoid repeating: ${existing}`);
+[{"name":"Candy vs Lemon","question":"मीठा","label1":"Sweet","label2":"Sour","object1":"round pink candy with sparkles","object2":"bright yellow lemon cut in half","answer1object":"candy on left","answer2object":"lemon on right"}]
+Avoid: ${existing}`);
         items = JSON.parse(text.replace(/```json|```/g, '').trim());
       } else {
         const text = await aiCall(`Generate exactly 5 unique action items for kids YouTube series "${customName}".
-Each item should be a simple physical action a teacher character can perform clearly on camera.
-Return ONLY JSON array, no markdown:
-[{
-  "name": "Jump",
-  "action": "Teacher jumps up and down excitedly 3 times with big smile, arms raised high each time"
-}]
-Avoid overlap with: ${existing}`);
+Return ONLY JSON array: [{"name":"Jump","action":"Teacher jumps up and down excitedly 3 times with big smile, arms raised high each time"}]
+Avoid: ${existing}`);
         items = JSON.parse(text.replace(/```json|```/g, '').trim());
       }
-
       const emoji = await detectEmoji(customName);
       const baseName = customName.trim();
       const folderKey = seriesType === 'action' ? 'action' : nameToFolderKey(baseName);
-
       await saveSeries(user.uid, {
         name: baseName, emoji, color: selectedColor, type: seriesType, folderKey,
         items, doneSections: {}, doneCount: 0, progress: 0,
-        part: 1, ytTitle: '', ytDescription: ''
+        part: 1, ytTitle: '', ytDescription: '', ytTags: ''
       });
       toast(`✅ "${baseName}" ready!`);
       setModal('none'); setCustomName(''); loadList();
@@ -270,39 +347,27 @@ Avoid overlap with: ${existing}`);
     try {
       const done = (series.items || []).map(i => i.name).join(', ');
       let newItems = [];
-
       if (series.type === 'compare') {
-        const text = await aiCall(`You are making MORE items for Hindi kids YouTube comparison series "${series.name}".
-
-Analyze "${series.name}" — keep ALL new items relevant to these exact qualities only.
-Generate exactly 5 NEW comparison items using DIFFERENT objects than before.
-Every item must clearly show the "${series.name}" quality difference.
-object1/object2 = Pixar 3D description, max 6 words, NO location/scene.
-
+        const text = await aiCall(`MORE items for Hindi kids YouTube comparison series "${series.name}".
+Analyze "${series.name}" — keep ALL items relevant to these exact qualities only.
+Generate exactly 5 NEW items using DIFFERENT objects. object1/object2=Pixar 3D desc max 6 words NO location/scene.
 Already done (DO NOT repeat): ${done}
-
-Return ONLY JSON array, no markdown:
-[{"name":"...","question":"...","label1":"...","label2":"...","object1":"...","object2":"...","answer1object":"...","answer2object":"..."}]`);
+Return ONLY JSON array: [{"name":"...","question":"...","label1":"...","label2":"...","object1":"...","object2":"...","answer1object":"...","answer2object":"..."}]`);
         newItems = JSON.parse(text.replace(/```json|```/g, '').trim());
       } else {
-        const text = await aiCall(`Generate 5 MORE unique action items for kids series "${series.name}".
-Already done (DO NOT repeat): ${done}
-Return ONLY JSON array:
-[{"name":"...","action":"..."}]`);
+        const text = await aiCall(`5 MORE unique action items for "${series.name}". Already done (NO repeat): ${done}
+Return ONLY JSON: [{"name":"...","action":"..."}]`);
         newItems = JSON.parse(text.replace(/```json|```/g, '').trim());
       }
-
       const newPart = (series.part || 1) + 1;
       const baseName = series.name.replace(/ Part \d+$/i, '').trim();
       await saveSeries(user.uid, {
         name: `${baseName} Part ${newPart}`,
-        emoji: series.emoji, color: series.color, type: series.type,
-        folderKey: series.folderKey,
+        emoji: series.emoji, color: series.color, type: series.type, folderKey: series.folderKey,
         items: newItems, doneSections: {}, doneCount: 0, progress: 0,
-        part: newPart, ytTitle: '', ytDescription: ''
+        part: newPart, ytTitle: '', ytDescription: '', ytTags: ''
       });
-      toast(`🎉 Part ${newPart} ready!`);
-      loadList();
+      toast(`🎉 Part ${newPart} ready!`); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setContinuing(null);
   }
@@ -324,21 +389,32 @@ Return ONLY JSON array:
     setGenTD(true);
     try {
       const itemNames = (series.items || []).map(i => i.name).join(', ');
-      const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang".
-Series: "${series.name}" Type: ${series.type}
+      const baseName = series.name.replace(/ Part \d+$/i, '').trim();
+      const partText = (series.part || 1) > 1 ? ` Part ${series.part}` : '';
+      const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
+Series: "${baseName}${partText}" Type: ${series.type}
 Items: ${itemNames}
-Generate title and description.
-TITLE: Max 60 chars, Hindi+English mix, end with "| Rang Tarang"
+Generate YouTube title, description, and tags.
+TITLE RULES: Max 60 chars, Hindi+English mix, end with "| Rang Tarang", NO emoji
 DESCRIPTION: Hook in Hindi, items list, subscribe line, hashtags
-Return ONLY JSON: {"title":"...","description":"..."}`);
+TAGS: Comma separated, max 15 tags, mix Hindi+English, topic specific
+Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
       const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-      await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description });
-      const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description };
+      await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags || '' });
+      const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags || '' };
       setList(l => l.map(s => s.id === series.id ? updated : s));
       setOpenSeries(updated);
-      toast('✅ Title ready!');
+      toast('✅ Title, Description & Tags ready!');
     } catch (e) { toast('❌ ' + e.message); }
     setGenTD(false);
+  }
+
+  async function saveTitleDesc(series, title, desc, tags) {
+    await updateSeries(user.uid, series.id, { ytTitle: title, ytDescription: desc, ytTags: tags });
+    const updated = { ...series, ytTitle: title, ytDescription: desc, ytTags: tags };
+    setList(l => l.map(s => s.id === series.id ? updated : s));
+    setOpenSeries(updated);
+    toast('💾 Saved!');
   }
 
   async function handleDelete(series) {
@@ -352,7 +428,16 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
     const s = openSeries;
     const done = s.doneSections || {};
     const total = (s.items || []).length + 2;
-    const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
+    const uploaded = checkUploaded(s);
+    const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
+    const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
+    const folderMeta = getFolderMeta(s.folderKey, list);
+
+    const matchedVideo = ytVideos.find(v => {
+      const matchStr = (s.ytTitle || s.name || '').trim().toLowerCase();
+      return (v.title || '').toLowerCase().includes(matchStr) || matchStr.includes((v.title || '').toLowerCase().slice(0, 20));
+    });
+    const videoId = matchedVideo?.videoId || null;
 
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
@@ -377,6 +462,7 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -387,25 +473,51 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
             </div>
           </div>
 
-          <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '13px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
-              <button onClick={() => generateTitleDesc(s)} disabled={genTD}
-                style={{ background: genTD ? '#111' : '#1a1000', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer' }}>
-                {genTD ? '...' : '🤖 Generate'}
-              </button>
+          {/* Upload Status */}
+          {!ytLoading && (
+            <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: uploaded === true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : '#ff8866' }}>
+                {uploaded === true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}` : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki'}
+              </span>
             </div>
-            {hasTitleDesc && (
-              <div style={{ padding: '0 14px 14px' }}>
-                <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>{s.ytTitle}</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => copy('ytTitle', s.ytTitle)} style={{ flex: 1, background: '#0a0a0a', border: '1px solid #223355', color: '#4477cc', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>📋 Copy Title</button>
-                  <button onClick={() => copy('ytDesc', s.ytDescription)} style={{ flex: 1, background: '#0a0a0a', border: '1px solid #223355', color: '#4477cc', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>📋 Copy Desc</button>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
 
+          {/* Playlist */}
+          {videoId ? (
+            <div style={{ background: '#0f0f0f', border: `1px solid ${s.playlistAdded || playlistStatus[s.id] === 'added' ? '#1a3a1a' : '#1a2a1a'}`, borderRadius: 12, padding: '13px 14px' }}>
+              <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>🎵 PLAYLIST</div>
+              {s.playlistAdded || playlistStatus[s.id] === 'added' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>✅</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#44bb66' }}>Already Added to Playlist</div>
+                    <div style={{ fontSize: 11, color: '#555' }}>{folderMeta.label}</div>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => addToPlaylist(s, videoId)} disabled={playlistStatus[s.id] === 'loading'}
+                  style={{ width: '100%', background: playlistStatus[s.id] === 'loading' ? '#111' : 'linear-gradient(135deg,#0a1a0a,#0a2a0a)', border: '1px solid #224422', color: playlistStatus[s.id] === 'loading' ? '#555' : '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: playlistStatus[s.id] === 'loading' ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {playlistStatus[s.id] === 'loading' ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#44bb66' }} />Adding...</> : `➕ Add to Playlist — ${folderMeta.label}`}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 12, padding: '13px 14px', fontSize: 12, color: '#444', textAlign: 'center' }}>
+              🎵 Pehle video YouTube pe upload karo
+            </div>
+          )}
+
+          {/* Title Desc Tags */}
+          <TitleDescSection
+            series={s}
+            genTD={genTD}
+            onGenerate={() => generateTitleDesc(s)}
+            onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)}
+            onCopy={copy}
+            copiedKey={copiedKey}
+          />
+
+          {/* Sections */}
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -453,7 +565,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
     const folderMeta = getFolderMeta(openFolder, list);
     const grouped = groupByFolder(list);
     const seriesInFolder = (grouped[openFolder] || []).sort((a, b) => (a.part || 1) - (b.part || 1));
-
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
@@ -461,7 +572,6 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
           <span style={{ fontSize: 13, fontWeight: 700, color: folderMeta.color }}>{folderMeta.emoji} {folderMeta.label}</span>
           <span style={{ fontSize: 11, color: '#444', fontWeight: 600 }}>{seriesInFolder.length} series</span>
         </div>
-
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {seriesInFolder.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40 }}>
@@ -472,13 +582,21 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
             const total = (s.items || []).length + 2;
             const nextExists = hasNextPart(s, list);
             const isContinuing = continuing === s.id;
+            const uploaded = checkUploaded(s);
+            const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
+            const uploadColor = uploaded === true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : uploaded === false ? '#ff8866' : '#555';
+            const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
+            const uploadText = ytLoading ? '🔍...' : uploaded === true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}` : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki';
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: '1px solid #1e1e1e', borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 28 }}>{s.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>{s.doneCount || 0}/{total} done</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount || 0}/{total} done</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
+                  </div>
                   <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (s.progress || 0) + '%', background: s.color, borderRadius: 4 }} />
                   </div>
@@ -522,16 +640,12 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
               <div style={{ fontSize: 14, fontWeight: 800, color: '#ff8800', marginBottom: 14, textAlign: 'center' }}>⚔️ Naya Series Banao</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 <button onClick={() => { setSeriesType('compare'); setSelectedColor('#ff8800'); }}
-                  style={{ flex: 1, background: seriesType === 'compare' ? 'rgba(255,136,0,0.2)' : '#111', border: `1px solid ${seriesType === 'compare' ? '#ff8800' : '#333'}`, color: seriesType === 'compare' ? '#ff8800' : '#666', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  ⚖️ Compare
-                </button>
+                  style={{ flex: 1, background: seriesType === 'compare' ? 'rgba(255,136,0,0.2)' : '#111', border: `1px solid ${seriesType === 'compare' ? '#ff8800' : '#333'}`, color: seriesType === 'compare' ? '#ff8800' : '#666', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⚖️ Compare</button>
                 <button onClick={() => { setSeriesType('action'); setSelectedColor('#44bb66'); }}
-                  style={{ flex: 1, background: seriesType === 'action' ? 'rgba(68,187,102,0.2)' : '#111', border: `1px solid ${seriesType === 'action' ? '#44bb66' : '#333'}`, color: seriesType === 'action' ? '#44bb66' : '#666', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  🏃 Action
-                </button>
+                  style={{ flex: 1, background: seriesType === 'action' ? 'rgba(68,187,102,0.2)' : '#111', border: `1px solid ${seriesType === 'action' ? '#44bb66' : '#333'}`, color: seriesType === 'action' ? '#44bb66' : '#666', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>🏃 Action</button>
               </div>
               <input value={customName} onChange={e => setCustomName(e.target.value)}
-                placeholder={seriesType === 'compare' ? 'e.g. Big Small, Hot Cold, Sweet Sour...' : 'e.g. Jump Run, Dance Walk...'}
+                placeholder={seriesType === 'compare' ? 'e.g. Big Small, Hot Cold, Sweet Sour...' : 'e.g. Jump, Run, Dance...'}
                 maxLength={40}
                 style={{ width: '100%', background: '#1a1000', border: '1px solid #443300', color: '#eee', borderRadius: 10, padding: '12px 14px', fontSize: 14, outline: 'none', marginBottom: 10, fontFamily: 'inherit', boxSizing: 'border-box' }} />
               <button onClick={loadSuggestions} disabled={sugLoading}
@@ -584,16 +698,12 @@ Return ONLY JSON: {"title":"...","description":"..."}`);
         ) : sortedFolders.map(folderKey => {
           const meta = getFolderMeta(folderKey, list);
           const seriesInFolder = grouped[folderKey];
-          const countLabel = folderKey === 'action'
-            ? `${seriesInFolder.length} series`
-            : `${seriesInFolder.length} part${seriesInFolder.length > 1 ? 's' : ''}`;
+          const countLabel = folderKey === 'action' ? `${seriesInFolder.length} series` : `${seriesInFolder.length} part${seriesInFolder.length > 1 ? 's' : ''}`;
           return (
             <div key={folderKey} onClick={() => setOpenFolder(folderKey)}
               style={{ background: '#0d0d0d', border: `1px solid ${meta.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${meta.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${meta.color}1a`, border: `1px solid ${meta.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
-                {meta.emoji}
-              </div>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `${meta.color}1a`, border: `1px solid ${meta.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{meta.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: meta.color, marginBottom: 3 }}>{meta.label}</div>
                 <div style={{ fontSize: 11, color: '#555' }}>{countLabel}</div>
