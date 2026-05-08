@@ -36,10 +36,10 @@ async function deleteShort(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_shorts', id));
 }
 
-// ── Voice constant — har prompt mein same rahega ─────────────
+// ── Voice constant ────────────────────────────────────────────
 const VOICE_DESC = `13 year old Indian boy voice — medium-deep, confident, clear Hindi diction, same consistent voice in every scene. Pure Hindi Indian accent. No background music.`;
 
-// ── Category & Type detect ───────────────────────────────────
+// ── Category Map ─────────────────────────────────────────────
 const CATEGORY_MAP = {
   fruit:           { label: 'Fruits',           emoji: '🍎', color: '#ff4488', bg: 'a colorful fruit basket on a wooden kitchen counter with soft morning light' },
   vegetable:       { label: 'Vegetables',       emoji: '🥦', color: '#44bb66', bg: 'a fresh vegetable garden with green plants and soil' },
@@ -69,41 +69,41 @@ const CONCEPT_MAP = {
   dukh: {
     label: '😢 Mera Dukh',
     scenes: [
-      { title: 'Rota Hua Entry', hint: 'Object rote hue enter karta hai, aankhon mein aansu' },
-      { title: 'Pehla Dukh', hint: 'Apna pehla dard batata hai bacchon ko' },
-      { title: 'Aur Rona', hint: 'Aur zyada dukh sunata hai, koi nahi sunta use' },
-      { title: 'Bahut Udaas', hint: 'Corner mein baith jaata hai, bilkul akela feel karta hai' },
-      { title: 'Rota Rehta Hai', hint: 'Sad ending — phir bhi rota hua baith jaata hai' },
+      { title: 'Rota Hua Entry',  hint: 'Object rote hue enter karta hai' },
+      { title: 'Pehla Dukh',      hint: 'Apna pehla dard batata hai' },
+      { title: 'Aur Rona',        hint: 'Aur zyada dukh, koi nahi sunta' },
+      { title: 'Bahut Udaas',     hint: 'Corner mein baith jaata hai' },
+      { title: 'Rota Rehta Hai',  hint: 'Sad ending — phir bhi rota hai' },
     ],
   },
   fayde: {
     label: '💪 Mere Fayde',
     scenes: [
-      { title: 'Proud Entry', hint: 'Object confidently enter karta hai, chest out, smile' },
-      { title: 'Pehla Fayda', hint: 'Pehla benefit batata hai excitedly' },
-      { title: 'Doosra Fayda', hint: 'Doosra benefit batata hai, dancing karta hai' },
-      { title: 'Teesra Fayda', hint: 'Teesra benefit, sab bacche wow bolte hain' },
-      { title: 'Khao Mujhe!', hint: '"Ab toh khaao mujhe!" — happy ending thumbs up' },
+      { title: 'Proud Entry',    hint: 'Confidently enter, chest out' },
+      { title: 'Pehla Fayda',   hint: 'Pehla benefit excitedly batata hai' },
+      { title: 'Doosra Fayda',  hint: 'Doosra benefit, dancing karta hai' },
+      { title: 'Teesra Fayda',  hint: 'Teesra benefit, wow reaction' },
+      { title: 'Khao Mujhe!',   hint: '"Ab toh khaao mujhe!" — thumbs up' },
     ],
   },
   intro: {
     label: '👋 Khud Ko Milao',
     scenes: [
-      { title: 'Hello Bacchon!', hint: 'Object wave karta hai, excited greeting' },
-      { title: 'Main Kaun Hoon', hint: 'Apna naam aur family batata hai' },
-      { title: 'Meri Khasiyat', hint: 'Apni special cheez batata hai' },
-      { title: 'Mera Ghar', hint: 'Kahan rehta hai, uski duniya dikhata hai' },
-      { title: 'Dosto Bano!', hint: '"Mujhse dosti karoge?" — pyara ending' },
+      { title: 'Hello Bacchon!', hint: 'Excited greeting, waving' },
+      { title: 'Main Kaun Hoon', hint: 'Naam aur family batata hai' },
+      { title: 'Meri Khasiyat', hint: 'Special cheez batata hai' },
+      { title: 'Mera Ghar',     hint: 'Kahan rehta hai, duniya dikhata hai' },
+      { title: 'Dosto Bano!',   hint: '"Mujhse dosti karoge?" — pyara ending' },
     ],
   },
   dono: {
     label: '🎭 Dukh + Fayde',
     scenes: [
-      { title: 'Rota Hua Entry', hint: 'Object rote hue enter karta hai' },
-      { title: 'Dukh Sunata Hai', hint: 'Koi nahi khata — dukh batata hai' },
-      { title: 'Himmat Karta Hai', hint: 'Deep breath, "Ruko main batata hoon main kyu khaas hoon!"' },
-      { title: 'Fayde Batata Hai', hint: 'Proudly apne benefits sunata hai' },
-      { title: 'Happy Ending!', hint: '"Ab khao mujhe!" baccha aata hai, dono khush' },
+      { title: 'Rota Hua Entry',  hint: 'Rote hue enter karta hai' },
+      { title: 'Dukh Sunata Hai', hint: 'Koi nahi khata — dard batata hai' },
+      { title: 'Himmat Karta Hai',hint: '"Ruko main batata hoon main kyu khaas hoon!"' },
+      { title: 'Fayde Batata Hai',hint: 'Proudly apne benefits sunata hai' },
+      { title: 'Happy Ending!',   hint: '"Ab khao mujhe!" — baccha aata hai, dono khush' },
     ],
   },
 };
@@ -124,13 +124,25 @@ function groupShortsByFolder(shortsList) {
   return groups;
 }
 
+function formatScheduledTime(isoString) {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = date.getHours(); const min = date.getMinutes().toString().padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} • ${h}:${min} ${ampm}`;
+}
+
+const COLORS = ['#ff4400', '#44bb66', '#4488ff', '#cc88ff', '#ff8800', '#ff4488', '#00ccbb', '#ffcc00'];
+
 // ── Prompt Builders ───────────────────────────────────────────
 function getBackground(type, objectName) {
   const cat = CATEGORY_MAP[type];
   return cat ? cat.bg : `a colorful bright background suitable for ${objectName}`;
 }
 
-function getObjectVisual(objectName, type) {
+function getObjectVisual(objectName) {
   const visuals = {
     Apple: 'shiny red apple with a green leaf on top',
     Banana: 'bright yellow banana',
@@ -155,78 +167,79 @@ function getObjectVisual(objectName, type) {
 // ── 1. INTRO IMAGE PROMPT ─────────────────────────────────────
 function buildIntroImagePrompt(short) {
   const bg = getBackground(short.type, short.objectName);
-  const visual = getObjectVisual(short.objectName, short.type);
-  const concept = CONCEPT_MAP[short.concept];
-  const emotion = short.concept === 'dukh' ? 'sad teary eyes, a small frown, looking down' :
-    short.concept === 'fayde' ? 'big confident smile, chest puffed out, arms wide' :
-    'big happy smile, waving hand at camera';
-
-  return `Pixar 3D style vertical 9:16 image. Background: ${bg}. Center of image: one big cute animated ${visual} character — chubby Pixar body, tiny arms and legs, very expressive face with ${emotion}. Bold glowing rainbow text "${short.objectName}" floating above the character with colorful sparkles. Bottom text: "${concept.label}" in bold Hindi font. Bright colorful lighting. No teacher. No other characters. Studio quality render. THIS IS THE REFERENCE IMAGE — all video scenes must match this exact background and character style.`;
+  const visual = getObjectVisual(short.objectName);
+  const emotion = short.concept === 'dukh'
+    ? 'sad teary eyes, a small frown, looking down'
+    : short.concept === 'fayde'
+    ? 'big confident smile, chest puffed out, arms wide open'
+    : 'big happy smile, waving hand at camera';
+  const conceptLabel = CONCEPT_MAP[short.concept]?.label || '';
+  return `Pixar 3D style vertical 9:16 image. Background: ${bg}. Center of image: one big cute animated ${visual} character — chubby Pixar body, tiny arms and legs, very expressive face with ${emotion}. Bold glowing rainbow text "${short.objectName}" floating above the character with colorful sparkles. Bottom text: "${conceptLabel}" in bold Hindi font. Bright colorful lighting. No teacher. No other characters. Studio quality render. THIS IS THE REFERENCE IMAGE — all video scenes must match this exact background and character style.`;
 }
 
 // ── 2. INTRO VIDEO PROMPT ─────────────────────────────────────
 function buildIntroVideoPrompt(short) {
-  const visual = getObjectVisual(short.objectName, short.type);
-
+  const visual = getObjectVisual(short.objectName);
   const greeting = short.concept === 'dukh'
     ? `"हैलो बच्चों... मैं हूँ ${short.objectName}..." (sad, slow voice, sniffling)`
     : short.concept === 'fayde'
     ? `"हैलो बच्चों! मैं हूँ ${short.objectName}! आज मैं बताऊँगा — मैं कितना ज़रूरी हूँ!" (loud, proud, excited)`
     : `"हैलो बच्चों! मैं हूँ ${short.objectName}! आओ मुझसे दोस्ती करो!" (cheerful, warm, friendly)`;
-
   return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting in any way. Same Pixar 3D animated ${visual} character already standing at center of screen — chubby body, tiny arms and legs, very expressive anime-style eyes. NO entry animation — character is already present when video starts, do not walk in or fly in. Character says: ${greeting}. Bold glowing text "${short.objectName}" appears at top with sparkles. 8 seconds. Perfect lip sync. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
 }
 
-// ── 3. SCENE PROMPT ───────────────────────────────────────────
+// ── 3. SCENE PROMPT — unique per object ──────────────────────
 function buildScenePrompt(short, sceneIndex) {
-  const visual = getObjectVisual(short.objectName, short.type);
+  const visual = getObjectVisual(short.objectName);
   const concept = CONCEPT_MAP[short.concept];
   const scene = concept.scenes[sceneIndex];
+  const name = short.objectName;
+  const catLabel = getCategory(short.type).label;
 
-  const sceneDialogues = {
+  // Each concept has unique dialogues that actually mention the object by name
+  const dialogues = {
     dukh: [
-      `"बच्चों... कोई मुझे नहीं खाता... मैं बहुत उदास हूँ!" (wiping tears with tiny hand, lip trembling)`,
-      `"देखो... मैं यहाँ रखा रहता हूँ... कोई मेरी तरफ देखता भी नहीं!" (pointing to self, more tears)`,
-      `"मैंने सोचा था आज कोई मुझे खाएगा... पर नहीं!" (sits down, crying harder)`,
-      `"अकेला हूँ मैं... बहुत अकेला..." (curled up, sobbing quietly)`,
-      `"शायद मैं काम का नहीं हूँ किसी के..." (last tear rolls down, slow fade, still sad)`,
+      `"बच्चों... कोई मुझे नहीं खाता... मैं ${name} हूँ और मैं बहुत उदास हूँ!" (${name} wiping tears with tiny hand, lip trembling)`,
+      `"देखो... मैं यहाँ रखा रहता हूँ... कोई ${name} को नहीं चुनता!" (pointing to self, more tears falling)`,
+      `"मैंने सोचा था आज कोई मुझे खाएगा... पर किसी ने ${name} की तरफ देखा तक नहीं!" (sits down, crying harder, hugging self)`,
+      `"अकेला हूँ मैं... कोई नहीं है मेरा... ${name} का कोई दोस्त नहीं!" (curled up in corner, sobbing quietly)`,
+      `"शायद ${name} काम का नहीं है किसी के..." (last tear rolls down, slow fade out, still sitting sadly)`,
     ],
     fayde: [
-      `"सुनो बच्चों! मेरा पहला फायदा — मैं तुम्हारी आँखें तेज़ करता हूँ! 👁️" (pointing to eyes excitedly, bouncing)`,
-      `"मेरा दूसरा फायदा — मैं तुम्हारा पेट मज़बूत बनाता हूँ! 💪" (flexing tiny arms, big smile)`,
-      `"और तीसरा — मैं बहुत tasty भी हूँ! 😋" (rubbing tummy in circles, licking lips)`,
-      `"Doctor भी कहता है — रोज़ खाओ मुझे! 🩺" (wagging finger at camera, winking)`,
-      `"तो बच्चों — अब देर किस बात की? खाओ मुझे और healthy रहो! 🌟" (big thumbs up, happy dance)`,
+      `"सुनो बच्चों! ${name} का पहला फायदा — मैं तुम्हारी आँखें तेज़ करता हूँ! 👁️" (${name} pointing to eyes excitedly, bouncing up and down)`,
+      `"${name} का दूसरा फायदा — मैं तुम्हारा पेट मज़बूत बनाता हूँ! 💪" (flexing tiny arms, showing muscles, big smile)`,
+      `"और ${name} का तीसरा फायदा — मैं बहुत tasty भी हूँ! 😋" (rubbing tummy in circles, licking lips, eyes closed in joy)`,
+      `"Doctor भी कहता है — रोज़ खाओ ${name} और healthy रहो! 🩺" (wagging finger at camera confidently, winking)`,
+      `"तो बच्चों — देर किस बात की? खाओ ${name} और healthy रहो! 🌟" (big thumbs up, happy victory dance)`,
     ],
     intro: [
-      `"मैं हूँ ${short.objectName}! और मैं ${getCategory(short.type).label} family से हूँ!" (pointing to self proudly, big smile)`,
-      `"मेरा घर बहुत सुंदर है! यहीं रहता हूँ मैं!" (gesturing around at background)`,
-      `"मेरी सबसे ख़ास बात? मैं बहुत colorful और cute हूँ!" (doing a little spin to show off)`,
-      `"बच्चों, क्या आप मुझे पहचानते हो? मैं ${short.objectName} हूँ!" (leaning toward camera curiously)`,
-      `"आओ दोस्त बनो मेरे! Rang Tarang पर मिलते रहेंगे!" (big wave, hearts floating around)`,
+      `"मैं हूँ ${name}! और मैं ${catLabel} family से आता हूँ!" (${name} pointing to self proudly, spinning once to show off)`,
+      `"मेरा नाम है ${name} — और मेरा घर है यह ${catLabel} की दुनिया!" (${name} gesturing around at background with tiny arms)`,
+      `"${name} की सबसे ख़ास बात? मैं इतना cute और colorful हूँ!" (${name} doing a little pose, winking at camera)`,
+      `"बच्चों, क्या आप ${name} को पहचानते हो? बताओ — मैं कौन हूँ?" (${name} leaning forward toward camera with curious big eyes)`,
+      `"आओ ${name} से दोस्ती करो! Rang Tarang पर हम फिर मिलेंगे!" (${name} big wave goodbye, colorful hearts floating around)`,
     ],
     dono: [
-      `"हैलो बच्चों... मैं ${short.objectName} हूँ... कोई मुझे नहीं खाता..." (sad entry, tears falling)`,
-      `"देखो, मैं यहाँ रखा रहता हूँ... कोई नहीं आता मेरे पास..." (pointing to self sadly)`,
-      `"रुको! रोना बंद! मैं बताता हूँ — मैं कितना ज़रूरी हूँ!" (wipes tears, stands up straight, determined face)`,
-      `"मैं तुम्हें healthy बनाता हूँ! मैं tasty हूँ! मैं तुम्हारा दोस्त हूँ!" (proudly listing on fingers)`,
-      `"अब तो खाओ मुझे!" (a child's hand appears, picks up ${short.objectName}, both are happy, big smile)`,
+      `"हैलो बच्चों... मैं ${name} हूँ... कोई मुझे नहीं खाता..." (${name} enters slowly, tears in eyes, voice cracking)`,
+      `"देखो, मैं ${name} यहाँ रखा रहता हूँ... कोई नहीं आता मेरे पास..." (${name} pointing to self sadly, small sob)`,
+      `"रुको! रोना बंद! मैं ${name} बताता हूँ — मैं कितना ज़रूरी हूँ!" (${name} wipes tears dramatically, stands straight, determined face)`,
+      `"मैं ${name} हूँ — मैं तुम्हें healthy बनाता हूँ, tasty भी हूँ, और तुम्हारा सबसे अच्छा दोस्त!" (${name} proudly listing on fingers, chest out)`,
+      `"अब तो खाओ मुझे — ${name} को मत भूलना!" (a child's hand appears and picks up ${name}, both are happy, big smile, confetti falls)`,
     ],
   };
 
-  const dialogue = sceneDialogues[short.concept][sceneIndex];
+  const dialogue = dialogues[short.concept]?.[sceneIndex] || dialogues.dukh[sceneIndex];
 
-  return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Continue directly from the last frame of the previous scene — same Pixar 3D animated ${visual} character, exact same style, same size, same colors, no jump cut, seamless continuation. Scene ${sceneIndex + 1}: "${scene.title}". Character says: ${dialogue}. Very expressive face — emotions clearly visible. Perfect lip sync. 8-10 seconds. Smooth animation. No glitch. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
+  return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Continue directly from the last frame of the previous scene — same Pixar 3D animated ${visual} character, exact same style, same size, same colors, seamless continuation. Scene ${sceneIndex + 1}: "${scene.title}". Character says: ${dialogue}. Very expressive face — emotions clearly visible. Perfect lip sync. 8-10 seconds. Smooth animation. No glitch. No teacher. No other characters. VOICE: ${VOICE_DESC}`;
 }
 
 // ── 4. OUTRO VIDEO PROMPT ─────────────────────────────────────
 function buildOutroVideoPrompt(short) {
-  const visual = getObjectVisual(short.objectName, short.type);
-
+  const visual = getObjectVisual(short.objectName);
+  const name = short.objectName;
   const outroLine = short.concept === 'dukh'
-    ? `${short.objectName} still sitting sadly. Slowly looks up at camera with watery eyes and says: "बच्चों... अगली बार मिलेंगे... Rang Tarang subscribe करना मत भूलना..." then looks back down sadly.`
-    : `${short.objectName} does a happy little dance and says: "तो बच्चों — आज के लिए बस इतना ही! Rang Tarang subscribe करो और bell दबाओ! टाटा! 👋" waves enthusiastically at camera.`;
-
+    ? `${name} still sitting sadly. Slowly looks up at camera with watery eyes and says: "बच्चों... ${name} को याद रखना... Rang Tarang subscribe करना मत भूलना..." then looks back down sadly.`
+    : `${name} does a happy little dance and says: "तो बच्चों — ${name} को याद रखो! Rang Tarang subscribe करो और bell दबाओ! टाटा! 👋" waves enthusiastically at camera.`;
   return `Use the reference image exactly as the complete background scene — do not change background, lighting, colors, or setting. Continue directly from the last frame of the previous scene — same Pixar 3D animated ${visual} character, seamless continuation. ${outroLine} Bold glowing text "Rang Tarang Subscribe Karo! 🔔" appears with colorful sparkles. 8 seconds. Smooth. No glitch. Perfect lip sync. VOICE: ${VOICE_DESC}`;
 }
 
@@ -235,12 +248,7 @@ async function aiCall(prompt) {
   const res = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'openai/gpt-4o-mini',
-      max_tokens: 800,
-      temperature: 0.7,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    body: JSON.stringify({ model: 'openai/gpt-4o-mini', max_tokens: 800, temperature: 0.7, messages: [{ role: 'user', content: prompt }] }),
   });
   const data = await res.json();
   return (data.choices?.[0]?.message?.content || '').trim();
@@ -249,54 +257,184 @@ async function aiCall(prompt) {
 async function generateYTTitleDesc(short) {
   const conceptLabel = CONCEPT_MAP[short.concept]?.label || '';
   const text = await aiCall(`You are a YouTube Shorts SEO expert for Hindi kids channel "Rang Tarang" (@RangTarangHindi).
-
 Short video about: "${short.objectName}" (${getCategory(short.type).label})
 Concept: ${conceptLabel}
 Format: YouTube SHORT (vertical 9:16)
-Target: Indian parents searching kids content
+Target: Indian parents searching kids content in Hindi
 
-TITLE RULES:
-- Max 60 characters
-- Must include Hindi (Devanagari) AND English
-- Pattern: "[Emoji] [Hindi] | [English] | Rang Tarang"
+TITLE RULES: Max 60 chars, Hindi+English mix, end with "| Rang Tarang", NO emoji
+DESCRIPTION: Hook in Hindi, content mention, subscribe line, hashtags
+TAGS: Comma separated, max 15 tags, mix Hindi+English, topic specific
 
-DESCRIPTION RULES:
-- Line 1: Hindi hook — "बच्चों आज मिलो ${short.objectName} से! 🎉"
-- Line 2: "📺 इस video में: ${short.objectName} ${conceptLabel} सुनाता है!"
-- Line 3: "👶 2-6 साल के बच्चों के लिए!"
-- Line 4: "🔔 Rang Tarang Subscribe karo — #Shorts #HindiKids"
-- Line 5: Hashtags mix Hindi+English
-
-RETURN ONLY JSON: {"title":"...","description":"..."}`);
-
+Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
   return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
+// ── TitleDescSection Component ────────────────────────────────
+function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey, videoId }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle]     = useState(short.ytTitle || '');
+  const [desc, setDesc]       = useState(short.ytDescription || '');
+  const [tags, setTags]       = useState(short.ytTags || '');
+  const [regenLoading, setRegenLoading] = useState({ title: false, desc: false, tags: false });
+  const [ytUpdating, setYtUpdating]     = useState(false);
+  const toast = useToast();
+
+  useEffect(() => {
+    setTitle(short.ytTitle || '');
+    setDesc(short.ytDescription || '');
+    setTags(short.ytTags || '');
+  }, [short.ytTitle, short.ytDescription, short.ytTags]);
+
+  async function regenField(field) {
+    setRegenLoading(p => ({ ...p, [field]: true }));
+    try {
+      const conceptLabel = CONCEPT_MAP[short.concept]?.label || '';
+      let prompt = '';
+      if (field === 'title') {
+        prompt = `Generate ONLY a YouTube title for Hindi kids Shorts about "${short.objectName}" (${conceptLabel}). Max 60 chars, Hindi+English mix, end with "| Rang Tarang". NO emoji. Return ONLY the title text.`;
+      } else if (field === 'desc') {
+        prompt = `Generate ONLY a YouTube description for Hindi kids Shorts about "${short.objectName}" (${conceptLabel}). Hook in Hindi, content mention, subscribe line with https://youtube.com/@RangTarangHindi, hashtags. Return ONLY the description text.`;
+      } else if (field === 'tags') {
+        prompt = `Generate ONLY YouTube tags for Hindi kids Shorts about "${short.objectName}" (${conceptLabel}). Comma separated, max 15 tags, mix Hindi+English. Return ONLY the tags string.`;
+      }
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'openai/gpt-4o-mini', max_tokens: 300, temperature: 0.7, messages: [{ role: 'user', content: prompt }] }),
+      });
+      const data = await res.json();
+      const text = (data.choices?.[0]?.message?.content || '').trim();
+      if (field === 'title') setTitle(text);
+      else if (field === 'desc') setDesc(text);
+      else if (field === 'tags') setTags(text);
+      toast(`✅ ${field} regenerated!`);
+    } catch (e) { toast('❌ ' + e.message); }
+    setRegenLoading(p => ({ ...p, [field]: false }));
+  }
+
+  async function updateYouTube() {
+    if (!videoId) { toast('❌ Video ID nahi mila'); return; }
+    setYtUpdating(true);
+    try {
+      const res = await fetch('/api/youtube/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, title, description: desc, tags }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast(data.message);
+    } catch (e) { toast('❌ ' + e.message); }
+    setYtUpdating(false);
+  }
+
+  return (
+    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
+      <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
+          {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
+          {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
+        </div>
+        <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
+      </div>
+      {editing && (
+        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button onClick={onGenerate} disabled={genTD}
+            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 Teeno AI se Generate Karo'}
+          </button>
+
+          {/* Title */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📌 YouTube Title</div>
+              <button onClick={() => regenField('title')} disabled={regenLoading.title}
+                style={{ background: regenLoading.title ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.title ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.title ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {regenLoading.title ? <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /> : '🔄 Regen'}
+              </button>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTitle' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>📄 YouTube Description</div>
+              <button onClick={() => regenField('desc')} disabled={regenLoading.desc}
+                style={{ background: regenLoading.desc ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.desc ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.desc ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {regenLoading.desc ? <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /> : '🔄 Regen'}
+              </button>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+              <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytDesc' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700 }}>🏷️ YouTube Tags</div>
+              <button onClick={() => regenField('tags')} disabled={regenLoading.tags}
+                style={{ background: regenLoading.tags ? '#111' : '#1a1000', border: '1px solid #443300', color: regenLoading.tags ? '#555' : '#ffaa44', borderRadius: 6, padding: '3px 10px', fontSize: 10, fontWeight: 700, cursor: regenLoading.tags ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {regenLoading.tags ? <div className="spinner" style={{ width: 10, height: 10, borderTopColor: '#ffaa44' }} /> : '🔄 Regen'}
+              </button>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <textarea value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags comma se separate..." rows={2}
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+              <button onClick={() => onCopy('ytTags', tags)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTags' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTags' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTags' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTags' ? '✅' : '📋'}</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { onSave(title, desc, tags); setEditing(false); }}
+              style={{ flex: 1, background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              💾 Save
+            </button>
+            {videoId && (
+              <button onClick={updateYouTube} disabled={ytUpdating}
+                style={{ flex: 1, background: ytUpdating ? '#111' : 'rgba(255,0,0,0.1)', border: '1px solid #cc000044', color: ytUpdating ? '#555' : '#ff4444', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: ytUpdating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {ytUpdating ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ff4444' }} />Updating...</> : '▶️ YT Update'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Main Component ────────────────────────────────────────────
 function ShortsCreatorPage({ user }) {
   const toast = useToast();
-  const [shortsList, setShortsList]       = useState([]);
-  const [loadingList, setLoadingList]     = useState(true);
-  const [openFolder, setOpenFolder]       = useState(null);
-  const [openShort, setOpenShort]         = useState(null);
-  const [openSection, setOpenSection]     = useState(null);
-  const [copiedKey, setCopiedKey]         = useState('');
-  const [ytVideos, setYtVideos]           = useState([]);
-  const [ytLoading, setYtLoading]         = useState(true);
-  const [modal, setModal]                 = useState('none');
-  const [generating, setGenerating]       = useState(false);
-  const [genTD, setGenTD]                 = useState(false);
+  const [shortsList, setShortsList]         = useState([]);
+  const [loadingList, setLoadingList]       = useState(true);
+  const [openFolder, setOpenFolder]         = useState(null);
+  const [openShort, setOpenShort]           = useState(null);
+  const [openSection, setOpenSection]       = useState(null);
+  const [copiedKey, setCopiedKey]           = useState('');
+  const [ytVideos, setYtVideos]             = useState([]);
+  const [ytLoading, setYtLoading]           = useState(true);
+  const [playlistStatus, setPlaylistStatus] = useState({});
+  const [modal, setModal]                   = useState('none');
+  const [generating, setGenerating]         = useState(false);
+  const [genTD, setGenTD]                   = useState(false);
 
-  const [step, setStep]                   = useState(1);
-  const [selectedType, setSelectedType]   = useState(null);
-  const [aiObjects, setAiObjects]         = useState([]);
-  const [aiLoading, setAiLoading]         = useState(false);
-  const [selectedObject, setSelectedObject] = useState('');
-  const [customObject, setCustomObject]   = useState('');
+  const [step, setStep]                       = useState(1);
+  const [selectedType, setSelectedType]       = useState(null);
+  const [aiObjects, setAiObjects]             = useState([]);
+  const [aiLoading, setAiLoading]             = useState(false);
+  const [selectedObject, setSelectedObject]   = useState('');
+  const [customObject, setCustomObject]       = useState('');
   const [selectedConcept, setSelectedConcept] = useState('dukh');
-  const [selectedColor, setSelectedColor] = useState('#ff4488');
-
-  const COLORS = ['#ff4400', '#44bb66', '#4488ff', '#cc88ff', '#ff8800', '#ff4488', '#00ccbb', '#ffcc00'];
+  const [selectedColor, setSelectedColor]     = useState('#ff4488');
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -325,19 +463,41 @@ function ShortsCreatorPage({ user }) {
       return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
     });
     if (!matched) return false;
-    if (matched.isScheduled) return 'scheduled';
+    if (matched.isScheduled) return { status: 'scheduled', scheduledAt: matched.scheduledAt };
     if (matched.privacyStatus === 'private') return 'private';
     return true;
   }
 
   function isDeleteDisabled(short) {
     const u = checkUploaded(short);
-    return u === true || u === 'private' || u === 'scheduled';
+    return u === true || u === 'private' || (u && typeof u === 'object');
+  }
+
+  async function addToPlaylist(short, videoId) {
+    setPlaylistStatus(p => ({ ...p, [short.id]: 'loading' }));
+    try {
+      const cat = getCategory(short.type);
+      const res = await fetch('/api/youtube/playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, playlistTitle: cat.label }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPlaylistStatus(p => ({ ...p, [short.id]: 'added' }));
+      await updateShort(user.uid, short.id, { playlistAdded: true });
+      const updated = { ...short, playlistAdded: true };
+      setShortsList(l => l.map(s => s.id === short.id ? updated : s));
+      setOpenShort(updated);
+      toast(data.message);
+    } catch (e) {
+      setPlaylistStatus(p => ({ ...p, [short.id]: null }));
+      toast('❌ ' + e.message);
+    }
   }
 
   async function loadAiObjects(type) {
-    setAiLoading(true);
-    setAiObjects([]);
+    setAiLoading(true); setAiObjects([]);
     const cat = getCategory(type);
     try {
       const text = await aiCall(`List exactly 12 common ${cat.label} items that Indian kids aged 2-6 know well.
@@ -366,7 +526,8 @@ Return ONLY a JSON array of English names, no markdown:
       await saveShort(user.uid, {
         objectName: finalObject, type: selectedType, concept: selectedConcept,
         color: selectedColor, emoji: cat.emoji,
-        doneSections: {}, doneCount: 0, progress: 0, ytTitle: '', ytDescription: '',
+        doneSections: {}, doneCount: 0, progress: 0,
+        ytTitle: '', ytDescription: '', ytTags: '',
       });
       toast(`${cat.emoji} "${finalObject}" short ready!`);
       setModal('none'); loadList();
@@ -390,18 +551,18 @@ Return ONLY a JSON array of English names, no markdown:
     setGenTD(true);
     try {
       const parsed = await generateYTTitleDesc(short);
-      await updateShort(user.uid, short.id, { ytTitle: parsed.title, ytDescription: parsed.description });
-      const updated = { ...short, ytTitle: parsed.title, ytDescription: parsed.description };
+      await updateShort(user.uid, short.id, { ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags || '' });
+      const updated = { ...short, ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags || '' };
       setShortsList(l => l.map(s => s.id === short.id ? updated : s));
       setOpenShort(updated);
-      toast('✅ Title & Description ready!');
+      toast('✅ Title, Description & Tags ready!');
     } catch (e) { toast('❌ ' + e.message); }
     setGenTD(false);
   }
 
-  async function saveTitleDesc(short, title, desc) {
-    await updateShort(user.uid, short.id, { ytTitle: title, ytDescription: desc });
-    const updated = { ...short, ytTitle: title, ytDescription: desc };
+  async function saveTitleDesc(short, title, desc, tags) {
+    await updateShort(user.uid, short.id, { ytTitle: title, ytDescription: desc, ytTags: tags });
+    const updated = { ...short, ytTitle: title, ytDescription: desc, ytTags: tags };
     setShortsList(l => l.map(s => s.id === short.id ? updated : s));
     setOpenShort(updated);
     toast('💾 Saved!');
@@ -425,9 +586,17 @@ Return ONLY a JSON array of English names, no markdown:
     const done = s.doneSections || {};
     const concept = CONCEPT_MAP[s.concept] || CONCEPT_MAP.dukh;
     const cat = getCategory(s.type);
-    const allPromptsDone = Object.keys(done).length >= 8;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
     const deleteDisabled = isDeleteDisabled(s);
+    const uploaded = checkUploaded(s);
+    const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
+    const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
+
+    const matchedVideo = ytVideos.find(v => {
+      const matchStr = (s.ytTitle || s.objectName || '').trim().toLowerCase();
+      return (v.title || '').toLowerCase().includes(matchStr) || matchStr.includes((v.title || '').toLowerCase().slice(0, 20));
+    });
+    const videoId = matchedVideo?.videoId || null;
 
     const sections = [
       { key: 'intro_img', title: '🖼 Intro Image', color: '#4488ff', type: '🖼 IMAGE', prompt: buildIntroImagePrompt(s) },
@@ -459,12 +628,13 @@ Return ONLY a JSON array of English names, no markdown:
             </div>
           </div>
 
-          {/* Voice info card */}
+          {/* Voice info */}
           <div style={{ background: '#0a0a14', border: '1px solid #2233aa44', borderRadius: 12, padding: '10px 14px' }}>
             <div style={{ fontSize: 10, color: '#4488ff', fontWeight: 700, marginBottom: 4 }}>🎙 VOICE (sab scenes mein same)</div>
             <div style={{ fontSize: 11, color: '#666', lineHeight: 1.5 }}>{VOICE_DESC}</div>
           </div>
 
+          {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>Progress</span>
@@ -475,13 +645,49 @@ Return ONLY a JSON array of English names, no markdown:
             </div>
           </div>
 
+          {/* Upload Status */}
+          {!ytLoading && (
+            <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: uploaded === true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : '#ff8866' }}>
+                {uploaded === true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}` : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki'}
+              </span>
+            </div>
+          )}
+
+          {/* Playlist */}
+          {videoId ? (
+            <div style={{ background: '#0f0f0f', border: `1px solid ${s.playlistAdded || playlistStatus[s.id] === 'added' ? '#1a3a1a' : '#1a2a1a'}`, borderRadius: 12, padding: '13px 14px' }}>
+              <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>🎵 PLAYLIST</div>
+              {s.playlistAdded || playlistStatus[s.id] === 'added' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>✅</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#44bb66' }}>Already Added to Playlist</div>
+                    <div style={{ fontSize: 11, color: '#555' }}>{cat.label}</div>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => addToPlaylist(s, videoId)} disabled={playlistStatus[s.id] === 'loading'}
+                  style={{ width: '100%', background: playlistStatus[s.id] === 'loading' ? '#111' : 'linear-gradient(135deg,#0a1a0a,#0a2a0a)', border: '1px solid #224422', color: playlistStatus[s.id] === 'loading' ? '#555' : '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: playlistStatus[s.id] === 'loading' ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {playlistStatus[s.id] === 'loading' ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#44bb66' }} />Adding...</> : `➕ Add to Playlist — ${cat.label}`}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 12, padding: '13px 14px', fontSize: 12, color: '#444', textAlign: 'center' }}>
+              🎵 Pehle video YouTube pe upload karo
+            </div>
+          )}
+
+          {/* Title Desc Tags */}
           <TitleDescSection
-            short={s} allPromptsDone={allPromptsDone} hasTitleDesc={hasTitleDesc}
+            short={s} allPromptsDone={Object.keys(done).length >= 8} hasTitleDesc={hasTitleDesc}
             genTD={genTD} onGenerate={() => generateTitleDesc(s)}
-            onSave={(title, desc) => saveTitleDesc(s, title, desc)}
-            onCopy={copy} copiedKey={copiedKey}
+            onSave={(title, desc, tags) => saveTitleDesc(s, title, desc, tags)}
+            onCopy={copy} copiedKey={copiedKey} videoId={videoId}
           />
 
+          {/* Sections */}
           {sections.map(sec => {
             const isDone = !!done[sec.key];
             const isOpen = openSection === sec.key;
@@ -522,7 +728,6 @@ Return ONLY a JSON array of English names, no markdown:
     const cat = getCategory(openFolder);
     const grouped = groupShortsByFolder(shortsList);
     const shortsInFolder = grouped[openFolder] || [];
-
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
@@ -533,8 +738,10 @@ Return ONLY a JSON array of English names, no markdown:
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {shortsInFolder.map(s => {
             const uploaded = checkUploaded(s);
-            const uploadColor = uploaded === true ? '#44bb66' : uploaded === 'scheduled' ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : uploaded === false ? '#ff8866' : '#555';
-            const uploadText = ytLoading ? '🔍...' : uploaded === true ? '✅ YouTube pe hai' : uploaded === 'scheduled' ? '📅 Scheduled' : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki';
+            const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
+            const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
+            const uploadColor = uploaded === true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : uploaded === false ? '#ff8866' : '#555';
+            const uploadText = ytLoading ? '🔍...' : uploaded === true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}` : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki';
             const concept = CONCEPT_MAP[s.concept] || CONCEPT_MAP.dukh;
             return (
               <div key={s.id} onClick={() => setOpenShort(s)}
@@ -574,15 +781,22 @@ Return ONLY a JSON array of English names, no markdown:
         <span style={{ color: '#ff4488', fontSize: 14, fontWeight: 700 }}>🎬 Shorts Creator</span>
         <button onClick={() => { const names = shortsList.map(s => `${s.objectName} (${s.concept})`).join('\n'); navigator.clipboard.writeText(names); toast('📋 Copied!'); }}
           style={{ background: 'none', border: '1px solid #ff448855', color: '#ff4488', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📋 Copy</button>
-        <button onClick={openNewModal} style={{ background: '#ff4488', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Naya</button>
+        {ytLoading ? (
+          <button disabled style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#444', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.5 }}>+ Naya</button>
+        ) : (() => {
+          const hasUnuploaded = shortsList.some(s => checkUploaded(s) === false);
+          return hasUnuploaded ? (
+            <button onClick={() => toast('⚠️ Pehle purani shorts upload karo!')} style={{ background: '#333', border: 'none', color: '#666', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6 }}>+ Naya</button>
+          ) : (
+            <button onClick={openNewModal} style={{ background: '#ff4488', border: 'none', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Naya</button>
+          );
+        })()}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
         {modal === 'new' && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 16 }}>
             <div style={{ background: '#0d0008', border: '1px solid #440022', borderRadius: 20, padding: 20, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-
               {step === 1 && (
                 <>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 16, textAlign: 'center' }}>📁 Category Chuno</div>
@@ -598,7 +812,6 @@ Return ONLY a JSON array of English names, no markdown:
                   <button onClick={() => setModal('none')} style={{ width: '100%', marginTop: 12, background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
                 </>
               )}
-
               {step === 2 && selectedType && (
                 <>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 4, textAlign: 'center' }}>{getCategory(selectedType).emoji} Object Chuno</div>
@@ -630,7 +843,6 @@ Return ONLY a JSON array of English names, no markdown:
                   <button onClick={() => setStep(1)} style={{ width: '100%', background: '#111', border: '1px solid #333', color: '#666', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
                 </>
               )}
-
               {step === 3 && (
                 <>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#ff4488', marginBottom: 4, textAlign: 'center' }}>{getCategory(selectedType).emoji} {selectedObject || customObject}</div>
@@ -643,7 +855,7 @@ Return ONLY a JSON array of English names, no markdown:
                         <span style={{ fontSize: 20 }}>{concept.label.split(' ')[0]}</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: selectedConcept === id ? '#ff4488' : '#eee' }}>{concept.label}</div>
-                          <div style={{ fontSize: 10, color: '#555' }}>{concept.scenes.map(s => s.title).join(' → ')}</div>
+                          <div style={{ fontSize: 10, color: '#555' }}>{concept.scenes.map(sc => sc.title).join(' → ')}</div>
                         </div>
                         {selectedConcept === id && <span>✅</span>}
                       </button>
@@ -691,62 +903,13 @@ Return ONLY a JSON array of English names, no markdown:
               <div style={{ width: 52, height: 52, borderRadius: 16, background: `${cat.color}1a`, border: `1px solid ${cat.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{cat.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: cat.color, marginBottom: 3 }}>{cat.label}</div>
-                <div style={{ fontSize: 11, color: '#555' }}>{shortsInFolder.length} shorts • {uploadedCount} uploaded</div>
+                <div style={{ fontSize: 11, color: '#555' }}>{shortsInFolder.length} shorts • {ytLoading ? '🔍...' : `${uploadedCount} uploaded`}</div>
               </div>
               <span style={{ fontSize: 22, color: `${cat.color}66` }}>›</span>
             </div>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function TitleDescSection({ short, allPromptsDone, hasTitleDesc, genTD, onGenerate, onSave, onCopy, copiedKey }) {
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle]     = useState(short.ytTitle || '');
-  const [desc, setDesc]       = useState(short.ytDescription || '');
-
-  useEffect(() => { setTitle(short.ytTitle || ''); setDesc(short.ytDescription || ''); }, [short.ytTitle, short.ytDescription]);
-
-  return (
-    <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
-      <div onClick={() => setEditing(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
-          {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
-          {!hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(255,170,0,0.1)', color: '#ffaa44', border: '1px solid rgba(255,170,0,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>Zaroori</span>}
-        </div>
-        <span style={{ fontSize: 13, color: '#444' }}>{editing ? '▲' : '▼'}</span>
-      </div>
-      {editing && (
-        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={onGenerate} disabled={genTD}
-            style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            {genTD ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#ffaa44' }} />Generate ho raha hai...</> : '🤖 AI se Generate Karo'}
-          </button>
-          <div>
-            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📌 YouTube Title</div>
-            <div style={{ position: 'relative' }}>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Video ka title..."
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-              <button onClick={() => onCopy('ytTitle', title)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytTitle' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytTitle' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytTitle' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytTitle' ? '✅' : '📋'}</button>
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 9, color: '#ffaa44', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 700, marginBottom: 5 }}>📄 YouTube Description</div>
-            <div style={{ position: 'relative' }}>
-              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Video ki description..." rows={4}
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2000', borderRadius: 10, padding: '10px 44px 10px 12px', fontSize: 12, color: '#eee', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
-              <button onClick={() => onCopy('ytDesc', desc)} style={{ position: 'absolute', top: 6, right: 6, background: copiedKey === 'ytDesc' ? '#44bb66' : '#1a1a1a', border: `1px solid ${copiedKey === 'ytDesc' ? '#44bb66' : '#333'}`, color: copiedKey === 'ytDesc' ? '#fff' : '#666', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{copiedKey === 'ytDesc' ? '✅' : '📋'}</button>
-            </div>
-          </div>
-          <button onClick={() => { onSave(title, desc); setEditing(false); }}
-            style={{ background: 'rgba(68,187,102,0.12)', border: '1px solid rgba(68,187,102,0.4)', color: '#44bb66', borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
-            💾 Save Karo
-          </button>
-        </div>
-      )}
     </div>
   );
 }
