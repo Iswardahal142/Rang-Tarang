@@ -599,7 +599,13 @@ Return ONLY the comma-separated tags, nothing else.`;
         <div className="mini-topbar">
           <button onClick={() => setOpenSeries(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{s.emoji} {s.name}</span>
-          <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' }}>🗑</button>
+          <button 
+  onClick={() => !matchedVideo && handleDelete(s)} 
+  disabled={!!matchedVideo}
+  style={{ background: 'none', border: 'none', color: matchedVideo ? '#333' : '#555', fontSize: 18, cursor: matchedVideo ? 'not-allowed' : 'pointer', opacity: matchedVideo ? 0.3 : 1 }}
+>
+  🗑
+</button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
