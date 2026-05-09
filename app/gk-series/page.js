@@ -183,6 +183,7 @@ function GKSeriesPage({ user }) {
   const [tdTags, setTdTags]                     = useState('');
   const [savingField, setSavingField]           = useState(null);
   const [savedField, setSavedField]             = useState(null);
+  const [regenField, setRegenField]             = useState(null); // 'title'|'desc'|'tags'
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -473,6 +474,57 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
       setTdTitle(s.ytTitle || ''); setTdDesc(s.ytDescription || ''); setTdTags(s.ytTags || '');
     }
 
+    async function regenOneField(field) {
+      setRegenField(field);
+      try {
+        const base = s.name.replace(/ Part \d+$/, '').trim();
+        const partText = (s.part || 1) > 1 ? ` Part ${s.part}` : '';
+        const itemNames = (s.items || []).map(i => i.name).join(', ');
+        let prompt = '';
+        if (field === 'title') {
+          prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" — GK series.
+Series: "${base}${partText}" | Items: ${itemNames}
+Current description: "${tdDesc.slice(0, 100)}"
+Current tags: "${tdTags.slice(0, 100)}"
+Generate ONE improved YouTube title matching the description and tags.
+RULES: Exactly "[count] [Hindi name] | [count] [English name] | Rang Tarang" pattern. Max 60 chars. NO emoji.
+Return ONLY the title text, nothing else.`;
+        } else if (field === 'desc') {
+          prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" — GK series.
+Series: "${base}${partText}" | Items: ${itemNames}
+Current title: "${tdTitle}"
+Current tags: "${tdTags.slice(0, 150)}"
+Generate YouTube description matching the title and tags.
+FORMAT:
+Line 1: Hook in Hindi (1 line)
+Line 2: ✅ इस video में: ${(s.items||[]).slice(0,5).map(i=>i.name).join(', ')}
+Line 3: 👶 2-6 साल के बच्चों के लिए perfect GK!
+Line 4: 🔔 Rang Tarang Subscribe karo: https://youtube.com/@RangTarangHindi
+Line 5: Relevant hashtags
+Return ONLY the description text, nothing else.`;
+        } else {
+          prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" — GK series.
+Series: "${base}${partText}" | Items: ${itemNames}
+Current title: "${tdTitle}"
+Current description: "${tdDesc.slice(0, 150)}"
+Generate exactly 15 YouTube tags matching the title and description.
+RULES: Comma separated, mix Hindi + English, topic-specific + general kids GK tags. No # symbol.
+Return ONLY the comma-separated tags, nothing else.`;
+        }
+        const res = await fetch('/api/ai', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'openai/gpt-4o-mini', max_tokens: 500, temperature: 0.7, messages: [{ role: 'user', content: prompt }] }),
+        });
+        const data = await res.json();
+        const text = (data.choices?.[0]?.message?.content || '').trim();
+        if (field === 'title') setTdTitle(text);
+        else if (field === 'desc') setTdDesc(text);
+        else setTdTags(text);
+        toast(`🔄 ${field === 'title' ? 'Title' : field === 'desc' ? 'Description' : 'Tags'} regenerated!`);
+      } catch (e) { toast('❌ ' + e.message); }
+      setRegenField(null);
+    }
+
     async function ytUpdateField(field) {
       if (!matchedVideo?.videoId) { toast('❌ Video YouTube pe nahi mila'); return; }
       setSavingField(field);
@@ -635,6 +687,12 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
                               style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${dirty ? color+'66' : '#222'}`, color: '#eee', fontSize: 12, outline: 'none', padding: '8px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
                           )}
                           <div style={{ display: 'flex', gap: 6 }}>
+                            {/* 🔄 Regenerate — sirf yeh field */}
+                            <button onClick={() => regenOneField(key)} disabled={regenField === key}
+                              style={{ background: regenField === key ? '#111' : '#0a0a1a', border: `1px solid ${regenField === key ? '#333' : color + '55'}`, color: regenField === key ? '#444' : color, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontWeight: 700, cursor: regenField === key ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                              {regenField === key ? <div className="spinner" style={{ width: 11, height: 11, borderTopColor: color }} /> : '🔄'}
+                            </button>
+                            {/* 📋 Copy */}
                             <button onClick={() => { navigator.clipboard.writeText(value); setCopiedTD(copyKey); setTimeout(() => setCopiedTD(''), 2000); toast('📋 Copied!'); }}
                               style={{ flex: 1, background: copiedTD === copyKey ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedTD === copyKey ? '#44bb66' : '#333'}`, color: copiedTD === copyKey ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                               {copiedTD === copyKey ? '✅ Copied!' : '📋 Copy'}
