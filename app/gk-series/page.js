@@ -614,21 +614,7 @@ Return ONLY the comma-separated tags, nothing else.`;
             </div>
           </div>
 
-          {/* Items preview */}
-          <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
-            <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 10, letterSpacing: 1 }}>🖼 PORTRAIT LIST</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(s.items || []).map((item, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#0a0a0a', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: s.color + '22', border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🖼</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#eee', marginBottom: 2 }}>{item.name} <span style={{ fontSize: 11, color: '#555' }}>{item.hindiName}</span></div>
-                    <div style={{ fontSize: 10, color: '#666', lineHeight: 1.5 }}>{item.dialogue}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          
 
           {/* Playlist Section — same as create-series */}
           {videoId ? (
