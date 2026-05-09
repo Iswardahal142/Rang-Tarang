@@ -51,8 +51,8 @@ const GK_CATEGORIES = {
 
 function getGKType(name) {
   const n = (name || '').toLowerCase();
-  if (n.includes('freedom') || n.includes('fighter') || n.includes('gandhi') || n.includes('swatantra')) return 'freedom_fighter';
-  if (n.includes('scientist') || n.includes('inventor'))  return 'scientist';
+  if (n.includes('freedom') || n.includes('fighter') || n.includes('gandhi') || n.includes('swatantra') || n.includes('azadi')) return 'freedom_fighter';
+  if (n.includes('scientist') || n.includes('inventor') || n.includes('vigyan'))  return 'scientist';
   if (n.includes('animal') || n.includes('janwar'))       return 'animal';
   if (n.includes('planet') || n.includes('grah'))         return 'planet';
   if (n.includes('country') || n.includes('desh'))        return 'country';
@@ -83,6 +83,16 @@ function hasNextPart(series, allSeries) {
   return allSeries.some(s => s.name.replace(/ Part \d+$/, '').trim() === base && (s.part || 1) === cur + 1);
 }
 
+function formatScheduledTime(isoString) {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = date.getHours(); const min = date.getMinutes().toString().padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} • ${h}:${min} ${ampm}`;
+}
+
 // ── AI Call ──
 async function aiCall(prompt) {
   const res = await fetch('/api/ai', {
@@ -91,6 +101,13 @@ async function aiCall(prompt) {
   });
   const data = await res.json();
   return (data.choices?.[0]?.message?.content || '').trim();
+}
+
+// ── AI Emoji Detect (same as create-series) ──
+async function detectEmoji(seriesName) {
+  const text = await aiCall(`Given this kids YouTube GK series name: "${seriesName}"
+Return ONLY a single most appropriate emoji for this topic. No explanation, no text, just one emoji.`);
+  return text.trim().replace(/[^a-zA-Z\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').slice(0, 2) || '📚';
 }
 
 // ── Prompt Builders ──
@@ -104,7 +121,7 @@ function buildGKVideoPrompt(item, seriesName, isFirst = true) {
     ? (isFirst ? 'तो बताओ.. यह कौन हैं?' : 'अब बताओ.. यह कौन हैं?')
     : (isFirst ? 'तो बताओ.. यह क्या है?' : 'अब बताओ.. यह क्या है?');
   const questionText = isPersonTopic ? 'यह कौन हैं?' : 'यह क्या है?';
-  return `Use reference image exactly as background scene. Teacher standing on left side, holding up a large ornate portrait frame in both hands showing it to camera. Inside the frame: Pixar 3D cartoon of ${item.portraitDesc}. Teacher asks in Hindi: "${question}". Bold rainbow gradient text "${questionText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "${item.dialogue}" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
+  return `Use reference image exactly as background scene. Teacher standing on left side, holding up a large ornate portrait frame in both hands showing it to camera. Inside the frame: Pixar 3D cartoon of ${item.portraitDesc}. Teacher asks in Hindi: "${question}". Bold rainbow gradient text "${questionText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "${item.dialogue}" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
 }
 
 function buildIntroImagePrompt(seriesName, items = []) {
@@ -122,45 +139,92 @@ function buildIntroVideoPrompt(seriesName, part = 1) {
 }
 
 function buildOutroVideoPrompt() {
-  return `Use reference image exactly as background scene. Any text on screen fades away completely. Teacher standing center, all portrait frames have been put aside. Screen is clean with only teacher visible. Teacher waves goodbye to camera with big smile and says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 10 seconds. Smooth. No floating objects. No glitch. Hindi audio only. Teacher must lip sync.`;
+  return `Use reference image exactly as background scene. Any text on screen fades away completely. Teacher standing center, all portrait frames have been put aside. Screen is clean with only teacher visible. Teacher waves goodbye to camera with big smile and says in Hindi: "तो बच्चों, आज के लिए बस इतना ही — मिलते हैं अगले video में, टाटा!" 8 seconds. Smooth. No floating objects. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
-const EMOJIS = ['🇮🇳','🔬','🦁','🪐','🌍','⚽','💡','🏛️','🎉','📚','🌟','🎨','🏆','🌺','🦋'];
+const EMOJIS = ['🇮🇳','🔬','🦁','🪐','🌍','⚽','💡','🏛️','🎉','📚','🌟','🎨','🏆','🌺','🦋','👨‍🔬','🕌','🎭','🌐','⚗️'];
 
 // ══════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════
 function GKSeriesPage({ user }) {
   const toast = useToast();
-  const [seriesList, setSeriesList]         = useState([]);
-  const [loadingList, setLoadingList]       = useState(true);
-  const [openFolder, setOpenFolder]         = useState(null);
-  const [openSeries, setOpenSeries]         = useState(null);
-  const [openSection, setOpenSection]       = useState(null);
-  const [copiedKey, setCopiedKey]           = useState('');
-  const [continuing, setContinuing]         = useState(null);
-  const [modal, setModal]                   = useState('none');
-  const [suggestions, setSuggestions]       = useState([]);
-  const [sugLoading, setSugLoading]         = useState(false);
-  const [selectedTopic, setSelectedTopic]   = useState(null);
-  const [customName, setCustomName]         = useState('');
-  const [selectedEmoji, setSelectedEmoji]   = useState('🌟');
-  const [generating, setGenerating]         = useState(false);
-  const [aiSuggestions, setAiSuggestions]   = useState([]);
+  const [seriesList, setSeriesList]             = useState([]);
+  const [loadingList, setLoadingList]           = useState(true);
+  const [openFolder, setOpenFolder]             = useState(null);
+  const [openSeries, setOpenSeries]             = useState(null);
+  const [openSection, setOpenSection]           = useState(null);
+  const [copiedKey, setCopiedKey]               = useState('');
+  const [continuing, setContinuing]             = useState(null);
+  const [modal, setModal]                       = useState('none');
+  const [suggestions, setSuggestions]           = useState([]);
+  const [sugLoading, setSugLoading]             = useState(false);
+  const [selectedTopic, setSelectedTopic]       = useState(null);
+  const [customName, setCustomName]             = useState('');
+  const [selectedEmoji, setSelectedEmoji]       = useState('📚');
+  const [generating, setGenerating]             = useState(false);
+  const [aiSuggestions, setAiSuggestions]       = useState([]);
   const [customSugLoading, setCustomSugLoading] = useState(false);
-  const [seriesNote, setSeriesNote]         = useState('');
-  const [genTD, setGenTD]                   = useState(false);
-  const [copiedTD, setCopiedTD]             = useState('');
-  const [customMode, setCustomMode]         = useState('five'); // 'five' | 'custom'
-  const [customFullTitle, setCustomFullTitle] = useState('');
+  const [seriesNote, setSeriesNote]             = useState('');
+  const [genTD, setGenTD]                       = useState(false);
+  const [copiedTD, setCopiedTD]                 = useState('');
+  const [customMode, setCustomMode]             = useState('five');
+  const [customFullTitle, setCustomFullTitle]   = useState('');
+  // YouTube state
+  const [ytVideos, setYtVideos]                 = useState([]);
+  const [ytLoading, setYtLoading]               = useState(true);
+  const [playlistStatus, setPlaylistStatus]     = useState({});
+  // TD inline state
+  const [tdOpen, setTdOpen]                     = useState(false);
+  const [tdOpenField, setTdOpenField]           = useState(null);
+  const [tdTitle, setTdTitle]                   = useState('');
+  const [tdDesc, setTdDesc]                     = useState('');
+  const [tdTags, setTdTags]                     = useState('');
+  const [savingField, setSavingField]           = useState(null);
+  const [savedField, setSavedField]             = useState(null);
 
-  useEffect(() => { loadList(); }, [user.uid]);
+  useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
   async function loadList() {
     setLoadingList(true);
     try { setSeriesList(await getSeries(user.uid)); } catch { toast('❌ Load fail'); }
     setLoadingList(false);
+  }
+
+  async function fetchYT() {
+    setYtLoading(true);
+    try {
+      const r = await fetch('/api/youtube');
+      const d = await r.json();
+      if (!d.error) setYtVideos(d.videos || []);
+    } catch {}
+    setYtLoading(false);
+  }
+
+  // ── Same upload check as create-series ──
+  function checkUploaded(series) {
+    if (!ytVideos.length) return null;
+    const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
+    if (!matchStr || matchStr.length < 3) return null;
+    const matched = ytVideos.find(v => {
+      const ytTitle = (v.title || '').toLowerCase();
+      return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
+    });
+    if (!matched) return false;
+    if (matched.isScheduled) return { status: 'scheduled', scheduledAt: matched.scheduledAt };
+    if (matched.privacyStatus === 'private') return 'private';
+    return true;
+  }
+
+  function getMatchedVideo(series) {
+    if (!ytVideos.length) return null;
+    const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
+    if (!matchStr || matchStr.length < 3) return null;
+    return ytVideos.find(v => {
+      const ytTitle = (v.title || '').toLowerCase();
+      return ytTitle.includes(matchStr) || matchStr.includes(ytTitle.slice(0, 20));
+    }) || null;
   }
 
   function getNextColor() {
@@ -184,8 +248,10 @@ Return ONLY JSON array, no markdown: [{"name":"5 Freedom Fighters","emoji":"🇮
   }
 
   async function selectSuggestion(topic) {
-    setSelectedTopic(topic);
-    setSelectedEmoji(topic.emoji || '🌟');
+    // AI se emoji detect karo — same as create-series
+    const detectedEmoji = await detectEmoji(topic.name);
+    setSelectedEmoji(detectedEmoji);
+    setSelectedTopic({ ...topic, emoji: detectedEmoji });
     setModal('picker');
   }
 
@@ -198,7 +264,7 @@ Return ONLY JSON array, no markdown: [{"name":"5 Freedom Fighters","emoji":"🇮
 Already created: ${existing}
 User hint: "${hint}"
 Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short topic names:
-["5 Freedom Fighters","5 Planets","5 Indian Monuments","5 Great Scientists","5 World Animals","5 Famous Inventors"]`);
+["Freedom Fighters","Planets","Indian Monuments","Great Scientists","World Animals","Famous Inventors"]`);
       setAiSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setCustomSugLoading(false);
@@ -213,8 +279,10 @@ Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short 
       if (!customFullTitle.trim()) { toast('⚠️ Title likho!'); return; }
       fullName = customFullTitle.trim();
     }
-    setSelectedTopic({ name: fullName, emoji: '🌟', description: '' });
-    setSelectedEmoji('🌟');
+    // AI emoji detect
+    const detectedEmoji = await detectEmoji(fullName);
+    setSelectedEmoji(detectedEmoji);
+    setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
     setAiSuggestions([]);
     setModal('picker');
   }
@@ -230,6 +298,7 @@ Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short 
       const noteLine = seriesNote.trim() ? `\nIMPORTANT NOTE: ${seriesNote.trim()}` : '';
       const detectedType = getGKType(selectedTopic.name);
       const autoColor = getNextColor();
+      const folder = GK_CATEGORIES[detectedType] || GK_CATEGORIES['other'];
 
       const text = await aiCall(`Generate exactly 5 unique items for Hindi kids GK YouTube series: "${selectedTopic.name}".${noteLine}
 Avoid overlap with: ${existing}
@@ -237,9 +306,9 @@ For each item provide:
 - name: The name in English (e.g. "Mahatma Gandhi")
 - hindiName: Name in Hindi (e.g. "महात्मा गांधी")
 - portraitDesc: Short description for portrait image (e.g. "Mahatma Gandhi, bald head, round glasses, white dhoti, gentle smile, holding a walking stick")
-- dialogue: Short Hindi dialogue teacher says to kids (1-2 lines, very simple, age 2-6). E.g. "यह महात्मा गांधी हैं! हम इन्हें बापू कहते हैं — इन्होंने हमारे देश को आज़ाद कराया! बहुत अच्छे!"
+- dialogue: VERY SHORT Hindi dialogue, max 8-10 words only, for a 6-second clip. E.g. "यह गांधी जी हैं! बहुत अच्छे!"
 Return ONLY JSON array, no markdown:
-[{"name":"Mahatma Gandhi","hindiName":"महात्मा गांधी","portraitDesc":"Mahatma Gandhi, bald head, round glasses, white dhoti, gentle smile, holding a walking stick","dialogue":"यह महात्मा गांधी हैं! हम इन्हें बापू कहते हैं — इन्होंने हमारे देश को आज़ाद कराया! बहुत अच्छे!"}]`);
+[{"name":"Mahatma Gandhi","hindiName":"महात्मा गांधी","portraitDesc":"Mahatma Gandhi, bald head, round glasses, white dhoti, gentle smile, holding a walking stick","dialogue":"यह गांधी जी हैं! बहुत अच्छे!"}]`);
 
       const items = JSON.parse(text.replace(/```json|```/g, '').trim());
 
@@ -249,15 +318,16 @@ Return ONLY JSON array, no markdown:
         color: autoColor,
         items,
         type: detectedType,
-        folderLabel: GK_CATEGORIES[detectedType]?.label || 'GK',
-        folderEmoji: GK_CATEGORIES[detectedType]?.emoji || '📚',
-        folderColor: GK_CATEGORIES[detectedType]?.color || '#888888',
+        folderLabel: folder.label,
+        folderEmoji: folder.emoji,
+        folderColor: folder.color,
         doneSections: {},
         doneCount: 0,
         progress: 0,
         part: 1,
         ytTitle: '',
         ytDescription: '',
+        ytTags: '',
       });
 
       toast(`${selectedEmoji} "${selectedTopic.name}" ready!`);
@@ -277,7 +347,7 @@ Return ONLY JSON array, no markdown:
       const text = await aiCall(`Generate 5 MORE unique items for GK series "${series.name}".
 Already done (DO NOT repeat): ${done}
 Return ONLY JSON array:
-[{"name":"Bhagat Singh","hindiName":"भगत सिंह","portraitDesc":"Bhagat Singh, young man, brown hat, moustache, brave expression, wearing suit","dialogue":"यह भगत सिंह हैं! यह बहुत बहादुर थे — इन्होंने देश के लिए अपनी जान दे दी! बहुत अच्छे!"}]`);
+[{"name":"Bhagat Singh","hindiName":"भगत सिंह","portraitDesc":"Bhagat Singh, young man, brown hat, moustache, brave expression, wearing suit","dialogue":"यह भगत सिंह हैं! बहुत बहादुर! बहुत अच्छे!"}]`);
       const newItems = JSON.parse(text.replace(/```json|```/g, '').trim());
       const newPart = (series.part || 1) + 1;
       const base = series.name.replace(/ Part \d+$/, '').trim();
@@ -296,10 +366,34 @@ Return ONLY JSON array:
         part: newPart,
         ytTitle: '',
         ytDescription: '',
+        ytTags: '',
       });
       toast(`🎉 Part ${newPart} ready!`); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setContinuing(null);
+  }
+
+  // ── Add to Playlist ──
+  async function addToPlaylist(series, videoId) {
+    setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
+    try {
+      const folderLabel = series.folderLabel || getFolder(series.type || getGKType(series.name)).label;
+      const res = await fetch('/api/youtube/playlist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, playlistTitle: folderLabel }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPlaylistStatus(p => ({ ...p, [series.id]: 'added' }));
+      await updateSeries(user.uid, series.id, { playlistAdded: true });
+      const updated = { ...series, playlistAdded: true };
+      setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
+      setOpenSeries(updated);
+      toast(data.message || '✅ Playlist mein add ho gaya!');
+    } catch (e) {
+      setPlaylistStatus(p => ({ ...p, [series.id]: null }));
+      toast('❌ ' + e.message);
+    }
   }
 
   // ── Mark Done ──
@@ -316,7 +410,7 @@ Return ONLY JSON array:
     toast(wasDone ? 'Undone!' : '✅ Done!');
   }
 
-  // ── Title & Desc ──
+  // ── Generate Title & Desc ──
   async function generateTitleDesc(series) {
     setGenTD(true);
     try {
@@ -326,9 +420,7 @@ Return ONLY JSON array:
       const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" — GK series.
 Series: "${base}${partText}"
 Items: ${itemNames}
-
 Generate YouTube title, description, and tags.
-
 TITLE: "[count] [Hindi topic name] | [count] [English topic name] | Rang Tarang" — Max 60 chars, no emoji.
 DESCRIPTION:
 Line 1: Hook in Hindi (1 line)
@@ -337,13 +429,13 @@ Line 3: 👶 2-6 साल के बच्चों के लिए perfect GK
 Line 4: 🔔 Rang Tarang Subscribe karo: https://youtube.com/@RangTarangHindi
 Line 5: Relevant hashtags
 TAGS: 15 comma-separated Hindi+English tags
-
 Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
       const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
       await updateSeries(user.uid, series.id, { ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags });
       const updated = { ...series, ytTitle: parsed.title, ytDescription: parsed.description, ytTags: parsed.tags };
       setSeriesList(l => l.map(s => s.id === series.id ? updated : s));
       setOpenSeries(updated);
+      setTdTitle(parsed.title); setTdDesc(parsed.description); setTdTags(parsed.tags || '');
       toast('✅ Title & Description ready!');
     } catch (e) { toast('❌ ' + e.message); }
     setGenTD(false);
@@ -352,13 +444,6 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
   function copy(key, text) {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedKey(key); setTimeout(() => setCopiedKey(''), 2000);
-      toast('📋 Copied!');
-    });
-  }
-
-  function copyTD(key, text) {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedTD(key); setTimeout(() => setCopiedTD(''), 2000);
       toast('📋 Copied!');
     });
   }
@@ -377,6 +462,50 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
     const done = s.doneSections || {};
     const total = (s.items || []).length + 2;
     const hasTitleDesc = !!(s.ytTitle && s.ytDescription);
+    const matchedVideo = getMatchedVideo(s);
+    const videoId = matchedVideo?.videoId || null;
+    const isUploaded = !!matchedVideo;
+    const folderLabel = s.folderLabel || getFolder(s.type || getGKType(s.name)).label;
+    const hasTags = matchedVideo && matchedVideo.tags && matchedVideo.tags.length > 0;
+
+    // Sync TD state when series opens
+    if (!tdOpen && tdTitle !== (s.ytTitle || '')) {
+      setTdTitle(s.ytTitle || ''); setTdDesc(s.ytDescription || ''); setTdTags(s.ytTags || '');
+    }
+
+    async function ytUpdateField(field) {
+      if (!matchedVideo?.videoId) { toast('❌ Video YouTube pe nahi mila'); return; }
+      setSavingField(field);
+      try {
+        const res = await fetch('/api/audit', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoId: matchedVideo.videoId, categoryId: matchedVideo.categoryId || '22', title: tdTitle, description: tdDesc, tags: tdTags }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Update fail');
+        await updateSeries(user.uid, s.id, { ytTitle: tdTitle, ytDescription: tdDesc, ytTags: tdTags });
+        const updated = { ...s, ytTitle: tdTitle, ytDescription: tdDesc, ytTags: tdTags };
+        setSeriesList(l => l.map(x => x.id === s.id ? updated : x));
+        setOpenSeries(updated);
+        setSavedField(field); setTimeout(() => setSavedField(null), 2500);
+        toast(`✅ YouTube pe update ho gaya!`);
+      } catch (e) { toast('❌ ' + e.message); }
+      setSavingField(null);
+    }
+
+    async function saveTDLocal() {
+      await updateSeries(user.uid, s.id, { ytTitle: tdTitle, ytDescription: tdDesc, ytTags: tdTags });
+      const updated = { ...s, ytTitle: tdTitle, ytDescription: tdDesc, ytTags: tdTags };
+      setSeriesList(l => l.map(x => x.id === s.id ? updated : x));
+      setOpenSeries(updated);
+      toast('💾 Saved!');
+    }
+
+    const tdFieldDefs = [
+      { key: 'title', label: '📌 Title',       color: '#ff8800', value: tdTitle, setter: setTdTitle, orig: s.ytTitle  || '' },
+      { key: 'desc',  label: '📄 Description', color: '#4488ff', value: tdDesc,  setter: setTdDesc,  orig: s.ytDescription || '' },
+      { key: 'tags',  label: '🏷️ Tags',        color: '#44bb66', value: tdTags,  setter: setTdTags,  orig: s.ytTags  || '' },
+    ];
 
     const sections = [
       {
@@ -408,6 +537,7 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
           {/* Progress */}
           <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -435,32 +565,97 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
             </div>
           </div>
 
-          {/* Title & Description */}
-          <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, padding: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
-              {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
-            </div>
-            <button onClick={() => generateTitleDesc(s)} disabled={genTD}
-              style={{ width: '100%', background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '10px', fontSize: 11, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
-              {genTD ? <><div className="spinner" style={{ width: 13, height: 13, borderTopColor: '#ffaa44' }} />Generating...</> : '🤖 Generate Title + Desc + Tags'}
-            </button>
-            {hasTitleDesc && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { key: 'ytTitle', label: '📌 Title', value: s.ytTitle, color: '#ff8800' },
-                  { key: 'ytDesc', label: '📄 Description', value: s.ytDescription, color: '#4488ff' },
-                  { key: 'ytTags', label: '🏷️ Tags', value: s.ytTags, color: '#44bb66' },
-                ].map(({ key, label, value, color }) => (
-                  <div key={key} style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 10, padding: '10px 12px' }}>
-                    <div style={{ fontSize: 9, color, fontWeight: 700, marginBottom: 6, letterSpacing: 1 }}>{label}</div>
-                    <div style={{ fontSize: 11, color: '#bbb', lineHeight: 1.6, marginBottom: 8 }}>{value}</div>
-                    <button onClick={() => copyTD(key, value)}
-                      style={{ width: '100%', background: copiedTD === key ? 'rgba(68,136,255,0.15)' : '#111', border: `1px solid ${copiedTD === key ? '#4488ff' : '#333'}`, color: copiedTD === key ? '#4488ff' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                      {copiedTD === key ? '✅ Copied!' : '📋 Copy'}
-                    </button>
+          {/* Playlist Section — same as create-series */}
+          {videoId ? (
+            <div style={{ background: '#0f0f0f', border: `1px solid ${s.playlistAdded || playlistStatus[s.id] === 'added' ? '#1a3a1a' : '#1a2a1a'}`, borderRadius: 12, padding: '13px 14px' }}>
+              <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>🎵 PLAYLIST</div>
+              {s.playlistAdded || playlistStatus[s.id] === 'added' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>✅</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#44bb66' }}>Already Added to Playlist</div>
+                    <div style={{ fontSize: 11, color: '#555' }}>{folderLabel}</div>
                   </div>
-                ))}
+                </div>
+              ) : (
+                <button onClick={() => addToPlaylist(s, videoId)} disabled={playlistStatus[s.id] === 'loading'}
+                  style={{ width: '100%', background: playlistStatus[s.id] === 'loading' ? '#111' : 'linear-gradient(135deg,#0a1a0a,#0a2a0a)', border: '1px solid #224422', color: playlistStatus[s.id] === 'loading' ? '#555' : '#44bb66', borderRadius: 10, padding: '11px', fontSize: 12, fontWeight: 700, cursor: playlistStatus[s.id] === 'loading' ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {playlistStatus[s.id] === 'loading' ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: '#44bb66' }} />Adding...</> : `➕ Add to Playlist — ${folderLabel}`}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ background: '#0f0f0f', border: '1px solid #1a1a1a', borderRadius: 12, padding: '13px 14px', fontSize: 12, color: '#444', textAlign: 'center' }}>
+              🎵 Pehle video YouTube pe upload karo
+            </div>
+          )}
+
+          {/* Title & Description — with YouTube direct update */}
+          <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
+            <div onClick={() => setTdOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: hasTitleDesc ? '#44bb66' : '#ffaa44' }}>📝 Title & Description</span>
+                {hasTitleDesc && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.15)', color: '#44bb66', border: '1px solid rgba(68,187,102,0.3)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>✅</span>}
+                {isUploaded && <span style={{ fontSize: 9, background: 'rgba(68,187,102,0.1)', color: '#44bb66', border: '1px solid #1a3a1a', padding: '2px 6px', borderRadius: 20, fontWeight: 700 }}>🔗 Linked</span>}
+              </div>
+              <span style={{ fontSize: 13, color: '#444' }}>{tdOpen ? '▲' : '▼'}</span>
+            </div>
+            {tdOpen && (
+              <div style={{ padding: '0 14px 14px', borderTop: '1px solid #1e1e1e', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ marginTop: 10, background: isUploaded ? 'rgba(68,136,255,0.07)' : 'rgba(255,170,0,0.06)', border: `1px solid ${isUploaded ? '#223355' : '#2a2000'}`, borderRadius: 10, padding: '8px 12px', fontSize: 10, color: isUploaded ? '#4466aa' : '#aa7700' }}>
+                  {isUploaded ? '🔗 Linked — Update dabao seedha YouTube pe jayega.' : '📋 Upload nahi hua — Copy karo → YouTube pe paste karo.'}
+                </div>
+                <button onClick={() => generateTitleDesc(s)} disabled={genTD}
+                  style={{ background: genTD ? '#111' : 'linear-gradient(135deg,#1a1000,#2a1800)', border: '1px solid #443300', color: genTD ? '#555' : '#ffaa44', borderRadius: 10, padding: '10px', fontSize: 11, fontWeight: 700, cursor: genTD ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {genTD ? <><div className="spinner" style={{ width: 13, height: 13, borderTopColor: '#ffaa44' }} />Generating...</> : '🤖 Generate Title + Desc + Tags'}
+                </button>
+                {tdFieldDefs.map(({ key, label, color, value, setter, orig }) => {
+                  const isFieldOpen = tdOpenField === key;
+                  const dirty = value !== orig;
+                  const isSaving = savingField === key;
+                  const isSaved  = savedField  === key;
+                  const copyKey  = `td_${key}`;
+                  return (
+                    <div key={key} style={{ background: '#0a0a0a', border: `1px solid ${dirty ? color + '44' : '#1e1e1e'}`, borderRadius: 10, overflow: 'hidden' }}>
+                      <div onClick={() => setTdOpenField(isFieldOpen ? null : key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, color, fontWeight: 700 }}>{label}</span>
+                          {isSaved && <span style={{ fontSize: 9, color: '#44bb66', fontWeight: 700 }}>✅ Updated</span>}
+                          {dirty && !isSaved && <span style={{ fontSize: 9, color: '#ffaa44' }}>●</span>}
+                        </div>
+                        <span style={{ fontSize: 11, color: '#333' }}>{isFieldOpen ? '▲' : '▼'}</span>
+                      </div>
+                      {isFieldOpen && (
+                        <div style={{ padding: '0 12px 12px', borderTop: '1px solid #111', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {key === 'title' ? (
+                            <input value={value} onChange={e => setter(e.target.value)}
+                              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${dirty ? color+'66' : '#222'}`, color: '#eee', fontSize: 12, outline: 'none', padding: '8px 0', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                          ) : (
+                            <textarea value={value} onChange={e => setter(e.target.value)} rows={key === 'tags' ? 3 : 5}
+                              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${dirty ? color+'66' : '#222'}`, color: '#eee', fontSize: 12, outline: 'none', padding: '8px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
+                          )}
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => { navigator.clipboard.writeText(value); setCopiedTD(copyKey); setTimeout(() => setCopiedTD(''), 2000); toast('📋 Copied!'); }}
+                              style={{ flex: 1, background: copiedTD === copyKey ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedTD === copyKey ? '#44bb66' : '#333'}`, color: copiedTD === copyKey ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                              {copiedTD === copyKey ? '✅ Copied!' : '📋 Copy'}
+                            </button>
+                            {isUploaded ? (
+                              <button onClick={() => ytUpdateField(key)} disabled={isSaving || !dirty}
+                                style={{ flex: 1, background: isSaving ? '#111' : dirty ? 'linear-gradient(135deg,#0a1a44,#05102a)' : '#111', border: `1px solid ${dirty ? '#4488ff' : '#222'}`, color: isSaving ? '#555' : dirty ? '#4488ff' : '#333', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: isSaving || !dirty ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                {isSaving ? <><div className="spinner" style={{ width: 11, height: 11, borderTopColor: '#4488ff' }} />...</> : dirty ? '🚀 Update' : '✓ Saved'}
+                              </button>
+                            ) : (
+                              <button onClick={saveTDLocal}
+                                style={{ flex: 1, background: '#0a1a0a', border: '1px solid #224422', color: '#44bb66', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                💾 Save
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -530,15 +725,32 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
             </div>
           ) : folderSeries.map(s => {
             const total = (s.items || []).length + 2;
+            const uploaded = checkUploaded(s);
+            const isScheduledObj = uploaded && typeof uploaded === 'object' && uploaded.status === 'scheduled';
+            const uploadColor = uploaded === true ? '#44bb66' : isScheduledObj ? '#4488ff' : uploaded === 'private' ? '#cc88ff' : uploaded === false ? '#ff8866' : '#555';
+            const scheduledTime = isScheduledObj ? formatScheduledTime(uploaded.scheduledAt) : null;
+            const uploadText = ytLoading ? '🔍...' : uploaded === true ? '✅ YouTube pe hai' : isScheduledObj ? `📅 ${scheduledTime || 'Scheduled'}` : uploaded === 'private' ? '🔒 Private' : '⏳ Upload baaki';
             const isContinuing = continuing === s.id;
             const nextExists = hasNextPart(s, seriesList);
+            const matchedVideo = getMatchedVideo(s);
+            const hasTags = matchedVideo && matchedVideo.tags && matchedVideo.tags.length > 0;
             return (
               <div key={s.id} onClick={() => setOpenSeries(s)}
                 style={{ background: '#0f0f0f', borderRadius: 14, border: '1px solid #1e1e1e', borderLeft: `4px solid ${s.color}`, cursor: 'pointer', padding: '14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 28 }}>{s.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#eee', marginBottom: 4 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>{s.doneCount || 0}/{total} done</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount || 0}/{total} done</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
+                    {/* Tag detect dot — same as create-series */}
+                    {matchedVideo && (
+                      <span style={{ fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        🏷️
+                        <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: hasTags ? '#44bb66' : '#ff4444' }} />
+                      </span>
+                    )}
+                  </div>
                   <div style={{ height: 4, background: '#1a1a1a', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: (s.progress || 0) + '%', background: s.color, borderRadius: 4 }} />
                   </div>
@@ -549,7 +761,7 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
                     </button>
                   )}
                 </div>
-                <span style={{ fontSize: 20, color: '#333' }}>›</span>
+                <span style={{ fontSize: 20, color: '#333', alignSelf: 'flex-start', marginTop: 4 }}>›</span>
               </div>
             );
           })}
@@ -640,7 +852,6 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
                 </button>
               </div>
 
-              {/* 5-something mode */}
               {customMode === 'five' && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a0800', border: '1px solid #443300', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
@@ -663,19 +874,22 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
                     <div style={{ marginBottom: 12 }}>
                       <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>TAP KARO SELECT KARNE KE LIYE</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {aiSuggestions.map((sug, i) => (
-                          <button key={i} onClick={() => setCustomName(typeof sug === 'string' ? sug.replace(/^5\s+/i,'') : sug)}
-                            style={{ background: customName === sug ? 'rgba(255,170,0,0.2)' : '#1a0800', border: `1px solid ${customName === sug ? '#ffaa44' : '#443300'}`, color: customName === sug ? '#ffaa44' : '#aaa', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                            {typeof sug === 'string' ? sug : sug}
-                          </button>
-                        ))}
+                        {aiSuggestions.map((sug, i) => {
+                          const sugStr = typeof sug === 'string' ? sug : sug.name || sug;
+                          const displayStr = sugStr.replace(/^5\s+/i, '');
+                          return (
+                            <button key={i} onClick={() => setCustomName(displayStr)}
+                              style={{ background: customName === displayStr ? 'rgba(255,170,0,0.2)' : '#1a0800', border: `1px solid ${customName === displayStr ? '#ffaa44' : '#443300'}`, color: customName === displayStr ? '#ffaa44' : '#aaa', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                              {displayStr}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
                 </>
               )}
 
-              {/* Custom Title mode */}
               {customMode === 'custom' && (
                 <>
                   <input value={customFullTitle} onChange={e => setCustomFullTitle(e.target.value)}
@@ -690,7 +904,7 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
                 </>
               )}
 
-              {/* Note field */}
+              {/* Note */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 10, color: '#666', fontWeight: 700, marginBottom: 6, letterSpacing: 1 }}>📝 AI KO NOTE (OPTIONAL)</div>
                 <textarea value={seriesNote} onChange={e => setSeriesNote(e.target.value)}
@@ -752,6 +966,7 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
         ) : sortedFolders.map(type => {
           const seriesInFolder = grouped[type];
           const folder = getFolder(type);
+          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
           const canContinue = seriesInFolder.find(s => !hasNextPart(s, seriesList));
           return (
             <div key={type} onClick={() => setOpenFolder(type)}
@@ -760,8 +975,8 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
               <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{folder.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
-                <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series</div>
-                {canContinue && (
+                <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
+                {canContinue && !ytLoading && (
                   <div style={{ fontSize: 10, color: '#ffaa44', fontWeight: 700, marginTop: 4, background: 'rgba(255,170,0,0.08)', border: '1px solid #443300', borderRadius: 6, padding: '3px 8px', display: 'inline-block' }}>
                     ✨ Part {(canContinue.part || 1) + 1} ban sakta hai
                   </div>
