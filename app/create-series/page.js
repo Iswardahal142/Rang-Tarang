@@ -174,7 +174,7 @@ function buildIntroImagePrompt(seriesName, items = []) {
   const itemsDesc = first3.length > 0
     ? first3.map((item, i) => `${item.name} (${item.object}) at ${shuffled[i]}`).join(', ')
     : 'colorful educational items at bottom';
-  const displayTitle = seriesName.replace(/^Five\s+/i, '5 ').replace(/\s+Name$/i, ' के नाम');
+  const displayTitle = seriesName.replace(/^Five\s+/i, 'Five ').replace(/\s+Name$/i, ' के नाम');
   return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${displayTitle}" floating center with colorful sparkles. Show 3 big Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text. Ultra high quality. 8K resolution. Sharp details. Cinematic lighting. Professional render.`;
 }
 
@@ -213,7 +213,7 @@ const INTRO_ANIMATIONS = [
 
 function buildIntroVideoPrompt(seriesName, part = 1, items = [], animationId = 'random') {
   const baseName = seriesName.replace(/ Part \d+$/, '').trim();
-  const displayTitle = baseName.replace(/^Five\s+/i, '5 ').replace(/\s+Name$/i, ' के नाम');
+  const displayTitle = baseName.replace(/^Five\s+/i, 'Five ').replace(/\s+Name$/i, ' के नाम');
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
   const objectLine = firstItem ? `Teacher bends down, picks up a big ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
