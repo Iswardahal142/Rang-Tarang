@@ -184,6 +184,7 @@ function GKSeriesPage({ user }) {
   const [savingField, setSavingField]           = useState(null);
   const [savedField, setSavedField]             = useState(null);
   const [fixingEmoji, setFixingEmoji]           = useState(null);
+  const [regenLoading, setRegenLoading] = useState(null);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
