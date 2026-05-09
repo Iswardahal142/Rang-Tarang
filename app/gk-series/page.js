@@ -183,7 +183,7 @@ function GKSeriesPage({ user }) {
   const [tdTags, setTdTags]                     = useState('');
   const [savingField, setSavingField]           = useState(null);
   const [savedField, setSavedField]             = useState(null);
-  const [regenField, setRegenField]             = useState(null); // 'title'|'desc'|'tags'
+  const [fixingEmoji, setFixingEmoji]           = useState(null);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -372,6 +372,19 @@ Return ONLY JSON array:
       toast(`🎉 Part ${newPart} ready!`); loadList();
     } catch (e) { toast('❌ ' + e.message); }
     setContinuing(null);
+  }
+
+  // ── Fix Emoji for existing series ──
+  async function fixSeriesEmoji(e, series) {
+    e.stopPropagation();
+    setFixingEmoji(series.id);
+    try {
+      const detected = await detectEmoji(series.name);
+      await updateSeries(user.uid, series.id, { emoji: detected });
+      setSeriesList(l => l.map(s => s.id === series.id ? { ...s, emoji: detected } : s));
+      toast(`✅ Emoji fix: ${detected}`);
+    } catch (err) { toast('❌ ' + err.message); }
+    setFixingEmoji(null);
   }
 
   // ── Add to Playlist ──
