@@ -488,7 +488,7 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
     }
 
     async function regenOneField(field) {
-      setRegenField(field);
+      setRegenLoading(field);
       try {
         const base = s.name.replace(/ Part \d+$/, '').trim();
         const partText = (s.part || 1) > 1 ? ` Part ${s.part}` : '';
@@ -535,7 +535,7 @@ Return ONLY the comma-separated tags, nothing else.`;
         else setTdTags(text);
         toast(`🔄 ${field === 'title' ? 'Title' : field === 'desc' ? 'Description' : 'Tags'} regenerated!`);
       } catch (e) { toast('❌ ' + e.message); }
-      setRegenField(null);
+      setRegenLoading(null);
     }
 
     async function ytUpdateField(field) {
@@ -641,22 +641,6 @@ Return ONLY the comma-separated tags, nothing else.`;
             </div>
           )}
 
-{/* Items preview */}
-          <div style={{ background: '#0f0f0f', border: '1px solid #1e1e1e', borderRadius: 12, padding: 14 }}>
-            <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 10, letterSpacing: 1 }}>🖼 PORTRAIT LIST</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(s.items || []).map((item, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#0a0a0a', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: s.color + '22', border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🖼</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#eee', marginBottom: 2 }}>{item.name} <span style={{ fontSize: 11, color: '#555' }}>{item.hindiName}</span></div>
-                    <div style={{ fontSize: 10, color: '#666', lineHeight: 1.5 }}>{item.dialogue}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Title & Description — with YouTube direct update */}
           <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
             <div onClick={() => setTdOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
@@ -703,9 +687,9 @@ Return ONLY the comma-separated tags, nothing else.`;
                           )}
                           <div style={{ display: 'flex', gap: 6 }}>
                             {/* 🔄 Regenerate — sirf yeh field */}
-                            <button onClick={() => regenOneField(key)} disabled={regenField === key}
-                              style={{ background: regenField === key ? '#111' : '#0a0a1a', border: `1px solid ${regenField === key ? '#333' : color + '55'}`, color: regenField === key ? '#444' : color, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontWeight: 700, cursor: regenField === key ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                              {regenField === key ? <div className="spinner" style={{ width: 11, height: 11, borderTopColor: color }} /> : '🔄'}
+                            <button onClick={() => regenOneField(key)} disabled={regenLoading === key}
+                              style={{ background: regenLoading === key ? '#111' : '#0a0a1a', border: `1px solid ${regenLoading === key ? '#333' : color + '55'}`, color: regenLoading === key ? '#444' : color, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontWeight: 700, cursor: regenLoading === key ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                              {regenLoading === key ? <div className="spinner" style={{ width: 11, height: 11, borderTopColor: color }} /> : '🔄'}
                             </button>
                             {/* 📋 Copy */}
                             <button onClick={() => { navigator.clipboard.writeText(value); setCopiedTD(copyKey); setTimeout(() => setCopiedTD(''), 2000); toast('📋 Copied!'); }}
