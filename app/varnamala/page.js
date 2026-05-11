@@ -387,7 +387,7 @@ function VarnamalaPage({ user }) {
   async function generateSeries() {
     setGenerating(true);
     try {
-      
+      const typeInfo = SERIES_TYPES[selectedType];
       const existing = seriesList.filter(s => s.type === selectedType).map(s => s.name).join(', ') || 'none';
       const noteLine = seriesNote.trim() ? `\nNote: ${seriesNote.trim()}` : '';
       let items = [];
@@ -440,9 +440,9 @@ RULES: Very simple 2-letter words only. Common words kids know. "object" = Engli
         seriesName = customName.trim() || `दो अक्षर — ${items.map(i=>i.word).join(', ')}`;
       }
 
-Object.entries(SERIES_TYPES).map(([key, info]) => {
-  const typeSeries = seriesList.filter(s => s.type === key);
-        
+      const typeInfo = SERIES_TYPES[selectedType];
+      const part = seriesList.filter(s => s.type === selectedType).length + 1;
+
       await saveSeries(user.uid, {
         name: seriesName, type: selectedType,
         emoji: typeInfo.emoji, color: typeInfo.color,
