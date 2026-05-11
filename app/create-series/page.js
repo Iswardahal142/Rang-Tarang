@@ -170,12 +170,35 @@ function formatScheduledTime(isoString) {
 function buildIntroImagePrompt(seriesName, items = []) {
   const first3 = items.slice(0, 3);
   const positions = ['bottom left', 'bottom center', 'bottom right'];
-  const shuffled = positions.sort(() => Math.random() - 0.5);
+  const shuffled = [...positions].sort(() => Math.random() - 0.5);
+
   const itemsDesc = first3.length > 0
-    ? first3.map((item, i) => `${item.name} (${item.object}) at ${shuffled[i]}`).join(', ')
-    : 'colorful educational items at bottom';
-  const displayTitle = seriesName.replace(/^Five\s+/i, 'Five ').replace(/\s+Name$/i, ' के नाम');
-  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling, waving hand with excited expression. Bold glowing text "${displayTitle}" floating center with colorful sparkles. Show 3 big Pixar 3D cartoon items at bottom: ${itemsDesc}. 9:16 vertical. Pixar style. No other text. Ultra high quality. 8K resolution. Sharp details. Cinematic lighting. Professional render.`;
+    ? first3.map((item, i) => `- ${shuffled[i]}: A glossy Pixar-style 3D cartoon ${item.name} (${item.object}), large and detailed, placed on the rainbow carpet`).join('\n')
+    : '- Three colorful Pixar-style 3D educational cartoon items placed side by side on the carpet';
+
+  // Parse title into line1 + line2 + line3
+  const rawTitle = seriesName.trim();
+  const line1Match = rawTitle.match(/^(Five)\s+(.+)$/i);
+  const line1 = line1Match ? 'Five' : rawTitle;
+  const rest = line1Match ? line1Match[2] : '';
+  const line2 = rest.replace(/\s*(के नाम|ke naam)?\s*$/i, '').trim();
+  const line3 = 'के नाम';
+
+  return `A vibrant Pixar-style 3D animated educational scene set inside a colorful classroom with pink curtains, large window with garden view, blackboard on right, colorful flower wall decorations, bunting flags, bookshelf with colorful bins, potted plants, and a rainbow striped circular carpet on the floor.
+
+A Pixar-style 3D animated boy character with black hair, big expressive brown eyes, white t-shirt, dark pants, white sneakers, standing center on the carpet, smiling with an excited open expression, waving his right hand up enthusiastically with all five fingers spread.
+
+Floating in front of the boy's torso area, bold chunky 3D glowing text in multiple bright colors with golden neon outline glow and colorful sparkle stars around it, arranged in three lines exactly as:
+Line 1: "${line1}" — large red, purple, green multicolor bold 3D letters
+Line 2: "${line2}" — large blue, pink, green, orange multicolor bold 3D letters
+Line 3: "${line3}" — large yellow and cyan bold 3D Devanagari letters
+
+The text block floats centered in front of the character, slightly overlapping the lower chest area, with bright sparkle star effects (pink, white, yellow, cyan) scattered around the text.
+
+At the bottom of the scene on the rainbow carpet, three large Pixar-style 3D cartoon objects placed side by side:
+${itemsDesc}
+
+Vertical 9:16 portrait orientation. Pixar animation studio style. Ultra high quality 8K resolution. Cinematic warm lighting. Sharp crisp details. Professional CGI render. No additional text anywhere.`;
 }
 
 const INTRO_ANIMATIONS = [
