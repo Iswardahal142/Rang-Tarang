@@ -20,6 +20,8 @@ const SIDEBAR_ONLY_TABS = [
   { key: 'long-video', icon: '🎥', label: 'Long Video', path: '/long-video' },
   { key: 'shorts-creator',   icon: '⚡', label: 'short',   path: '/short-creator'   },
   { key: 'audit',   icon: '🔥', label: 'audit',   path: '/audit'   },
+  { key: 'varnamala',   icon: '🅰️', label: 'varnamala',   path: '/varnamala'   },
+  { key: 'hindi-series',   icon: '🕉️', label: 'hindi',   path: '/hindi-series'   },
 ];
 
 const ALL_TABS = [...BOTTOM_TABS, ...SIDEBAR_ONLY_TABS];
@@ -33,6 +35,8 @@ const TAB_COLORS = {
   'long-video':     '#4488ff',
   audit:         '#ff4400',
   'gk-series':      '#ffaa00',
+  varnamala : '#ffaa00',
+  'hindi-series' : '#ffaa00',
 };
 
 function getNotifStyle(n) {
