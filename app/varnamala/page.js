@@ -440,7 +440,7 @@ RULES: Very simple 2-letter words only. Common words kids know. "object" = Engli
         seriesName = customName.trim() || `दो अक्षर — ${items.map(i=>i.word).join(', ')}`;
       }
 
-      const typeInfo = SERIES_TYPES[selectedType];
+    
       const part = seriesList.filter(s => s.type === selectedType).length + 1;
 
       await saveSeries(user.uid, {
