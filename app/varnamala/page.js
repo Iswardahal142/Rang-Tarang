@@ -387,7 +387,7 @@ function VarnamalaPage({ user }) {
   async function generateSeries() {
     setGenerating(true);
     try {
-      const typeInfo = SERIES_TYPES[selectedType];
+      
       const existing = seriesList.filter(s => s.type === selectedType).map(s => s.name).join(', ') || 'none';
       const noteLine = seriesNote.trim() ? `\nNote: ${seriesNote.trim()}` : '';
       let items = [];
