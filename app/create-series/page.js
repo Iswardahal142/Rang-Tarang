@@ -34,33 +34,45 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_series', id));
 }
 
-// ── Fallback type detect ──
 function getSeriesType(seriesName) {
   const n = (seriesName || '').toLowerCase();
-  if (n.includes('flower'))                                                                    return 'flower';
-  if (n.includes('festival') || n.includes('tyohar') || n.includes('celebration'))            return 'festival';
+  if (n.includes('flower'))                                                                     return 'flower';
+  if (n.includes('festival') || n.includes('tyohar') || n.includes('celebration'))             return 'festival';
   if (n.includes('number') || n.includes('counting') || n.includes('ginti') || n.includes('1 to') || n.includes('numbers')) return 'number';
-  if (n.includes('color') || n.includes('colour') || n.includes('rang'))                      return 'color';
-  if (n.includes('fruit'))                                                                     return 'fruit';
-  if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter'))                   return 'alphabet';
-  if (n.includes('shape'))                                                                     return 'shape';
+  if (n.includes('color') || n.includes('colour') || n.includes('rang'))                       return 'color';
+  if (n.includes('fruit'))                                                                      return 'fruit';
+  if (n.includes('alphabet') || n.includes(' abc') || n.includes('letter'))                    return 'alphabet';
+  if (n.includes('shape'))                                                                      return 'shape';
   if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi') || n.includes('sabziyon')) return 'vegetable';
-  if (n.includes('body') || n.includes('body part') || n.includes('sharir'))                  return 'body';
-  if (n.includes('vehicle') || n.includes('transport'))                                        return 'vehicle';
-  if (n.includes('food'))                                                                      return 'food';
-  if (n.includes('sport'))                                                                     return 'sport';
-  if (n.includes('instrument') || n.includes('music'))                                         return 'instrument';
-  if (n.includes('space') || n.includes('planet'))                                             return 'space';
-  if (n.includes('weather') || n.includes('season'))                                           return 'weather';
-  if (n.includes('computer'))                                                                   return 'computer_part';
-  if (n.includes('tool'))                                                                       return 'tool';
-  if (n.includes('sound'))                                                                      return 'animal_sound';
-  if (n.includes('insect') || n.includes('bug'))                                               return 'insect';
-  if (n.includes('bird') || n.includes('parrot') || n.includes('sparrow'))                    return 'bird';
+  if (n.includes('body') || n.includes('body part') || n.includes('sharir'))                   return 'body';
+  if (n.includes('vehicle') || n.includes('transport'))                                         return 'vehicle';
+  if (n.includes('food'))                                                                       return 'food';
+  if (n.includes('sport'))                                                                      return 'sport';
+  if (n.includes('instrument') || n.includes('music'))                                          return 'instrument';
+  if (n.includes('space') || n.includes('planet'))                                              return 'space';
+  if (n.includes('weather') || n.includes('season'))                                            return 'weather';
+  if (n.includes('computer'))                                                                    return 'computer_part';
+  if (n.includes('tool'))                                                                        return 'tool';
+  if (n.includes('sound'))                                                                       return 'animal_sound';
+  if (n.includes('insect') || n.includes('bug'))                                                return 'insect';
+  if (n.includes('bird') || n.includes('parrot') || n.includes('sparrow'))                     return 'bird';
   if (n.includes('fish') || n.includes('sea') || n.includes('ocean') || n.includes('water') || n.includes('aquatic')) return 'water_animal';
-  if (n.includes('wild') || n.includes('forest') || n.includes('jungle'))                     return 'wild_animal';
-  if (n.includes('domestic') || n.includes('pet') || n.includes('farm'))                      return 'domestic_animal';
-  if (n.includes('animal'))                                                                     return 'wild_animal';
+  if (n.includes('wild') || n.includes('forest') || n.includes('jungle'))                      return 'wild_animal';
+  if (n.includes('domestic') || n.includes('pet') || n.includes('farm'))                       return 'domestic_animal';
+  if (n.includes('animal'))                                                                      return 'wild_animal';
+
+  // ── NAYI CATEGORIES ──
+  if (n.includes('gadget') || n.includes('electronic') || n.includes('device'))                return 'gadget';
+  if (n.includes('furniture') || n.includes('chair') || n.includes('table'))                   return 'furniture';
+  if (n.includes('cloth') || n.includes('clothes') || n.includes('wear') || n.includes('dress') || n.includes('outfit') || n.includes('garment') || n.includes('footwear') || n.includes('shoe')) return 'clothing';
+  if (n.includes('toy') || n.includes('game') || n.includes('play'))                           return 'toy';
+  if (n.includes('stationery') || n.includes('school') || n.includes('pencil') || n.includes('book')) return 'stationery';
+  if (n.includes('kitchen') || n.includes('utensil') || n.includes('vessel') || n.includes('bartan')) return 'kitchen';
+  if (n.includes('tree') || n.includes('plant'))                                                return 'plant';
+  if (n.includes('flag') || n.includes('country') || n.includes('nation'))                     return 'country';
+  if (n.includes('profession') || n.includes('job') || n.includes('work') || n.includes('career')) return 'profession';
+  if (n.includes('emotion') || n.includes('feeling') || n.includes('mood'))                    return 'emotion';
+
   return 'other';
 }
 
@@ -325,27 +337,35 @@ function buildItemImagePrompt(item, seriesName) {
 
 function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   const type = getSeriesType(seriesName);
+
   if (type === 'number') {
     const num = item.name; const hindiNum = item.hindiName || num;
     const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
     const qText = `यह क्या है?`;
     return `Use reference image exactly as background scene. Teacher standing on left side pointing toward right. Big bold 3D bright golden yellow "${num}" — exactly the character shape, no face, no eyes — only two small cute legs at bottom and two small arms on sides — floating in air at center-right of screen, gently bobbing up and down. Teacher points to the ${num} curiously. Teacher asks in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Teacher softly touches the ${num}. Bottom text animates away and glowing bold rainbow text "यह ${num} है!" appears at same position. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${hindiNum} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point in the video. No floating symbols above the object at any point. No background music. 10 seconds total. Smooth. No glitch. Teacher must lip sync Pure Hindi Indian accent audio only.`;
   }
+
   if (type === 'body') {
     const action = getBodyPartAction(item.object);
     const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
     const qText = `यह क्या है?`;
     return `Use reference image exactly as background scene. Teacher standing center facing camera. ${action} while asking in Hindi: "${q}". Teacher keeps showing the body part the entire time during the question — do not stop. Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher still holds the pose. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher smiles at camera and gives thumbs up. No floating 3D objects. No "?" or question mark anywhere at any point in the video. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
   }
+
   const q = isFirstPart ? `तो बताओ.. यह क्या है?` : `अब बताओ.. यह क्या है?`;
   const qText = `यह क्या है?`;
-  const objLower = cleanObjectDesc(item.object || item.name || '').toLowerCase();
   const cleanObj = cleanObjectDesc(item.object) || item.name;
-  const isBird = ['bird','parrot','sparrow','eagle','owl','crow','peacock','hen','duck','chick','penguin','flamingo','toucan','macaw','pigeon','dove','swan','crane','stork','seagull','puffin','kite','vulture','kingfisher','woodpecker','robin','finch'].some(w => objLower.includes(w));
-  const isAnimal = !isBird && ['animal','tiger','lion','elephant','giraffe','dog','cat','horse','cow','sheep','goat','monkey','bear','wolf','fox','deer','rabbit','frog','fish','snake','crocodile','hippo','rhino','zebra','cheetah','leopard','panda','kangaroo','koala','camel','donkey','pig','rat','mouse','squirrel','turtle','tortoise'].some(w => objLower.includes(w));
-  const isHeavyVehicle = ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep','airplane','plane','helicopter','bicycle','bike','motorcycle','scooter'].some(w => objLower.includes(w));
-  const isSmall = !isBird && !isAnimal && !isHeavyVehicle && !isLargeObject(item.object || item.name);
+
+  // ── Series type se decide karo — item description pe nahi ──
+  const isBird         = type === 'bird';
+  const isWaterAnimal  = type === 'water_animal';
+  const isAnimal       = type === 'wild_animal' || type === 'domestic_animal' || type === 'animal_sound' || isWaterAnimal;
+  const isHeavyVehicle = type === 'vehicle';
+  const isLarge        = isLargeObject(item.object || item.name);
+  const isSmall        = !isBird && !isAnimal && !isHeavyVehicle && !isLarge;
+
   let placementDesc = '', teacherAction = '';
+
   if (isBird) {
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) standing on the floor at center-right of screen. Bird is large and clearly visible — significantly bigger than real life. Bird faces toward teacher, standing still with wings slightly open, looking at camera with a cute curious expression. No floating. No flying. No perch.`;
     teacherAction = `Teacher points to the ${item.name} with one finger curiously while asking`;
@@ -355,16 +375,17 @@ function buildVideoPrompt(item, seriesName, isFirstPart = true) {
   } else if (isHeavyVehicle) {
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) parked on the floor at center-right of screen. Object is large and clearly visible. No floating.`;
     teacherAction = `Teacher walks to the ${item.name}, places hand on it proudly while asking`;
-  } else if (isSmall) {
-    placementDesc = `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, clearly showing it. Object fills most of the frame and is large and clearly visible.`;
-    teacherAction = `Teacher holds the ${item.name} up toward camera and looks at it curiously while asking`;
-  } else {
+  } else if (isLarge) {
     placementDesc = `Big Pixar 3D animated ${item.name} (${cleanObj}) placed on the floor at center-right of screen. Object is large and clearly visible. No floating.`;
     teacherAction = `Teacher walks toward the ${item.name} and softly touches it with one hand gently while asking`;
+  } else {
+    // isSmall — teacher holds it
+    placementDesc = `Teacher holding up a big Pixar 3D cartoon ${item.name} (${cleanObj}) in both hands toward camera, clearly showing it. Object fills most of the frame and is large and clearly visible.`;
+    teacherAction = `Teacher holds the ${item.name} up toward camera and looks at it curiously while asking`;
   }
+
   return `Use reference image exactly as background scene. Teacher standing on left side. ${placementDesc} ${teacherAction} in Hindi: "${q}". Bold rainbow gradient text "${qText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds while teacher keeps interacting with the ${item.name}. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "यह ${item.name} है! बहुत अच्छे!" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects at any point. No background music. 10 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
 }
-
 const hindiNumbers = {
   1:'वन',2:'टू',3:'थ्री',4:'फोर',5:'फाइव',6:'सिक्स',7:'सेवन',8:'एट',9:'नाइन',10:'टेन',
   11:'इलेवन',12:'ट्वेल्व',13:'थर्टीन',14:'फोर्टीन',15:'फिफ्टीन',16:'सिक्सटीन',17:'सेवेंटीन',18:'एटीन',19:'नाइनटीन',20:'ट्वेंटी',
