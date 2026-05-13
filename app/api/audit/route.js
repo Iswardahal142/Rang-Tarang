@@ -236,7 +236,7 @@ export async function GET() {
 
 export async function PATCH(request) {
   try {
-    const { videoId, title, description, tags, categoryId } = await request.json();
+    const { videoId, title, description, tags, categoryId, uid } = await request.json();
 
     if (!videoId)       return Response.json({ error: 'videoId required' },            { status: 400 });
     if (!title?.trim()) return Response.json({ error: 'Title khaali nahi ho sakta' }, { status: 400 });
@@ -269,6 +269,62 @@ export async function PATCH(request) {
     if (!res.ok) {
       const errMsg = data?.error?.message || data?.error?.errors?.[0]?.message || 'YouTube update fail';
       return Response.json({ error: errMsg }, { status: res.status });
+    }
+
+    // ── Firestore sync: saare rt_* collections mein matching doc update karo ──
+    if (uid) {
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'fir-c929f';
+      const baseUrl   = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
+
+      // Jis collection mein bhi ytTitle ya name se ye video match kare, update karo
+      const COLLECTIONS = ['rt_hindi_series', 'rt_gk_series', 'rt_varnamala', 'rt_series', 'rt_shorts', 'rt_long_video'];
+
+      const titleLower = title.trim().toLowerCase();
+
+      for (const col of COLLECTIONS) {
+        try {
+          const listRes  = await fetch(`${baseUrl}/users/${uid}/${col}`);
+          if (!listRes.ok) continue;
+          const listData = await listRes.json();
+          const docs     = listData.documents || [];
+
+          for (const docSnap of docs) {
+            const fields      = docSnap.fields || {};
+            const docYtTitle  = fields.ytTitle?.stringValue  || '';
+            const docName     = fields.name?.stringValue     || '';
+            const docYtTitleL = docYtTitle.toLowerCase();
+            const docNameL    = docName.toLowerCase();
+
+            // Match: agar audit ka updated title aur Firestore ka ytTitle/name overlap kare
+            const isMatch =
+              (docYtTitleL && (titleLower.includes(docYtTitleL.slice(0, 20)) || docYtTitleL.includes(titleLower.slice(0, 20)))) ||
+              (docNameL    && (titleLower.includes(docNameL.slice(0, 15))    || docNameL.includes(titleLower.slice(0, 15))));
+
+            if (!isMatch) continue;
+
+            // Document ID extract karo path se
+            const docId      = docSnap.name.split('/').pop();
+            const patchUrl   = `${baseUrl}/users/${uid}/${col}/${docId}?updateMask.fieldPaths=ytTitle&updateMask.fieldPaths=ytDescription&updateMask.fieldPaths=ytTags`;
+            const tagsString = tagsArray.join(', ');
+
+            await fetch(patchUrl, {
+              method:  'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fields: {
+                  ytTitle:       { stringValue: title.trim() },
+                  ytDescription: { stringValue: description?.trim() || '' },
+                  ytTags:        { stringValue: tagsString },
+                },
+              }),
+            });
+            // Ek match mil gaya is collection mein — next collection pe jao
+            break;
+          }
+        } catch (e) {
+          console.warn(`[audit PATCH] Firestore sync skip (${col}):`, e.message);
+        }
+      }
     }
 
     return Response.json({
