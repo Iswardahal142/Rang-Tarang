@@ -18,7 +18,7 @@ const BOTTOM_TABS = [
 // ── Sidebar Only Tabs ─────────────────────────────────────────
 const SIDEBAR_ONLY_TABS = [
   { key: 'long-video', icon: '🎥', label: 'Long Video', path: '/long-video' },
-  { key: 'shorts-creator',   icon: '⚡', label: 'short',   path: '/short-creator'   },
+  { key: 'shorts-creator',   icon: '⚡', label: 'short',   path: '/shorts-creator'   },
   { key: 'audit',   icon: '🔥', label: 'audit',   path: '/audit'   },
   { key: 'varnamala',   icon: '🅰️', label: 'varnamala',   path: '/varnamala'   },
   { key: 'hindi-series',   icon: '🕉️', label: 'hindi',   path: '/hindi-series'   },
