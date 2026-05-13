@@ -16,7 +16,12 @@ async function aiCall(prompt) {
       messages: [{ role: 'user', content: prompt }],
     }),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `AI call failed (${res.status})`);
+  }
   const data = await res.json();
+  if (data.error) throw new Error(typeof data.error === 'string' ? data.error : data.error?.message || 'AI error');
   return (data.choices?.[0]?.message?.content || '').trim();
 }
 
@@ -458,18 +463,22 @@ function AuditPage({ uid }) {
   useEffect(() => { fetchAudit(); }, []);
 
   async function fetchAudit() {
-    setLoading(true); setData(null); setOpenVideo(null);
+    setLoading(true); setData(null); setOpenVideo(null); setFilterIssue('all');
     try {
-      const [auditRes, analyticsRes] = await Promise.all([
-        fetch('/api/audit'),
-        fetch('/api/youtube/analytics'),
-      ]);
-      const json          = await auditRes.json();
-      const analyticsJson = await analyticsRes.json();
+      const auditRes = await fetch('/api/audit');
+      const json     = await auditRes.json();
 
       if (json.error) { toast('❌ ' + json.error); setLoading(false); return; }
 
-      const analyticsMap = analyticsJson.analytics || {};
+      // Analytics alag se fetch karo — fail ho toh bhi audit chale
+      let analyticsMap = {};
+      try {
+        const analyticsRes  = await fetch('/api/youtube/analytics');
+        const analyticsJson = await analyticsRes.json();
+        if (!analyticsJson.error) analyticsMap = analyticsJson.analytics || {};
+      } catch (analyticsErr) {
+        console.warn('[audit] Analytics fetch fail, skipping:', analyticsErr.message);
+      }
 
       if (json.videos) {
         json.videos = json.videos.map(v => {
