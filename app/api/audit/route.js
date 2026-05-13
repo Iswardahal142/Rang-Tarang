@@ -92,6 +92,7 @@ export async function GET() {
     const videos = allVideos.map(v => {
       const issues = [];
       const age    = daysSince(v.publishedAt);
+      // YouTube Shorts: 60 seconds tak (inclusive)
       const isShort = v.durationSec > 0 && v.durationSec <= 60;
 
       // ── 1. TAGS ──
@@ -151,10 +152,10 @@ export async function GET() {
       // ── 5. VIEWS (age-based) ──
       if (age >= 14 && v.viewCount === 0) {
         issues.push({ type: 'views', severity: 'high', msg: `${age} din mein 0 views — title/thumbnail weak ho sakta hai` });
-      } else if (age >= 7 && v.viewCount < 10) {
-        issues.push({ type: 'views', severity: 'medium', msg: `${age} din mein sirf ${v.viewCount} views — promotion zaroori` });
       } else if (age >= 30 && v.viewCount < 50) {
         issues.push({ type: 'views', severity: 'medium', msg: `1 mahine mein sirf ${v.viewCount} views — re-optimize karo` });
+      } else if (age >= 7 && v.viewCount < 10) {
+        issues.push({ type: 'views', severity: 'medium', msg: `${age} din mein sirf ${v.viewCount} views — promotion zaroori` });
       }
 
       // ── 6. LIKES ratio ──
@@ -176,19 +177,38 @@ export async function GET() {
       if (partMatch) {
         const partNum = parseInt(partMatch[1]);
         if (partNum > 1) {
-          // Part 1 dhundho same base name se
-          const baseName = v.title.replace(/part\s*\d+/i, '').replace(/[|•\-–:]/g, '').trim().toLowerCase();
-          const part1 = allVideos.find(other =>
-            other.id !== v.id &&
-            !other.title.match(/part\s*[2-9]/i) &&
-            other.title.toLowerCase().includes(baseName.split(' ').filter(w => w.length > 3)[0] || '')
-          );
-          if (part1) {
-            // Title pattern match check
-            const v1Pattern = part1.title.replace(/\d+/g, 'N').toLowerCase();
-            const v2Pattern = v.title.replace(/\d+/g, 'N').replace(/part\s*N/i, '').toLowerCase();
-            if (!v1Pattern.includes(v2Pattern.slice(0, 10))) {
-              issues.push({ type: 'series', severity: 'medium', msg: `Part ${partNum} ka title Part 1 se match nahi karta — series link nahi banegi` });
+          // Core topic words extract karo (|  ke pehle ka part, Part N hatao, short words hatao)
+          const coreRaw = v.title
+            .split(/[|•\-–:]/)[0]
+            .replace(/part\s*\d+/i, '')
+            .replace(/[^\w\s\u0900-\u097F]/g, '') // keep Hindi + English + spaces
+            .trim()
+            .toLowerCase();
+          const coreWords = coreRaw.split(/\s+/).filter(w => w.length >= 4);
+
+          if (coreWords.length > 0) {
+            const part1 = allVideos.find(other => {
+              if (other.id === v.id) return false;
+              if (other.title.match(/part\s*[2-9]/i)) return false;
+              const otherLower = other.title.toLowerCase();
+              // At least 2 core words match karne chahiye
+              const matchCount = coreWords.filter(w => otherLower.includes(w)).length;
+              return matchCount >= Math.min(2, coreWords.length);
+            });
+
+            if (part1) {
+              // Dono titles se "Part N" hata ke compare karo — agar significantly alag ho toh issue
+              const strip = t => t.replace(/part\s*\d+/i, '').replace(/[|•\-–:]/g, '').toLowerCase().trim();
+              const base1 = strip(part1.title);
+              const base2 = strip(v.title);
+              // Check: base2 ke significant words base1 mein hain ya nahi
+              const words2 = base2.split(/\s+/).filter(w => w.length >= 4);
+              const overlap = words2.filter(w => base1.includes(w)).length;
+              const overlapPct = words2.length > 0 ? overlap / words2.length : 1;
+
+              if (overlapPct < 0.4) {
+                issues.push({ type: 'series', severity: 'medium', msg: `Part ${partNum} ka title Part 1 se match nahi karta — series link nahi banegi` });
+              }
             }
           }
         }
