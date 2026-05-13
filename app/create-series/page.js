@@ -490,7 +490,7 @@ RULES:
 - Hindi hook must be a curiosity/surprise statement specific to this topic
 - Examples: "🌸 गुलाब से ज़्यादा सुंदर फूल!", "🦁 शेर से भी खतरनाक जानवर!", "🍎 आम से ज़्यादा मीठा फल!"
 - Max 80 chars total
-- Return ONLY the title text, nothing else.
+- Return ONLY the title text, nothing else.`;
       } else if (field === 'desc') {
         prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
 Series: "${baseName}${partText}" | Items: ${itemNames}
