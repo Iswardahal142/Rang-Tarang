@@ -485,8 +485,12 @@ Current description: "${desc.slice(0, 100)}"
 Current tags: "${tags.slice(0, 100)}"
 
 Generate ONE improved YouTube title that matches the description and tags above.
-RULES: Exactly "[count] [Hindi name] | [count] [English name] | Rang Tarang" pattern. Max 60 chars. NO emoji.
-Return ONLY the title text, nothing else.`;
+RULES:
+- Pattern: "[emoji] [Hindi curiosity hook]! | [count] [English topic] Names for Kids | Rang Tarang"
+- Hindi hook must be a curiosity/surprise statement specific to this topic
+- Examples: "🌸 गुलाब से ज़्यादा सुंदर फूल!", "🦁 शेर से भी खतरनाक जानवर!", "🍎 आम से ज़्यादा मीठा फल!"
+- Max 80 chars total
+- Return ONLY the title text, nothing else.
       } else if (field === 'desc') {
         prompt = `You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
 Series: "${baseName}${partText}" | Items: ${itemNames}
@@ -969,11 +973,18 @@ Count: ${count}
 Generate YouTube title, description, and tags.
 
 TITLE RULES (VERY STRICT):
-- Exactly this pattern: "[count] [English topic] के नाम | Rang Tarang"
-- Examples: "5 Fruits के नाम | Rang Tarang", "5 Animals के नाम | Rang Tarang"
-- If Part 2 or more: "[count] [English topic] के नाम Part ${(series.part||1)>1?series.part:''} | Rang Tarang"
-- Max 60 characters total
-- NO emoji in title
+- Pattern: "[emoji] [Hindi curiosity hook]! | [count] [English topic] Names for Kids | Rang Tarang"
+- Examples:
+  "🍎 आम से ज़्यादा मीठा फल! | 5 Fruits Names for Kids | Rang Tarang"
+  "🦁 शेर से भी खतरनाक जानवर! | 5 Wild Animals Names for Kids | Rang Tarang"
+  "🌸 गुलाब से ज़्यादा सुंदर फूल! | 5 Flowers Names for Kids | Rang Tarang"
+  "🔢 क्या तुम गिन सकते हो? | 5 Numbers for Kids | Rang Tarang"
+- If Part 2+: same pattern but add "Part [N]" before "| Rang Tarang"
+- Hindi hook must be curiosity/emotion-based — question ya surprising statement
+- Emoji must match the topic
+- Max 80 characters total
+- NO generic hooks like "सीखो" or "जानो" — be creative and specific
+
 
 DESCRIPTION RULES:
 Line 1: Hook in Hindi (1 line)
