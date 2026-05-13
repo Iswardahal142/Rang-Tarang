@@ -140,11 +140,73 @@ function buildPortraitImagePrompt(item) {
 
 function buildGKVideoPrompt(item, seriesName, isFirst = true) {
   const folderKey = getFolderKey(seriesName).toLowerCase();
-  const isPersonTopic = folderKey.includes('freedom') || folderKey.includes('fighter') || folderKey.includes('scientist') || folderKey.includes('inventor');
+  
+  const isPersonTopic =
+    folderKey.includes('freedom') ||
+    folderKey.includes('fighter') ||
+    folderKey.includes('scientist') ||
+    folderKey.includes('inventor') ||
+    folderKey.includes('cricketer') ||
+    folderKey.includes('cricket') ||
+    folderKey.includes('footballer') ||
+    folderKey.includes('football') ||
+    folderKey.includes('player') ||
+    folderKey.includes('singer') ||
+    folderKey.includes('actor') ||
+    folderKey.includes('leader') ||
+    folderKey.includes('president') ||
+    folderKey.includes('king') ||
+    folderKey.includes('queen');
+
+  const isAnimalTopic =
+    folderKey.includes('animal') ||
+    folderKey.includes('janwar') ||
+    folderKey.includes('bird') ||
+    folderKey.includes('pakshi') ||
+    folderKey.includes('insect');
+
+  const isPlanetTopic =
+    folderKey.includes('planet') ||
+    folderKey.includes('grah') ||
+    folderKey.includes('space') ||
+    folderKey.includes('star');
+
+  const isCountryTopic =
+    folderKey.includes('country') ||
+    folderKey.includes('desh') ||
+    folderKey.includes('nation');
+
+  const isMonumentTopic =
+    folderKey.includes('monument') ||
+    folderKey.includes('imaarat') ||
+    folderKey.includes('temple') ||
+    folderKey.includes('fort') ||
+    folderKey.includes('dhrohar');
+
   const question = isPersonTopic
     ? (isFirst ? 'तो बताओ.. यह कौन हैं?' : 'अब बताओ.. यह कौन हैं?')
+    : isAnimalTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सा जानवर है?' : 'अब बताओ.. यह कौन सा जानवर है?')
+    : isPlanetTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सा ग्रह है?' : 'अब बताओ.. यह कौन सा ग्रह है?')
+    : isCountryTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सा देश है?' : 'अब बताओ.. यह कौन सा देश है?')
+    : isMonumentTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सी इमारत है?' : 'अब बताओ.. यह कौन सी इमारत है?')
     : (isFirst ? 'तो बताओ.. यह क्या है?' : 'अब बताओ.. यह क्या है?');
-  const questionText = isPersonTopic ? 'यह कौन हैं?' : 'यह क्या है?';
+
+  const questionText = isPersonTopic
+    ? 'यह कौन हैं?'
+    : isAnimalTopic
+    ? 'यह कौन सा जानवर है?'
+    : isPlanetTopic
+    ? 'यह कौन सा ग्रह है?'
+    : isCountryTopic
+    ? 'यह कौन सा देश है?'
+    : isMonumentTopic
+    ? 'यह कौन सी इमारत है?'
+    : 'यह क्या है?';
+
   return `Use reference image exactly as background scene. Teacher standing on left side, holding up a large ornate portrait frame in both hands showing it to camera. Inside the frame: Pixar 3D cartoon of ${item.portraitDesc}. Teacher asks in Hindi: "${question}". Bold rainbow gradient text "${questionText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "${item.dialogue}" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
 }
 
