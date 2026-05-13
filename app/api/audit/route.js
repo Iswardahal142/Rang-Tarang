@@ -93,7 +93,7 @@ export async function GET() {
       const issues = [];
       const age    = daysSince(v.publishedAt);
       // YouTube Shorts: 60 seconds tak (inclusive)
-      const isShort = v.durationSec > 0 && v.durationSec <= 60;
+      const isShort = v.durationSec > 0 && v.durationSec <= 180;
 
       // ── 1. TAGS ──
       if (v.tags.length === 0) {
