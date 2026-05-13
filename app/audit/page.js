@@ -67,16 +67,20 @@ async function updateYouTubeField(videoId, categoryId, title, description, tags)
   return data;
 }
 
-// ── Analytics Mini Card ──
-function AnalyticsBar({ analytics }) {
+// ── Analytics Bar ──
+function AnalyticsBar({ analytics, durationSec }) {
   if (!analytics) return (
     <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 10, padding: '10px 12px', fontSize: 10, color: '#333', textAlign: 'center' }}>
       📊 Analytics data nahi mila (90 din mein views nahi)
     </div>
   );
 
+  const retentionPct = durationSec > 0 && analytics.avgViewDurationSec > 0
+    ? Math.round((analytics.avgViewDurationSec / durationSec) * 100)
+    : null;
+
   const ctrColor = analytics.ctr >= 5 ? '#44bb66' : analytics.ctr >= 3 ? '#ffaa00' : '#ff4455';
-  const avgFmt   = fmtDuration(analytics.avgViewDurationSec);
+  const retColor = retentionPct === null ? '#555' : retentionPct >= 50 ? '#44bb66' : retentionPct >= 30 ? '#ffaa00' : '#ff4455';
 
   return (
     <div style={{ background: '#0a0a0a', border: '1px solid #1e2a1e', borderRadius: 10, padding: '10px 12px' }}>
@@ -92,16 +96,22 @@ function AnalyticsBar({ analytics }) {
         </div>
         <div>
           <div style={{ fontSize: 9, color: '#444', marginBottom: 2 }}>📺 Avg View</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff' }}>{avgFmt}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#cc88ff' }}>{fmtDuration(analytics.avgViewDurationSec)}</div>
         </div>
         <div>
           <div style={{ fontSize: 9, color: '#444', marginBottom: 2 }}>🎯 CTR</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: ctrColor }}>{analytics.ctr}%</div>
         </div>
-        <div style={{ gridColumn: '1 / -1' }}>
+        <div>
           <div style={{ fontSize: 9, color: '#444', marginBottom: 2 }}>👓 Impressions</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#ffaa44' }}>{fmtNum(analytics.impressions)}</div>
         </div>
+        {retentionPct !== null && (
+          <div>
+            <div style={{ fontSize: 9, color: '#444', marginBottom: 2 }}>🔁 Retention</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: retColor }}>{retentionPct}%</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -123,7 +133,7 @@ function TitleSection({ video, onVideoUpdate }) {
     setGenerating(true);
     try {
       const analyticsContext = video.analytics
-        ? `CTR: ${video.analytics.ctr}% | Avg View: ${fmtDuration(video.analytics.avgViewDurationSec)} | Watch Time: ${video.analytics.watchTimeMinutes} mins`
+        ? `CTR: ${video.analytics.ctr}% | Avg View: ${fmtDuration(video.analytics.avgViewDurationSec)} | Watch Time: ${video.analytics.watchTimeMinutes} mins | Impressions: ${video.analytics.impressions}`
         : 'Analytics: not available';
 
       const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
@@ -139,6 +149,7 @@ RULES:
 - Examples: "🌸 गुलाब से ज़्यादा सुंदर फूल! | 5 Flowers Names for Kids | Rang Tarang"
 - Max 80 characters
 - Kid-friendly, catchy, curiosity-based Hindi hook
+- If CTR is low, make it more curiosity-driven
 Return ONLY the title text, nothing else.`);
       setTitle(text.trim());
       toast('🤖 Title ready! Check karo phir Update dabao.');
@@ -362,6 +373,16 @@ function VideoDetail({ video: initialVideo, onBack }) {
   const mediumIssues = video.issues.filter(i => i.severity === 'medium');
   const lowIssues    = video.issues.filter(i => i.severity === 'low');
 
+  // Issue type ke hisaab se icon
+  function issueIcon(type) {
+    const icons = {
+      tags: '🏷️', title: '📌', description: '📝', thumbnail: '🖼️',
+      views: '👁', engagement: '👍', duration: '⏱', series: '🔗',
+      ctr: '🎯', watchtime: '⏱', retention: '🔁', impression_ctr: '👓',
+    };
+    return icons[type] || '⚠️';
+  }
+
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
       <div className="mini-topbar">
@@ -381,14 +402,15 @@ function VideoDetail({ video: initialVideo, onBack }) {
               <span style={{ fontSize: 9, background: video.isShort ? '#ff448822' : '#44bb6622', color: video.isShort ? '#ff4488' : '#44bb66', border: `1px solid ${video.isShort ? '#ff448844' : '#44bb6644'}`, borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>
                 {video.isShort ? '⚡ Short' : '🎬 Long'}
               </span>
+              <span style={{ fontSize: 9, color: '#555', fontWeight: 600 }}>⏱ {fmtDuration(video.durationSec)}</span>
             </div>
           </div>
         </div>
 
-        {/* Analytics bar */}
-        <AnalyticsBar analytics={video.analytics} />
+        {/* Analytics */}
+        <AnalyticsBar analytics={video.analytics} durationSec={video.durationSec} />
 
-        {/* Issues */}
+        {/* Issues — ab analytics issues bhi include hain */}
         {video.issues.length === 0 ? (
           <div style={{ background: '#0a140a', border: '1px solid #44bb6633', borderRadius: 12, padding: 18, textAlign: 'center' }}>
             <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
@@ -396,14 +418,19 @@ function VideoDetail({ video: initialVideo, onBack }) {
           </div>
         ) : (
           <div style={{ background: '#0f0f0f', border: '1px solid #2a1a1a', borderRadius: 12, padding: 14 }}>
-            <div style={{ fontSize: 11, color: '#ff4455', fontWeight: 700, marginBottom: 10 }}>⚠️ {video.issues.length} Issue{video.issues.length > 1 ? 's' : ''} Mili</div>
+            <div style={{ fontSize: 11, color: '#ff4455', fontWeight: 700, marginBottom: 10 }}>
+              ⚠️ {video.issues.length} Issue{video.issues.length > 1 ? 's' : ''} Mili
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[...highIssues, ...mediumIssues, ...lowIssues].map((issue, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 8px', background: issue.severity === 'high' ? 'rgba(255,68,85,0.05)' : issue.severity === 'medium' ? 'rgba(255,170,0,0.04)' : 'rgba(68,136,255,0.04)', borderRadius: 8 }}>
                   <SeverityDot severity={issue.severity} />
-                  <div>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: issue.severity === 'high' ? '#ff4455' : issue.severity === 'medium' ? '#ffaa00' : '#4488ff', textTransform: 'uppercase', marginRight: 6 }}>{issue.severity}</span>
-                    <span style={{ fontSize: 12, color: '#aaa' }}>{issue.msg}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                      <span style={{ fontSize: 10 }}>{issueIcon(issue.type)}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: issue.severity === 'high' ? '#ff4455' : issue.severity === 'medium' ? '#ffaa00' : '#4488ff', textTransform: 'uppercase' }}>{issue.severity}</span>
+                    </div>
+                    <span style={{ fontSize: 12, color: '#aaa', lineHeight: 1.4 }}>{issue.msg}</span>
                   </div>
                 </div>
               ))}
@@ -443,19 +470,66 @@ function AuditPage() {
       if (json.error) { toast('❌ ' + json.error); setLoading(false); return; }
 
       const analyticsMap = analyticsJson.analytics || {};
+
       if (json.videos) {
-        json.videos = json.videos.map(v => ({
-          ...v,
-          analytics: analyticsMap[v.videoId] || null,
-        }));
+        json.videos = json.videos.map(v => {
+          const a = analyticsMap[v.videoId] || null;
+          const analyticsIssues = [];
+
+          if (a) {
+            // CTR
+            if (a.impressions > 100 && a.ctr < 2) {
+              analyticsIssues.push({ type: 'ctr', severity: 'high', msg: `CTR sirf ${a.ctr}% — thumbnail/title weak hai (4%+ ideal)` });
+            } else if (a.impressions > 100 && a.ctr < 4) {
+              analyticsIssues.push({ type: 'ctr', severity: 'medium', msg: `CTR ${a.ctr}% — thoda improve karo (4%+ better)` });
+            }
+
+            // Watch time
+            if (a.watchTimeMinutes < 1 && v.viewCount > 15) {
+              analyticsIssues.push({ type: 'watchtime', severity: 'high', msg: `Watch time sirf ${a.watchTimeMinutes} min — log turant chhod rahe hain` });
+            } else if (a.watchTimeMinutes < 5 && v.viewCount > 30) {
+              analyticsIssues.push({ type: 'watchtime', severity: 'medium', msg: `Watch time ${a.watchTimeMinutes} min — intro aur engaging banao` });
+            }
+
+            // Retention
+            if (v.durationSec > 0 && a.avgViewDurationSec > 0) {
+              const retentionPct = Math.round((a.avgViewDurationSec / v.durationSec) * 100);
+              if (retentionPct < 25) {
+                analyticsIssues.push({ type: 'retention', severity: 'high', msg: `Retention sirf ${retentionPct}% — pehle 3 sec mein hook strong karo` });
+              } else if (retentionPct < 45) {
+                analyticsIssues.push({ type: 'retention', severity: 'medium', msg: `Retention ${retentionPct}% — 50%+ target karo` });
+              }
+            }
+
+            // High impressions, low CTR
+            if (a.impressions > 500 && a.ctr < 3) {
+              analyticsIssues.push({ type: 'impression_ctr', severity: 'high', msg: `${fmtNum(a.impressions)} impressions pe CTR ${a.ctr}% — thumbnail abhi badlo` });
+            }
+          }
+
+          const analyticsPenalty = analyticsIssues.reduce((acc, i) =>
+            acc + (i.severity === 'high' ? 25 : i.severity === 'medium' ? 12 : 5), 0
+          );
+
+          return {
+            ...v,
+            analytics: a,
+            issues: [...(v.issues || []), ...analyticsIssues],
+            score: Math.max(0, (v.score || 100) - analyticsPenalty),
+          };
+        });
+
+        // Re-sort after analytics score update
+        json.videos.sort((a, b) => a.score - b.score);
       }
+
       setData(json);
     } catch (e) { toast('❌ ' + e.message); }
     setLoading(false);
   }
 
-  const videos      = data?.videos || [];
-  const filtered    = filterIssue === 'all' ? videos
+  const videos   = data?.videos || [];
+  const filtered = filterIssue === 'all' ? videos
     : filterIssue === 'high'   ? videos.filter(v => v.issues.some(i => i.severity === 'high'))
     : filterIssue === 'medium' ? videos.filter(v => v.issues.some(i => i.severity === 'medium') && !v.issues.some(i => i.severity === 'high'))
     : videos.filter(v => v.issues.length === 0);
@@ -478,12 +552,15 @@ function AuditPage() {
     videos.forEach((v, i) => {
       lines.push(``);
       lines.push(`[${i + 1}] ${v.title}`);
-      lines.push(`Score: ${v.score}/100 | Views: ${v.viewCount} | Likes: ${v.likeCount}`);
-      lines.push(`Type: ${v.isShort ? 'Short' : 'Long'} | Duration: ${fmtDuration(v.durationSec)}`);
+      lines.push(`Score: ${v.score}/100 | Views: ${v.viewCount} | Likes: ${v.likeCount} | Duration: ${fmtDuration(v.durationSec)}`);
+      lines.push(`Type: ${v.isShort ? 'Short' : 'Long'}`);
       lines.push(`Tags (${(v.tags || []).length}): ${(v.tags || []).join(', ') || 'none'}`);
       if (v.description) lines.push(`Description: ${v.description.slice(0, 200)}...`);
       if (v.analytics) {
-        lines.push(`Watch Time: ${v.analytics.watchTimeMinutes} mins | Avg View: ${fmtDuration(v.analytics.avgViewDurationSec)} | Impressions: ${v.analytics.impressions} | CTR: ${v.analytics.ctr}%`);
+        lines.push(`Analytics: Views=${v.analytics.views} | WatchTime=${v.analytics.watchTimeMinutes}min | AvgView=${fmtDuration(v.analytics.avgViewDurationSec)} | Impressions=${v.analytics.impressions} | CTR=${v.analytics.ctr}%`);
+        if (v.durationSec > 0 && v.analytics.avgViewDurationSec > 0) {
+          lines.push(`Retention: ${Math.round((v.analytics.avgViewDurationSec / v.durationSec) * 100)}%`);
+        }
       }
       if (v.issues.length > 0) {
         lines.push(`Issues:`);
@@ -494,7 +571,7 @@ function AuditPage() {
     });
     lines.push(``);
     lines.push(`=== AI PROMPT ===`);
-    lines.push(`Yeh mere Hindi kids YouTube channel "Rang Tarang" ka SEO audit data hai. Analytics data bhi include hai (views, watch time, CTR, impressions). Saari problems dekho aur priority ke hisaab se fixes batao. Har video ke liye specific improved title, description aur tags suggest karo.`);
+    lines.push(`Yeh mere Hindi kids YouTube channel "Rang Tarang" ka complete SEO + Analytics audit hai. CTR, watch time, retention data bhi include hai. Saari problems priority ke hisaab se fix karo. Har problematic video ke liye specific improved title, description aur tags suggest karo.`);
     return lines.join('\n');
   }
 
@@ -506,7 +583,7 @@ function AuditPage() {
         <span style={{ color: '#cc88ff', fontSize: 14, fontWeight: 700 }}>🔍 Channel Audit</span>
         <div style={{ display: 'flex', gap: 6 }}>
           {data && (
-            <button onClick={() => { navigator.clipboard.writeText(buildExportText()); setExported(true); toast('📋 AI ke liye data copy ho gaya!'); setTimeout(() => setExported(false), 3000); }}
+            <button onClick={() => { navigator.clipboard.writeText(buildExportText()); setExported(true); toast('📋 AI ke liye copy ho gaya!'); setTimeout(() => setExported(false), 3000); }}
               style={{ background: exported ? 'rgba(68,187,102,0.15)' : '#1a1a1a', border: `1px solid ${exported ? '#44bb66' : '#333'}`, color: exported ? '#44bb66' : '#888', borderRadius: 16, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               {exported ? '✅ Copied!' : '🤖 AI Export'}
             </button>
@@ -526,6 +603,7 @@ function AuditPage() {
           </div>
         ) : !data ? null : (
           <>
+            {/* Channel Info */}
             <div style={{ background: '#0d0d0d', border: '1px solid #cc88ff22', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
               {data.channelThumb && <img src={data.channelThumb} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid #cc88ff44' }} />}
               <div style={{ flex: 1 }}>
@@ -538,6 +616,7 @@ function AuditPage() {
               </div>
             </div>
 
+            {/* Summary */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               {[
                 { label: '🔴 High',   count: highCount,   color: '#ff4455', filter: 'high'   },
@@ -552,6 +631,7 @@ function AuditPage() {
               ))}
             </div>
 
+            {/* Video list */}
             {filtered.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 32, color: '#444', fontSize: 13 }}>Is filter mein koi video nahi</div>
             ) : filtered.map(v => (
@@ -565,17 +645,22 @@ function AuditPage() {
                       <span style={{ fontSize: 10, color: '#44bb66', fontWeight: 700 }}>✅ No issues</span>
                     ) : v.issues.slice(0, 2).map((issue, i) => (
                       <span key={i} style={{ fontSize: 9, background: issue.severity === 'high' ? '#ff445518' : '#ffaa0018', color: issue.severity === 'high' ? '#ff4455' : '#ffaa00', border: `1px solid ${issue.severity === 'high' ? '#ff445533' : '#ffaa0033'}`, borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
-                        {issue.msg.length > 25 ? issue.msg.slice(0, 25) + '…' : issue.msg}
+                        {issue.msg.length > 28 ? issue.msg.slice(0, 28) + '…' : issue.msg}
                       </span>
                     ))}
                     {v.issues.length > 2 && <span style={{ fontSize: 9, color: '#444' }}>+{v.issues.length - 2} more</span>}
                   </div>
-                  {/* Mini analytics inline */}
+                  {/* Mini analytics */}
                   {v.analytics && (
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 9, color: '#4488ff', fontWeight: 700 }}>⏱ {v.analytics.watchTimeMinutes}m</span>
-                      <span style={{ fontSize: 9, color: v.analytics.ctr >= 5 ? '#44bb66' : v.analytics.ctr >= 3 ? '#ffaa00' : '#ff4455', fontWeight: 700 }}>🎯 {v.analytics.ctr}%</span>
-                      <span style={{ fontSize: 9, color: '#cc88ff', fontWeight: 700 }}>📺 {fmtDuration(v.analytics.avgViewDurationSec)}</span>
+                      <span style={{ fontSize: 9, color: v.analytics.ctr >= 4 ? '#44bb66' : v.analytics.ctr >= 2 ? '#ffaa00' : '#ff4455', fontWeight: 700 }}>🎯 {v.analytics.ctr}% CTR</span>
+                      <span style={{ fontSize: 9, color: '#cc88ff', fontWeight: 700 }}>📺 {fmtDuration(v.analytics.avgViewDurationSec)} avg</span>
+                      {v.durationSec > 0 && v.analytics.avgViewDurationSec > 0 && (
+                        <span style={{ fontSize: 9, color: '#ffaa44', fontWeight: 700 }}>
+                          🔁 {Math.round((v.analytics.avgViewDurationSec / v.durationSec) * 100)}% ret
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
