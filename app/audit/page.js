@@ -56,11 +56,11 @@ function SeverityDot({ severity }) {
   return <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0, marginTop: 3 }} />;
 }
 
-async function updateYouTubeField(videoId, categoryId, title, description, tags) {
+async function updateYouTubeField(videoId, categoryId, title, description, tags, uid) {
   const res = await fetch('/api/audit', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ videoId, categoryId, title, description, tags }),
+    body: JSON.stringify({ videoId, categoryId, title, description, tags, uid }),
   });
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error || 'Update fail');
@@ -120,7 +120,7 @@ function AnalyticsBar({ analytics, durationSec }) {
 // ══════════════════════════════════════════════════════
 // TITLE SECTION
 // ══════════════════════════════════════════════════════
-function TitleSection({ video, onVideoUpdate }) {
+function TitleSection({ video, onVideoUpdate, uid }) {
   const toast = useToast();
   const [title, setTitle]           = useState(video.title || '');
   const [generating, setGenerating] = useState(false);
@@ -161,7 +161,7 @@ Return ONLY the title text, nothing else.`);
     if (!title.trim()) { toast('⚠️ Title khaali nahi ho sakta!'); return; }
     setSaving(true);
     try {
-      await updateYouTubeField(video.videoId, video.categoryId, title.trim(), video.description, (video.tags || []).join(', '));
+      await updateYouTubeField(video.videoId, video.categoryId, title.trim(), video.description, (video.tags || []).join(', '), uid);
       setStatus('saved');
       onVideoUpdate({ ...video, title: title.trim() });
       toast('✅ Title YouTube pe update ho gaya!');
@@ -203,7 +203,7 @@ Return ONLY the title text, nothing else.`);
 // ══════════════════════════════════════════════════════
 // DESCRIPTION SECTION
 // ══════════════════════════════════════════════════════
-function DescriptionSection({ video, onVideoUpdate }) {
+function DescriptionSection({ video, onVideoUpdate, uid }) {
   const toast = useToast();
   const [desc, setDesc]             = useState(video.description || '');
   const [generating, setGenerating] = useState(false);
@@ -239,7 +239,7 @@ Return ONLY the description text, nothing else. No markdown.`);
   async function handleUpdate() {
     setSaving(true);
     try {
-      await updateYouTubeField(video.videoId, video.categoryId, video.title, desc.trim(), (video.tags || []).join(', '));
+      await updateYouTubeField(video.videoId, video.categoryId, video.title, desc.trim(), (video.tags || []).join(', '), uid);
       setStatus('saved');
       onVideoUpdate({ ...video, description: desc.trim() });
       toast('✅ Description updated!');
@@ -281,7 +281,7 @@ Return ONLY the description text, nothing else. No markdown.`);
 // ══════════════════════════════════════════════════════
 // TAGS SECTION
 // ══════════════════════════════════════════════════════
-function TagsSection({ video, onVideoUpdate }) {
+function TagsSection({ video, onVideoUpdate, uid }) {
   const toast = useToast();
   const [tags, setTags]             = useState((video.tags || []).join(', '));
   const [generating, setGenerating] = useState(false);
@@ -318,7 +318,7 @@ Return ONLY the comma-separated tags, nothing else.`);
   async function handleUpdate() {
     setSaving(true);
     try {
-      await updateYouTubeField(video.videoId, video.categoryId, video.title, video.description, tags);
+      await updateYouTubeField(video.videoId, video.categoryId, video.title, video.description, tags, uid);
       const newTagsArr = tags.split(',').map(t => t.trim()).filter(Boolean);
       setStatus('saved');
       onVideoUpdate({ ...video, tags: newTagsArr });
@@ -366,7 +366,7 @@ Return ONLY the comma-separated tags, nothing else.`);
 }
 
 // ── Video Detail ──
-function VideoDetail({ video: initialVideo, onBack }) {
+function VideoDetail({ video: initialVideo, onBack, uid }) {
   const [video, setVideo] = useState(initialVideo);
 
   const highIssues   = video.issues.filter(i => i.severity === 'high');
@@ -438,16 +438,16 @@ function VideoDetail({ video: initialVideo, onBack }) {
           </div>
         )}
 
-        <TitleSection       video={video} onVideoUpdate={setVideo} />
-        <DescriptionSection video={video} onVideoUpdate={setVideo} />
-        <TagsSection        video={video} onVideoUpdate={setVideo} />
+        <TitleSection       video={video} onVideoUpdate={setVideo} uid={uid} />
+        <DescriptionSection video={video} onVideoUpdate={setVideo} uid={uid} />
+        <TagsSection        video={video} onVideoUpdate={setVideo} uid={uid} />
       </div>
     </div>
   );
 }
 
 // ── MAIN PAGE ──
-function AuditPage() {
+function AuditPage({ uid }) {
   const toast = useToast();
   const [loading, setLoading]         = useState(false);
   const [data, setData]               = useState(null);
@@ -575,7 +575,7 @@ function AuditPage() {
     return lines.join('\n');
   }
 
-  if (openVideo) return <VideoDetail video={openVideo} onBack={() => setOpenVideo(null)} />;
+  if (openVideo) return <VideoDetail video={openVideo} onBack={() => setOpenVideo(null)} uid={uid} />;
 
   return (
     <div className="page-content" style={{ background: 'var(--void)' }}>
@@ -675,5 +675,5 @@ function AuditPage() {
 }
 
 export default function AuditWrapper() {
-  return <ToastProvider><AuthWrapper>{() => <AuditPage />}</AuthWrapper></ToastProvider>;
+  return <ToastProvider><AuthWrapper>{({ user }) => <AuditPage uid={user?.uid} />}</AuthWrapper></ToastProvider>;
 }
