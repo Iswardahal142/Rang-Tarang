@@ -35,52 +35,75 @@ async function deleteSeries(uid, id) {
   await deleteDoc(doc(getDB(), 'users', uid, 'rt_gk_series', id));
 }
 
-// ── GK Categories ──
-const GK_CATEGORIES = {
-  freedom_fighter: { label: 'Freedom Fighters', emoji: '🇮🇳', color: '#ff6600' },
-  scientist:       { label: 'Scientists',        emoji: '🔬', color: '#4488ff' },
-  animal:          { label: 'Animals',           emoji: '🦁', color: '#ffaa44' },
-  planet:          { label: 'Planets',           emoji: '🪐', color: '#cc88ff' },
-  country:         { label: 'Countries',         emoji: '🌍', color: '#44bb66' },
-  sport:           { label: 'Sports',            emoji: '⚽', color: '#ff4488' },
-  invention:       { label: 'Inventions',        emoji: '💡', color: '#ffcc00' },
-  monument:        { label: 'Monuments',         emoji: '🏛️', color: '#ff8866' },
-  festival:        { label: 'Festivals',         emoji: '🎉', color: '#ff44aa' },
-  other:           { label: 'GK',                emoji: '📚', color: '#888888' },
-};
-
-function getGKType(name) {
-  const n = (name || '').toLowerCase();
-  if (n.includes('freedom') || n.includes('fighter') || n.includes('gandhi') || n.includes('swatantra') || n.includes('azadi')) return 'freedom_fighter';
-  if (n.includes('scientist') || n.includes('inventor') || n.includes('vigyan'))  return 'scientist';
-  if (n.includes('animal') || n.includes('janwar'))       return 'animal';
-  if (n.includes('planet') || n.includes('grah'))         return 'planet';
-  if (n.includes('country') || n.includes('desh'))        return 'country';
-  if (n.includes('sport') || n.includes('khel'))          return 'sport';
-  if (n.includes('invention') || n.includes('aavishkar')) return 'invention';
-  if (n.includes('monument') || n.includes('imaarat') || n.includes('dhrohar')) return 'monument';
-  if (n.includes('festival') || n.includes('tyohar'))     return 'festival';
-  return 'other';
+// ── DYNAMIC FOLDER SYSTEM ──
+// Series name se folder key derive karta hai
+// "FIVE Indian Cricketers" → "Cricketers"
+// "FIVE Freedom Fighters" → "Freedom Fighters"
+// "FIVE Great Scientists" → "Scientists"
+function getFolderKey(seriesName) {
+  return (seriesName || '')
+    .replace(/^(five|5|ten|10|paanch|teen)\s+/i, '')       // number prefix hata do
+    .replace(/\s+part\s+\d+$/i, '')                         // "Part 2" hata do
+    .replace(/^(famous|great|indian|top|best|popular)\s+/i, '') // adjective hata do
+    .trim();
 }
 
-function getFolder(type) {
-  return GK_CATEGORIES[type] || GK_CATEGORIES['other'];
+// Folder ke liye default emoji — topic name se guess karo
+function getFolderEmoji(folderKey) {
+  const k = (folderKey || '').toLowerCase();
+  if (k.includes('cricket'))    return '🏏';
+  if (k.includes('football') || k.includes('soccer')) return '⚽';
+  if (k.includes('sport') || k.includes('khel'))      return '🏆';
+  if (k.includes('freedom') || k.includes('fighter')) return '🇮🇳';
+  if (k.includes('scientist') || k.includes('vigyan'))return '🔬';
+  if (k.includes('animal') || k.includes('janwar'))   return '🦁';
+  if (k.includes('planet') || k.includes('grah'))     return '🪐';
+  if (k.includes('country') || k.includes('desh'))    return '🌍';
+  if (k.includes('monument') || k.includes('imaarat'))return '🏛️';
+  if (k.includes('festival') || k.includes('tyohar')) return '🎉';
+  if (k.includes('inventor') || k.includes('aavishkar')) return '💡';
+  return '📚';
 }
 
+// Folder ke liye default color
+function getFolderColor(folderKey) {
+  const k = (folderKey || '').toLowerCase();
+  if (k.includes('cricket') || k.includes('sport') || k.includes('football')) return '#ff4488';
+  if (k.includes('freedom') || k.includes('fighter')) return '#ff6600';
+  if (k.includes('scientist') || k.includes('inventor')) return '#4488ff';
+  if (k.includes('animal'))   return '#ffaa44';
+  if (k.includes('planet'))   return '#cc88ff';
+  if (k.includes('country'))  return '#44bb66';
+  if (k.includes('monument')) return '#ff8866';
+  if (k.includes('festival')) return '#ff44aa';
+  return '#888888';
+}
+
+// Series list ko dynamic folders mein group karo
 function groupByFolder(list) {
   const groups = {};
   list.forEach(s => {
-    const key = s.type || getGKType(s.name);
+    const key = getFolderKey(s.name); // always name se recalculate — stored type ignore
     if (!groups[key]) groups[key] = [];
     groups[key].push(s);
   });
   return groups;
 }
 
+// Folder info object banao — series ke stored emoji/color use karo, fallback dynamic
+function getFolderInfo(folderKey, seriesInFolder) {
+  const first = seriesInFolder?.[0];
+  return {
+    label: folderKey,
+    emoji: first?.folderEmoji || getFolderEmoji(folderKey),
+    color: first?.folderColor || getFolderColor(folderKey),
+  };
+}
+
 function hasNextPart(series, allSeries) {
-  const base = series.name.replace(/ Part \d+$/, '').trim();
+  const base = series.name.replace(/ Part \d+$/i, '').trim();
   const cur = series.part || 1;
-  return allSeries.some(s => s.name.replace(/ Part \d+$/, '').trim() === base && (s.part || 1) === cur + 1);
+  return allSeries.some(s => s.name.replace(/ Part \d+$/i, '').trim() === base && (s.part || 1) === cur + 1);
 }
 
 function formatScheduledTime(isoString) {
@@ -103,7 +126,7 @@ async function aiCall(prompt) {
   return (data.choices?.[0]?.message?.content || '').trim();
 }
 
-// ── AI Emoji Detect (same as create-series) ──
+// ── AI Emoji Detect ──
 async function detectEmoji(seriesName) {
   const text = await aiCall(`Given this kids YouTube GK series name: "${seriesName}"
 Return ONLY a single most appropriate emoji for this topic. No explanation, no text, just one emoji.`);
@@ -116,7 +139,8 @@ function buildPortraitImagePrompt(item) {
 }
 
 function buildGKVideoPrompt(item, seriesName, isFirst = true) {
-  const isPersonTopic = ['freedom_fighter', 'scientist'].includes(getGKType(seriesName));
+  const folderKey = getFolderKey(seriesName).toLowerCase();
+  const isPersonTopic = folderKey.includes('freedom') || folderKey.includes('fighter') || folderKey.includes('scientist') || folderKey.includes('inventor');
   const question = isPersonTopic
     ? (isFirst ? 'तो बताओ.. यह कौन हैं?' : 'अब बताओ.. यह कौन हैं?')
     : (isFirst ? 'तो बताओ.. यह क्या है?' : 'अब बताओ.. यह क्या है?');
@@ -133,7 +157,7 @@ function buildIntroImagePrompt(seriesName, items = []) {
 }
 
 function buildIntroVideoPrompt(seriesName, part = 1) {
-  const base = seriesName.replace(/ Part \d+$/, '').trim();
+  const base = seriesName.replace(/ Part \d+$/i, '').trim();
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
   return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Bold glowing title text "${base}" flies in from top with sparkles. Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${base}${partMention} — चलो शुरू करते हैं!" Teacher pushes title off screen dramatically. 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
@@ -143,7 +167,7 @@ function buildOutroVideoPrompt() {
 }
 
 const COLORS = ['#ff4400','#44bb66','#4488ff','#cc88ff','#ff8800','#ff4488','#00ccbb','#ffcc00'];
-const EMOJIS = ['🇮🇳','🔬','🦁','🪐','🌍','⚽','💡','🏛️','🎉','📚','🌟','🎨','🏆','🌺','🦋','👨‍🔬','🕌','🎭','🌐','⚗️'];
+const EMOJIS = ['🇮🇳','🔬','🦁','🪐','🌍','⚽','💡','🏛️','🎉','📚','🌟','🎨','🏆','🌺','🦋','👨‍🔬','🕌','🎭','🌐','⚗️','🏏','🎯','🎪','🦅'];
 
 // ══════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -184,7 +208,7 @@ function GKSeriesPage({ user }) {
   const [savingField, setSavingField]           = useState(null);
   const [savedField, setSavedField]             = useState(null);
   const [fixingEmoji, setFixingEmoji]           = useState(null);
-  const [regenLoading, setRegenLoading] = useState(null);
+  const [regenLoading, setRegenLoading]         = useState(null);
 
   useEffect(() => { loadList(); fetchYT(); }, [user.uid]);
 
@@ -204,7 +228,6 @@ function GKSeriesPage({ user }) {
     setYtLoading(false);
   }
 
-  // ── Same upload check as create-series ──
   function checkUploaded(series) {
     if (!ytVideos.length) return null;
     const matchStr = (series.ytTitle || series.name || '').trim().toLowerCase();
@@ -242,15 +265,15 @@ function GKSeriesPage({ user }) {
       const existing = seriesList.map(s => s.name).join(', ') || 'none';
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang" — GK series for kids aged 2-6.
 Already created: ${existing}
-Suggest exactly 4 NEW unique GK series topics. Examples: "5 Freedom Fighters", "5 Planets", "5 Indian Monuments", "5 Great Scientists".
-Return ONLY JSON array, no markdown: [{"name":"5 Freedom Fighters","emoji":"🇮🇳","description":"One line Hindi"}]`);
+Suggest exactly 4 NEW unique GK series topics. Examples: "FIVE Freedom Fighters", "FIVE Planets", "FIVE Indian Monuments", "FIVE Great Scientists".
+IMPORTANT: Always start with "FIVE" (not 5).
+Return ONLY JSON array, no markdown: [{"name":"FIVE Freedom Fighters","emoji":"🇮🇳","description":"One line Hindi"}]`);
       setSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
     setSugLoading(false);
   }
 
   async function selectSuggestion(topic) {
-    // AI se emoji detect karo — same as create-series
     const detectedEmoji = await detectEmoji(topic.name);
     setSelectedEmoji(detectedEmoji);
     setSelectedTopic({ ...topic, emoji: detectedEmoji });
@@ -265,7 +288,7 @@ Return ONLY JSON array, no markdown: [{"name":"5 Freedom Fighters","emoji":"🇮
       const text = await aiCall(`You are an AI for Hindi kids YouTube channel "RangTarang" — GK series.
 Already created: ${existing}
 User hint: "${hint}"
-Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short topic names:
+Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short topic names (without FIVE prefix):
 ["Freedom Fighters","Planets","Indian Monuments","Great Scientists","World Animals","Famous Inventors"]`);
       setAiSuggestions(JSON.parse(text.replace(/```json|```/g, '').trim()));
     } catch { toast('❌ Suggestions nahi aaye'); }
@@ -276,12 +299,11 @@ Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short 
     let fullName = '';
     if (customMode === 'five') {
       if (!customName.trim()) { toast('⚠️ Topic likho!'); return; }
-      fullName = `5 ${customName.trim()}`;
+      fullName = `FIVE ${customName.trim()}`; // ← FIVE not 5
     } else {
       if (!customFullTitle.trim()) { toast('⚠️ Title likho!'); return; }
       fullName = customFullTitle.trim();
     }
-    // AI emoji detect
     const detectedEmoji = await detectEmoji(fullName);
     setSelectedEmoji(detectedEmoji);
     setSelectedTopic({ name: fullName, emoji: detectedEmoji, description: '' });
@@ -298,9 +320,12 @@ Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short 
       if (dup) { toast(`⚠️ Already exist karta hai!`); setGenerating(false); return; }
       const existing = seriesList.map(s => s.name).join(', ');
       const noteLine = seriesNote.trim() ? `\nIMPORTANT NOTE: ${seriesNote.trim()}` : '';
-      const detectedType = getGKType(selectedTopic.name);
       const autoColor = getNextColor();
-      const folder = GK_CATEGORIES[detectedType] || GK_CATEGORIES['other'];
+
+      // Dynamic folder — name se derive karo
+      const folderKey   = getFolderKey(selectedTopic.name);
+      const folderEmoji = getFolderEmoji(folderKey);
+      const folderColor = getFolderColor(folderKey);
 
       const text = await aiCall(`Generate exactly 5 unique items for Hindi kids GK YouTube series: "${selectedTopic.name}".${noteLine}
 Avoid overlap with: ${existing}
@@ -319,10 +344,10 @@ Return ONLY JSON array, no markdown:
         emoji: selectedEmoji,
         color: autoColor,
         items,
-        type: detectedType,
-        folderLabel: folder.label,
-        folderEmoji: folder.emoji,
-        folderColor: folder.color,
+        // type field hata diya — folder system ab name se dynamic hai
+        folderLabel: folderKey,
+        folderEmoji: selectedEmoji, // series emoji = folder emoji
+        folderColor: autoColor,
         doneSections: {},
         doneCount: 0,
         progress: 0,
@@ -352,16 +377,15 @@ Return ONLY JSON array:
 [{"name":"Bhagat Singh","hindiName":"भगत सिंह","portraitDesc":"Bhagat Singh, young man, brown hat, moustache, brave expression, wearing suit","dialogue":"यह भगत सिंह हैं! बहुत बहादुर! बहुत अच्छे!"}]`);
       const newItems = JSON.parse(text.replace(/```json|```/g, '').trim());
       const newPart = (series.part || 1) + 1;
-      const base = series.name.replace(/ Part \d+$/, '').trim();
+      const base = series.name.replace(/ Part \d+$/i, '').trim();
       await saveSeries(user.uid, {
         name: `${base} Part ${newPart}`,
         emoji: series.emoji,
         color: series.color,
         items: newItems,
-        type: series.type,
-        folderLabel: series.folderLabel,
-        folderEmoji: series.folderEmoji,
-        folderColor: series.folderColor,
+        folderLabel: getFolderKey(series.name),
+        folderEmoji: series.folderEmoji || series.emoji,
+        folderColor: series.folderColor || series.color,
         doneSections: {},
         doneCount: 0,
         progress: 0,
@@ -392,7 +416,7 @@ Return ONLY JSON array:
   async function addToPlaylist(series, videoId) {
     setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
     try {
-      const folderLabel = series.folderLabel || getFolder(series.type || getGKType(series.name)).label;
+      const folderLabel = getFolderKey(series.name);
       const res = await fetch('/api/youtube/playlist', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoId, playlistTitle: folderLabel }),
@@ -430,7 +454,7 @@ Return ONLY JSON array:
     setGenTD(true);
     try {
       const itemNames = (series.items || []).map(i => i.name).join(', ');
-      const base = series.name.replace(/ Part \d+$/, '').trim();
+      const base = series.name.replace(/ Part \d+$/i, '').trim();
       const partText = (series.part || 1) > 1 ? ` Part ${series.part}` : '';
       const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang" — GK series.
 Series: "${base}${partText}"
@@ -480,10 +504,9 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
     const matchedVideo = getMatchedVideo(s);
     const videoId = matchedVideo?.videoId || null;
     const isUploaded = !!matchedVideo;
-    const folderLabel = s.folderLabel || getFolder(s.type || getGKType(s.name)).label;
+    const folderLabel = getFolderKey(s.name); // dynamic
     const hasTags = matchedVideo && matchedVideo.tags && matchedVideo.tags.length > 0;
 
-    // Sync TD state when series opens
     if (!tdOpen && tdTitle !== (s.ytTitle || '')) {
       setTdTitle(s.ytTitle || ''); setTdDesc(s.ytDescription || ''); setTdTags(s.ytTags || '');
     }
@@ -491,7 +514,7 @@ Return ONLY JSON: {"title":"...","description":"...","tags":"..."}`);
     async function regenOneField(field) {
       setRegenLoading(field);
       try {
-        const base = s.name.replace(/ Part \d+$/, '').trim();
+        const base = s.name.replace(/ Part \d+$/i, '').trim();
         const partText = (s.part || 1) > 1 ? ` Part ${s.part}` : '';
         const itemNames = (s.items || []).map(i => i.name).join(', ');
         let prompt = '';
@@ -599,13 +622,11 @@ Return ONLY the comma-separated tags, nothing else.`;
         <div className="mini-topbar">
           <button onClick={() => setOpenSeries(null)} style={{ background: 'none', border: 'none', color: '#ff4400', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#888', fontWeight: 700 }}>{s.emoji} {s.name}</span>
-          <button 
-  onClick={() => !matchedVideo && handleDelete(s)} 
-  disabled={!!matchedVideo}
-  style={{ background: 'none', border: 'none', color: matchedVideo ? '#333' : '#555', fontSize: 18, cursor: matchedVideo ? 'not-allowed' : 'pointer', opacity: matchedVideo ? 0.3 : 1 }}
->
-  🗑
-</button>
+          <button
+            onClick={() => !matchedVideo && handleDelete(s)}
+            disabled={!!matchedVideo}
+            style={{ background: 'none', border: 'none', color: matchedVideo ? '#333' : '#555', fontSize: 18, cursor: matchedVideo ? 'not-allowed' : 'pointer', opacity: matchedVideo ? 0.3 : 1 }}
+          >🗑</button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingBottom: 70, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -621,9 +642,7 @@ Return ONLY the comma-separated tags, nothing else.`;
             </div>
           </div>
 
-          
-
-          {/* Playlist Section — same as create-series */}
+          {/* Playlist Section */}
           {videoId ? (
             <div style={{ background: '#0f0f0f', border: `1px solid ${s.playlistAdded || playlistStatus[s.id] === 'added' ? '#1a3a1a' : '#1a2a1a'}`, borderRadius: 12, padding: '13px 14px' }}>
               <div style={{ fontSize: 10, color: '#555', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>🎵 PLAYLIST</div>
@@ -648,7 +667,7 @@ Return ONLY the comma-separated tags, nothing else.`;
             </div>
           )}
 
-          {/* Title & Description — with YouTube direct update */}
+          {/* Title & Description */}
           <div style={{ background: '#0f0f0f', border: `1px solid ${hasTitleDesc ? '#1a3a2a' : '#2a1a00'}`, borderRadius: 12, overflow: 'hidden' }}>
             <div onClick={() => setTdOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -693,12 +712,10 @@ Return ONLY the comma-separated tags, nothing else.`;
                               style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: `1px solid ${dirty ? color+'66' : '#222'}`, color: '#eee', fontSize: 12, outline: 'none', padding: '8px 0', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 }} />
                           )}
                           <div style={{ display: 'flex', gap: 6 }}>
-                            {/* 🔄 Regenerate — sirf yeh field */}
                             <button onClick={() => regenOneField(key)} disabled={regenLoading === key}
                               style={{ background: regenLoading === key ? '#111' : '#0a0a1a', border: `1px solid ${regenLoading === key ? '#333' : color + '55'}`, color: regenLoading === key ? '#444' : color, borderRadius: 8, padding: '8px 10px', fontSize: 13, fontWeight: 700, cursor: regenLoading === key ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                               {regenLoading === key ? <div className="spinner" style={{ width: 11, height: 11, borderTopColor: color }} /> : '🔄'}
                             </button>
-                            {/* 📋 Copy */}
                             <button onClick={() => { navigator.clipboard.writeText(value); setCopiedTD(copyKey); setTimeout(() => setCopiedTD(''), 2000); toast('📋 Copied!'); }}
                               style={{ flex: 1, background: copiedTD === copyKey ? 'rgba(68,187,102,0.15)' : '#111', border: `1px solid ${copiedTD === copyKey ? '#44bb66' : '#333'}`, color: copiedTD === copyKey ? '#44bb66' : '#666', borderRadius: 8, padding: '8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                               {copiedTD === copyKey ? '✅ Copied!' : '📋 Copy'}
@@ -773,7 +790,7 @@ Return ONLY the comma-separated tags, nothing else.`;
   if (openFolder) {
     const grouped = groupByFolder(seriesList);
     const folderSeries = grouped[openFolder] || [];
-    const folder = getFolder(openFolder);
+    const folder = getFolderInfo(openFolder, folderSeries);
     return (
       <div className="page-content" style={{ background: 'var(--void)' }}>
         <div className="mini-topbar">
@@ -807,7 +824,6 @@ Return ONLY the comma-separated tags, nothing else.`;
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: '#555' }}>{s.doneCount || 0}/{total} done</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: uploadColor }}>{uploadText}</span>
-                    {/* Tag detect dot — same as create-series */}
                     {matchedVideo && (
                       <span style={{ fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
                         🏷️
@@ -908,7 +924,7 @@ Return ONLY the comma-separated tags, nothing else.`;
               <div style={{ display: 'flex', background: '#1a0800', border: '1px solid #443300', borderRadius: 12, padding: 4, marginBottom: 14, gap: 4 }}>
                 <button onClick={() => setCustomMode('five')}
                   style={{ flex: 1, background: customMode === 'five' ? 'linear-gradient(135deg,#552200,#331100)' : 'none', border: customMode === 'five' ? '1px solid #ffaa44' : '1px solid transparent', color: customMode === 'five' ? '#ffaa44' : '#555', borderRadius: 10, padding: '8px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                  5 ... Series
+                  FIVE ... Series
                 </button>
                 <button onClick={() => setCustomMode('custom')}
                   style={{ flex: 1, background: customMode === 'custom' ? 'linear-gradient(135deg,#552200,#331100)' : 'none', border: customMode === 'custom' ? '1px solid #ffaa44' : '1px solid transparent', color: customMode === 'custom' ? '#ffaa44' : '#555', borderRadius: 10, padding: '8px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
@@ -919,15 +935,15 @@ Return ONLY the comma-separated tags, nothing else.`;
               {customMode === 'five' && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a0800', border: '1px solid #443300', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: '#ffaa44', whiteSpace: 'nowrap' }}>5</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: '#ffaa44', whiteSpace: 'nowrap' }}>FIVE</span>
                     <input value={customName} onChange={e => { setCustomName(e.target.value); setAiSuggestions([]); }}
-                      placeholder="Freedom Fighters, Planets..."
+                      placeholder="Freedom Fighters, Cricketers..."
                       maxLength={40}
                       style={{ flex: 1, background: 'none', border: 'none', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
                   </div>
                   {customName.trim() && (
                     <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 10 }}>
-                      👁 <span style={{ color: '#eee', fontWeight: 700 }}>5 {customName.trim()}</span>
+                      👁 <span style={{ color: '#eee', fontWeight: 700 }}>FIVE {customName.trim()}</span>
                     </div>
                   )}
                   <button onClick={loadCustomSuggestions} disabled={customSugLoading}
@@ -940,7 +956,7 @@ Return ONLY the comma-separated tags, nothing else.`;
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {aiSuggestions.map((sug, i) => {
                           const sugStr = typeof sug === 'string' ? sug : sug.name || sug;
-                          const displayStr = sugStr.replace(/^5\s+/i, '');
+                          const displayStr = sugStr.replace(/^(five|5)\s+/i, '');
                           return (
                             <button key={i} onClick={() => setCustomName(displayStr)}
                               style={{ background: customName === displayStr ? 'rgba(255,170,0,0.2)' : '#1a0800', border: `1px solid ${customName === displayStr ? '#ffaa44' : '#443300'}`, color: customName === displayStr ? '#ffaa44' : '#aaa', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
@@ -957,7 +973,7 @@ Return ONLY the comma-separated tags, nothing else.`;
               {customMode === 'custom' && (
                 <>
                   <input value={customFullTitle} onChange={e => setCustomFullTitle(e.target.value)}
-                    placeholder="e.g. 5 Indian Scientists, 5 Great Monuments..."
+                    placeholder="e.g. FIVE Indian Scientists, FIVE Great Monuments..."
                     maxLength={60}
                     style={{ width: '100%', background: '#1a0800', border: '1px solid #443300', borderRadius: 12, padding: '12px 14px', color: '#eee', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
                   {customFullTitle.trim() && (
@@ -1027,13 +1043,13 @@ Return ONLY the comma-separated tags, nothing else.`;
             <div style={{ fontSize: 14, fontWeight: 700, color: '#555', marginBottom: 6 }}>Koi GK series nahi hai</div>
             <div style={{ fontSize: 12, color: '#333' }}>Upar "+ Nayi" se banao</div>
           </div>
-        ) : sortedFolders.map(type => {
-          const seriesInFolder = grouped[type];
-          const folder = getFolder(type);
+        ) : sortedFolders.map(folderKey => {
+          const seriesInFolder = grouped[folderKey];
+          const folder = getFolderInfo(folderKey, seriesInFolder);
           const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
           const canContinue = seriesInFolder.find(s => !hasNextPart(s, seriesList));
           return (
-            <div key={type} onClick={() => setOpenFolder(type)}
+            <div key={folderKey} onClick={() => setOpenFolder(folderKey)}
               style={{ background: '#0d0d0d', border: `1px solid ${folder.color}44`, borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 15% 50%, ${folder.color}0f 0%, transparent 65%)`, pointerEvents: 'none' }} />
               <div style={{ width: 52, height: 52, borderRadius: 16, background: `${folder.color}1a`, border: `1px solid ${folder.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{folder.emoji}</div>
