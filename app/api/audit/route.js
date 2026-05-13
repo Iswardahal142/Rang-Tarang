@@ -69,67 +69,182 @@ export async function GET() {
       return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
     }
 
-    const videos = statsData.items?.map(v => {
-      const durationSec = parseDuration(v.contentDetails?.duration);
-      const isShort     = durationSec > 0 && durationSec <= 60;
-      const tags        = v.snippet?.tags || [];
-      const title       = v.snippet?.title || '';
-      const description = v.snippet?.description || '';
-      const thumbnail   = v.snippet?.thumbnails?.maxres?.url || v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.medium?.url || '';
+    // Published kitne din pehle
+    function daysSince(isoDate) {
+      if (!isoDate) return 999;
+      return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86400000);
+    }
 
+    const allVideos = statsData.items?.map(v => ({
+      id:          v.id,
+      title:       v.snippet?.title || '',
+      tags:        v.snippet?.tags || [],
+      description: v.snippet?.description || '',
+      publishedAt: v.snippet?.publishedAt,
+      durationSec: parseDuration(v.contentDetails?.duration),
+      viewCount:   parseInt(v.statistics?.viewCount  || '0'),
+      likeCount:   parseInt(v.statistics?.likeCount  || '0'),
+      thumbnail:   v.snippet?.thumbnails?.maxres?.url || v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.medium?.url || '',
+      privacyStatus: v.status?.privacyStatus || 'public',
+      categoryId:  v.snippet?.categoryId || '22',
+    })) || [];
+
+    const videos = allVideos.map(v => {
       const issues = [];
-      if (tags.length === 0)             issues.push({ type: 'tags',        severity: 'high',   msg: 'Koi tags nahi hain' });
-      else if (tags.length < 5)          issues.push({ type: 'tags',        severity: 'medium', msg: `Sirf ${tags.length} tags — kam se kam 10 hone chahiye` });
-      if (title.length < 30)             issues.push({ type: 'title',       severity: 'medium', msg: 'Title bahut chhota hai (30+ chars better)' });
-      if (title.length > 100)            issues.push({ type: 'title',       severity: 'low',    msg: 'Title bahut lamba hai' });
-      if (!/[|•\-–:]/.test(title))       issues.push({ type: 'title',       severity: 'low',    msg: 'Title mein separator nahi (| ya - se CTR badhta hai)' });
-      if (description.length === 0)      issues.push({ type: 'description', severity: 'high',   msg: 'Description bilkul khaali hai' });
-      else if (description.length < 150) issues.push({ type: 'description', severity: 'medium', msg: 'Description bahut chhoti hai (150+ chars recommended)' });
-      if (!thumbnail)                    issues.push({ type: 'thumbnail',   severity: 'high',   msg: 'Thumbnail nahi mili' });
+      const age    = daysSince(v.publishedAt);
+      const isShort = v.durationSec > 0 && v.durationSec <= 60;
 
-      const penalty = issues.reduce((acc, i) => acc + (i.severity === 'high' ? 30 : i.severity === 'medium' ? 15 : 7), 0);
-      const score   = Math.max(0, 100 - penalty);
+      // ── 1. TAGS ──
+      if (v.tags.length === 0) {
+        issues.push({ type: 'tags', severity: 'high', msg: 'Tags bilkul nahi hain — SEO zero hai' });
+      } else if (v.tags.length < 8) {
+        issues.push({ type: 'tags', severity: 'high', msg: `Sirf ${v.tags.length} tags — kam se kam 12 hone chahiye` });
+      } else if (v.tags.length < 12) {
+        issues.push({ type: 'tags', severity: 'medium', msg: `${v.tags.length} tags — 12-15 ideal hai` });
+      }
+
+      // ── 2. TITLE ──
+      if (v.title.length < 25) {
+        issues.push({ type: 'title', severity: 'high', msg: 'Title bahut chhota hai — 40-70 chars ideal' });
+      } else if (v.title.length < 40) {
+        issues.push({ type: 'title', severity: 'medium', msg: 'Title thoda chhota hai — 40-70 chars ideal' });
+      }
+      if (v.title.length > 100) {
+        issues.push({ type: 'title', severity: 'medium', msg: 'Title 100 chars se zyada — trim karo' });
+      }
+      // Hindi hook missing
+      const hasHindiHook = /[^\x00-\x7F]/.test(v.title.split('|')[0]);
+      if (!hasHindiHook) {
+        issues.push({ type: 'title', severity: 'medium', msg: 'Title mein Hindi hook nahi — CTR kam hoga' });
+      }
+      // Separator check
+      if (!/[|•\-–:]/.test(v.title)) {
+        issues.push({ type: 'title', severity: 'low', msg: 'Title mein | ya - separator nahi' });
+      }
+      // "Rang Tarang" branding check
+      if (!v.title.toLowerCase().includes('rang tarang')) {
+        issues.push({ type: 'title', severity: 'low', msg: 'Title mein "Rang Tarang" brand name nahi' });
+      }
+
+      // ── 3. DESCRIPTION ──
+      if (v.description.length === 0) {
+        issues.push({ type: 'description', severity: 'high', msg: 'Description bilkul khaali hai' });
+      } else if (v.description.length < 100) {
+        issues.push({ type: 'description', severity: 'high', msg: 'Description bahut chhoti hai (100+ chars zaroori)' });
+      } else if (v.description.length < 250) {
+        issues.push({ type: 'description', severity: 'medium', msg: 'Description aur lambi ho sakti hai (250+ better)' });
+      }
+      // Subscribe link check
+      if (!v.description.includes('youtube.com/@') && !v.description.includes('Subscribe')) {
+        issues.push({ type: 'description', severity: 'medium', msg: 'Description mein Subscribe link nahi' });
+      }
+      // Hashtags in description
+      if (!v.description.includes('#')) {
+        issues.push({ type: 'description', severity: 'low', msg: 'Description mein hashtags nahi (#Shorts #HindiKids etc)' });
+      }
+
+      // ── 4. THUMBNAIL ──
+      if (!v.thumbnail) {
+        issues.push({ type: 'thumbnail', severity: 'high', msg: 'Custom thumbnail nahi mili' });
+      }
+
+      // ── 5. VIEWS (age-based) ──
+      if (age >= 14 && v.viewCount === 0) {
+        issues.push({ type: 'views', severity: 'high', msg: `${age} din mein 0 views — title/thumbnail weak ho sakta hai` });
+      } else if (age >= 7 && v.viewCount < 10) {
+        issues.push({ type: 'views', severity: 'medium', msg: `${age} din mein sirf ${v.viewCount} views — promotion zaroori` });
+      } else if (age >= 30 && v.viewCount < 50) {
+        issues.push({ type: 'views', severity: 'medium', msg: `1 mahine mein sirf ${v.viewCount} views — re-optimize karo` });
+      }
+
+      // ── 6. LIKES ratio ──
+      if (v.viewCount > 20 && v.likeCount === 0) {
+        issues.push({ type: 'engagement', severity: 'medium', msg: `${v.viewCount} views pe 0 likes — engagement call-to-action add karo` });
+      }
+
+      // ── 7. DURATION ──
+      if (v.durationSec === 0) {
+        issues.push({ type: 'duration', severity: 'low', msg: 'Duration detect nahi hua' });
+      }
+      // Long video — very short
+      if (!isShort && v.durationSec > 0 && v.durationSec < 60) {
+        issues.push({ type: 'duration', severity: 'medium', msg: 'Video 1 min se kam — Short ke roop mein upload karo' });
+      }
+
+      // ── 8. SERIES CONSISTENCY ──
+      const partMatch = v.title.match(/part\s*(\d+)/i);
+      if (partMatch) {
+        const partNum = parseInt(partMatch[1]);
+        if (partNum > 1) {
+          // Part 1 dhundho same base name se
+          const baseName = v.title.replace(/part\s*\d+/i, '').replace(/[|•\-–:]/g, '').trim().toLowerCase();
+          const part1 = allVideos.find(other =>
+            other.id !== v.id &&
+            !other.title.match(/part\s*[2-9]/i) &&
+            other.title.toLowerCase().includes(baseName.split(' ').filter(w => w.length > 3)[0] || '')
+          );
+          if (part1) {
+            // Title pattern match check
+            const v1Pattern = part1.title.replace(/\d+/g, 'N').toLowerCase();
+            const v2Pattern = v.title.replace(/\d+/g, 'N').replace(/part\s*N/i, '').toLowerCase();
+            if (!v1Pattern.includes(v2Pattern.slice(0, 10))) {
+              issues.push({ type: 'series', severity: 'medium', msg: `Part ${partNum} ka title Part 1 se match nahi karta — series link nahi banegi` });
+            }
+          }
+        }
+      }
+
+      // ── Score calculate ──
+      const penalty = issues.reduce((acc, i) =>
+        acc + (i.severity === 'high' ? 25 : i.severity === 'medium' ? 12 : 5), 0
+      );
+      const score = Math.max(0, 100 - penalty);
 
       return {
         videoId: v.id,
-        title, description, thumbnail,
-        publishedAt:  v.snippet?.publishedAt,
-        viewCount:    parseInt(v.statistics?.viewCount  || '0'),
-        likeCount:    parseInt(v.statistics?.likeCount  || '0'),
-        durationSec, isShort, tags, issues, score,
-        privacyStatus: v.status?.privacyStatus || 'public',
-        categoryId:    v.snippet?.categoryId   || '22',
+        title:   v.title,
+        description: v.description,
+        thumbnail:   v.thumbnail,
+        publishedAt: v.publishedAt,
+        viewCount:   v.viewCount,
+        likeCount:   v.likeCount,
+        durationSec: v.durationSec,
+        isShort,
+        tags:        v.tags,
+        issues,
+        score,
+        privacyStatus: v.privacyStatus,
+        categoryId:    v.categoryId,
       };
-    }) || [];
+    });
 
+    // Worst score pehle
     videos.sort((a, b) => a.score - b.score);
 
-    return Response.json({ channelId, channelName, channelThumb, subscriberCount, videoCount, videos, oauthActive: !!accessToken, fetchedAt: new Date().toISOString() });
+    return Response.json({
+      channelId, channelName, channelThumb,
+      subscriberCount, videoCount,
+      videos,
+      oauthActive: !!accessToken,
+      fetchedAt: new Date().toISOString(),
+    });
 
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
-// ── PATCH: Title / Description / Tags seedha YouTube pe update ──
-// YouTube API requires all snippet fields together in one PUT call.
-// Frontend sends whichever field changed + current values of others.
 export async function PATCH(request) {
   try {
     const { videoId, title, description, tags, categoryId } = await request.json();
 
-    if (!videoId)      return Response.json({ error: 'videoId required' },             { status: 400 });
+    if (!videoId)       return Response.json({ error: 'videoId required' },            { status: 400 });
     if (!title?.trim()) return Response.json({ error: 'Title khaali nahi ho sakta' }, { status: 400 });
 
-    // OAuth REQUIRED — API key se update nahi hota
     let accessToken;
-    try {
-      accessToken = await getAccessToken();
-    } catch (e) {
-      return Response.json({ error: 'OAuth token nahi mila — update ke liye OAuth zaroori hai' }, { status: 401 });
-    }
+    try { accessToken = await getAccessToken(); }
+    catch (e) { return Response.json({ error: 'OAuth token nahi mila' }, { status: 401 }); }
 
-    // Tags: comma string → clean array
     const tagsArray = tags
       ? tags.split(',').map(t => t.trim()).filter(Boolean)
       : [];
@@ -151,7 +266,6 @@ export async function PATCH(request) {
     });
 
     const data = await res.json();
-
     if (!res.ok) {
       const errMsg = data?.error?.message || data?.error?.errors?.[0]?.message || 'YouTube update fail';
       return Response.json({ error: errMsg }, { status: res.status });
