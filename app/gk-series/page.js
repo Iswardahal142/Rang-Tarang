@@ -134,6 +134,16 @@ Return ONLY a single most appropriate emoji for this topic. No explanation, no t
 }
 
 // ── Prompt Builders ──
+
+// ── SUBSCRIBE CARD PROMPTS ──
+function buildSubscribeImagePrompt() {
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling warmly at camera, holding up a large rectangular white banner/sign with both hands toward camera. The banner shows a bold red YouTube-style Subscribe button at the top — red background, white YouTube play icon on left, white text "SUBSCRIBE", white bell icon on right. Below the button, the Rang Tarang logo exactly as provided in the logo reference image — colorful Hindi text "रंग तरंग" with rainbow and decorative elements. Banner is large, clear, and fully visible. Teacher looks excited and happy. 9:16 vertical. Pixar style. No other floating text. No "?" anywhere.`;
+}
+
+function buildSubscribeVideoPrompt() {
+  return `Use reference image exactly as background scene — teacher standing center holding the white banner with red Subscribe button and bell icon. Same Pixar 3D style, seamless continuation. Teacher points to the red SUBSCRIBE button on the banner with one finger — the SUBSCRIBE button on the banner itself glows brighter, pulses and gets pressed/clicked with a satisfying pop effect (no separate popup). Teacher says in Hindi: "आगे बढ़ने से पहले, रंग तरंग को subscribe करो!" Then teacher moves finger to the bell icon on the banner — the bell icon on the banner itself shakes and rings with sparkle effects around it (no separate popup). Teacher says: "और bell icon को भी दबाओ!" Then teacher smiles at camera and says: "दबा दिया? बहुत अच्छे!" Total 8 seconds. Short, punchy. No background music. No extra floating UI elements. No separate popups. All animation happens ON the banner itself. Smooth. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
+}
+
 function buildPortraitImagePrompt(item) {
   return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center-left, smiling excitedly, holding up a large ornate portrait frame with both hands toward camera. Inside the portrait frame: a Pixar 3D cartoon illustration of ${item.portraitDesc}. Portrait frame is large, clearly visible, golden ornate border. 9:16 vertical. Pixar style. No other text. No "?" anywhere.`;
 }
@@ -146,24 +156,46 @@ function buildGKVideoPrompt(item, seriesName, isFirst = true) {
     folderKey.includes('fighter') ||
     folderKey.includes('scientist') ||
     folderKey.includes('inventor') ||
-    folderKey.includes('cricketer') ||
-    folderKey.includes('cricket') ||
-    folderKey.includes('footballer') ||
-    folderKey.includes('football') ||
-    folderKey.includes('player') ||
     folderKey.includes('singer') ||
     folderKey.includes('actor') ||
     folderKey.includes('leader') ||
     folderKey.includes('president') ||
     folderKey.includes('king') ||
-    folderKey.includes('queen');
+    folderKey.includes('queen') ||
+    folderKey.includes('mathematician') ||
+    folderKey.includes('doctor') ||
+    folderKey.includes('poet') ||
+    folderKey.includes('writer') ||
+    folderKey.includes('author');
+
+  // Sports person — "यह कौन सा खिलाड़ी है?" nahi, "यह कौन हैं?" — person hi hai
+  const isSportsPersonTopic =
+    folderKey.includes('cricketer') ||
+    folderKey.includes('cricket') ||
+    folderKey.includes('footballer') ||
+    folderKey.includes('football') ||
+    folderKey.includes('player') ||
+    folderKey.includes('khiladi') ||
+    folderKey.includes('athlete') ||
+    folderKey.includes('swimmer') ||
+    folderKey.includes('boxer') ||
+    folderKey.includes('wrestler');
+
+  // Sports (the game/sport itself) — "यह कौन सा खेल है?"
+  const isSportTopic =
+    folderKey.includes('sport') ||
+    folderKey.includes('khel') ||
+    folderKey.includes('game') ||
+    folderKey.includes('olympic');
 
   const isAnimalTopic =
     folderKey.includes('animal') ||
     folderKey.includes('janwar') ||
     folderKey.includes('bird') ||
     folderKey.includes('pakshi') ||
-    folderKey.includes('insect');
+    folderKey.includes('insect') ||
+    folderKey.includes('fish') ||
+    folderKey.includes('reptile');
 
   const isPlanetTopic =
     folderKey.includes('planet') ||
@@ -183,8 +215,35 @@ function buildGKVideoPrompt(item, seriesName, isFirst = true) {
     folderKey.includes('fort') ||
     folderKey.includes('dhrohar');
 
-  const question = isPersonTopic
+  const isFruitTopic =
+    folderKey.includes('fruit') ||
+    folderKey.includes('phal');
+
+  const isVegTopic =
+    folderKey.includes('vegetable') ||
+    folderKey.includes('sabji') ||
+    folderKey.includes('sabzi');
+
+  const isFlowerTopic =
+    folderKey.includes('flower') ||
+    folderKey.includes('phool');
+
+  const isColorTopic =
+    folderKey.includes('color') ||
+    folderKey.includes('colour') ||
+    folderKey.includes('rang');
+
+  const isShapeTopic =
+    folderKey.includes('shape') ||
+    folderKey.includes('aakar');
+
+  // Person check — person topics answer "कौन हैं?"
+  const isAnyPersonTopic = isPersonTopic || isSportsPersonTopic;
+
+  const question = isAnyPersonTopic
     ? (isFirst ? 'तो बताओ.. यह कौन हैं?' : 'अब बताओ.. यह कौन हैं?')
+    : isSportTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सा खेल है?' : 'अब बताओ.. यह कौन सा खेल है?')
     : isAnimalTopic
     ? (isFirst ? 'तो बताओ.. यह कौन सा जानवर है?' : 'अब बताओ.. यह कौन सा जानवर है?')
     : isPlanetTopic
@@ -193,10 +252,22 @@ function buildGKVideoPrompt(item, seriesName, isFirst = true) {
     ? (isFirst ? 'तो बताओ.. यह कौन सा देश है?' : 'अब बताओ.. यह कौन सा देश है?')
     : isMonumentTopic
     ? (isFirst ? 'तो बताओ.. यह कौन सी इमारत है?' : 'अब बताओ.. यह कौन सी इमारत है?')
+    : isFruitTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सा फल है?' : 'अब बताओ.. यह कौन सा फल है?')
+    : isVegTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सी सब्ज़ी है?' : 'अब बताओ.. यह कौन सी सब्ज़ी है?')
+    : isFlowerTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सा फूल है?' : 'अब बताओ.. यह कौन सा फूल है?')
+    : isColorTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सा रंग है?' : 'अब बताओ.. यह कौन सा रंग है?')
+    : isShapeTopic
+    ? (isFirst ? 'तो बताओ.. यह कौन सी आकृति है?' : 'अब बताओ.. यह कौन सी आकृति है?')
     : (isFirst ? 'तो बताओ.. यह क्या है?' : 'अब बताओ.. यह क्या है?');
 
-  const questionText = isPersonTopic
+  const questionText = isAnyPersonTopic
     ? 'यह कौन हैं?'
+    : isSportTopic
+    ? 'यह कौन सा खेल है?'
     : isAnimalTopic
     ? 'यह कौन सा जानवर है?'
     : isPlanetTopic
@@ -205,6 +276,16 @@ function buildGKVideoPrompt(item, seriesName, isFirst = true) {
     ? 'यह कौन सा देश है?'
     : isMonumentTopic
     ? 'यह कौन सी इमारत है?'
+    : isFruitTopic
+    ? 'यह कौन सा फल है?'
+    : isVegTopic
+    ? 'यह कौन सी सब्ज़ी है?'
+    : isFlowerTopic
+    ? 'यह कौन सा फूल है?'
+    : isColorTopic
+    ? 'यह कौन सा रंग है?'
+    : isShapeTopic
+    ? 'यह कौन सी आकृति है?'
     : 'यह क्या है?';
 
   return `Use reference image exactly as background scene. Teacher standing on left side, holding up a large ornate portrait frame in both hands showing it to camera. Inside the frame: Pixar 3D cartoon of ${item.portraitDesc}. Teacher asks in Hindi: "${question}". Bold rainbow gradient text "${questionText}" visible at very bottom center — red, orange, yellow, green, blue, violet colors. Pause 2 seconds. Bottom text animates away and glowing bold rainbow text "${item.name.toUpperCase()}" appears at same position with sparkle animation. Answer text stays visible until the very last frame. Teacher says in Hindi: "${item.dialogue}" Teacher looks at camera, smiles and gives thumbs up. No "?" or question mark anywhere at any point. No floating objects. No background music. 8 seconds total. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
@@ -221,7 +302,7 @@ function buildIntroImagePrompt(seriesName, items = []) {
 function buildIntroVideoPrompt(seriesName, part = 1) {
   const base = seriesName.replace(/ Part \d+$/i, '').trim();
   const partMention = part > 1 ? ` — यह है part ${part}` : '';
-  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Bold glowing title text "${base}" flies in from top with sparkles. Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${base}${partMention} — चलो शुरू करते हैं!" Teacher pushes title off screen dramatically. 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. Bold glowing title text "${base}" flies in from top with sparkles. Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${base}${partMention}. क्या तुम पहचान पाओगे? चलो देखते हैं!" Teacher pushes title off screen dramatically. 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildOutroVideoPrompt() {
@@ -380,6 +461,22 @@ Suggest 6 unique GK topics NOT already created. Return ONLY JSON array of short 
     try {
       const dup = seriesList.find(s => s.name.toLowerCase() === selectedTopic.name.toLowerCase());
       if (dup) { toast(`⚠️ Already exist karta hai!`); setGenerating(false); return; }
+
+      // Block if same folder mein koi series upload/schedule nahi hui
+      const newFolderKey = getFolderKey(selectedTopic.name);
+      const sameFolderSeries = seriesList.filter(s => getFolderKey(s.name) === newFolderKey);
+      if (sameFolderSeries.length > 0) {
+        const anyUploaded = sameFolderSeries.some(s => {
+          const u = checkUploaded(s);
+          return u === true || (typeof u === 'object' && u?.status === 'scheduled') || u === 'private';
+        });
+        if (!anyUploaded) {
+          const unuploadedNames = sameFolderSeries.map(s => s.name).join(', ');
+          toast(`⚠️ Pehle upload karo: ${unuploadedNames}`);
+          setGenerating(false);
+          return;
+        }
+      }
       const existing = seriesList.map(s => s.name).join(', ');
       const noteLine = seriesNote.trim() ? `\nIMPORTANT NOTE: ${seriesNote.trim()}` : '';
       const autoColor = getNextColor();
@@ -666,13 +763,27 @@ Return ONLY the comma-separated tags, nothing else.`;
           { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1) },
         ]
       },
-      ...(s.items || []).map((item, i) => ({
-        key: `item_${i}`, title: `${i + 1}. ${item.name}`, color: s.color,
-        prompts: [
-          { type: '🖼 IMAGE', text: buildPortraitImagePrompt(item) },
-          { type: '🎬 VIDEO', text: buildGKVideoPrompt(item, s.name, i === 0) },
-        ]
-      })),
+      ...(s.items || []).flatMap((item, i) => {
+        const card = {
+          key: `item_${i}`, title: `${i + 1}. ${item.name}`, color: s.color,
+          prompts: [
+            { type: '🖼 IMAGE', text: buildPortraitImagePrompt(item) },
+            { type: '🎬 VIDEO', text: buildGKVideoPrompt(item, s.name, i === 0) },
+          ]
+        };
+        if (i === 1) {
+          return [card, {
+            key: 'subscribe_card',
+            title: '🔔 Subscribe Card',
+            color: '#ff0000',
+            prompts: [
+              { type: '🖼 IMAGE', text: buildSubscribeImagePrompt() },
+              { type: '🎬 VIDEO', text: buildSubscribeVideoPrompt() }
+            ]
+          }];
+        }
+        return [card];
+      }),
       {
         key: 'outro', title: '🎤 Outro', color: '#cc88ff',
         prompts: [{ type: '🎬 VIDEO', text: buildOutroVideoPrompt() }]
@@ -1108,7 +1219,15 @@ Return ONLY the comma-separated tags, nothing else.`;
         ) : sortedFolders.map(folderKey => {
           const seriesInFolder = grouped[folderKey];
           const folder = getFolderInfo(folderKey, seriesInFolder);
-          const uploadedCount = seriesInFolder.filter(s => checkUploaded(s) === true).length;
+          const uploadedCount = seriesInFolder.filter(s => {
+            const u = checkUploaded(s);
+            return u === true || (typeof u === 'object' && u?.status === 'scheduled') || u === 'private';
+          }).length;
+          const unuploadedSeries = seriesInFolder.filter(s => {
+            const u = checkUploaded(s);
+            return u === false || u === null;
+          });
+          const hasUnuploaded = !ytLoading && unuploadedSeries.length > 0;
           const canContinue = seriesInFolder.find(s => !hasNextPart(s, seriesList));
           return (
             <div key={folderKey} onClick={() => setOpenFolder(folderKey)}
@@ -1118,6 +1237,11 @@ Return ONLY the comma-separated tags, nothing else.`;
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: folder.color, marginBottom: 3 }}>{folder.label}</div>
                 <div style={{ fontSize: 11, color: '#555' }}>{seriesInFolder.length} series • {uploadedCount} uploaded</div>
+                {hasUnuploaded && (
+                  <div style={{ fontSize: 10, color: '#ff6644', fontWeight: 700, marginTop: 4, background: 'rgba(255,100,68,0.08)', border: '1px solid #441a00', borderRadius: 6, padding: '3px 8px', display: 'inline-block' }}>
+                    ⚠️ {unuploadedSeries.length} upload baaki — {unuploadedSeries.map(s => s.name).join(', ')}
+                  </div>
+                )}
                 {canContinue && !ytLoading && (
                   <div style={{ fontSize: 10, color: '#ffaa44', fontWeight: 700, marginTop: 4, background: 'rgba(255,170,0,0.08)', border: '1px solid #443300', borderRadius: 6, padding: '3px 8px', display: 'inline-block' }}>
                     ✨ Part {(canContinue.part || 1) + 1} ban sakta hai
