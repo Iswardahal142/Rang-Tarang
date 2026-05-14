@@ -87,13 +87,16 @@ export async function GET() {
       thumbnail:   v.snippet?.thumbnails?.maxres?.url || v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.medium?.url || '',
       privacyStatus: v.status?.privacyStatus || 'public',
       categoryId:  v.snippet?.categoryId || '22',
+      projection:  v.contentDetails?.projection || 'rectangular',
     })) || [];
 
     const videos = allVideos.map(v => {
       const issues = [];
       const age    = daysSince(v.publishedAt);
-      // YouTube Shorts: 60 seconds tak (inclusive)
-      const isShort = v.durationSec > 0 && v.durationSec <= 180;
+      // Shorts: max 180s AND vertical (non-rectangular = portrait/square)
+      // 16:9 landscape videos kabhi Short nahi hote
+      const isLandscape = v.projection === 'rectangular';
+      const isShort = !isLandscape && v.durationSec > 0 && v.durationSec <= 180;
 
       // ── 1. TAGS ──
       if (v.tags.length === 0) {
@@ -167,42 +170,42 @@ export async function GET() {
       if (v.durationSec === 0) {
         issues.push({ type: 'duration', severity: 'low', msg: 'Duration detect nahi hua' });
       }
-      // Long video — very short
-      if (!isShort && v.durationSec > 0 && v.durationSec < 60) {
-        issues.push({ type: 'duration', severity: 'medium', msg: 'Video 1 min se kam — Short ke roop mein upload karo' });
+      // Landscape video but 3 min se kam — Short ban sakta tha agar vertical hota
+      if (isLandscape && v.durationSec > 0 && v.durationSec <= 180) {
+        issues.push({ type: 'duration', severity: 'low', msg: 'Landscape video hai 3 min se kam — vertical hota toh Short ban sakta tha' });
       }
 
       // ── 8. SERIES CONSISTENCY ──
+      // Rule: Part 1 = title mein koi "Part N" mention nahi
+      //       Part 2+ = title mein "Part 2", "Part 3" etc. hota hai
       const partMatch = v.title.match(/part\s*(\d+)/i);
       if (partMatch) {
         const partNum = parseInt(partMatch[1]);
         if (partNum > 1) {
-          // Core topic words extract karo (|  ke pehle ka part, Part N hatao, short words hatao)
+          // Is video ke core topic words nikalo (Part N hataake, separators hataake)
           const coreRaw = v.title
             .split(/[|•\-–:]/)[0]
             .replace(/part\s*\d+/i, '')
-            .replace(/[^\w\s\u0900-\u097F]/g, '') // keep Hindi + English + spaces
+            .replace(/[^\w\s\u0900-\u097F]/g, '')
             .trim()
             .toLowerCase();
           const coreWords = coreRaw.split(/\s+/).filter(w => w.length >= 4);
 
           if (coreWords.length > 0) {
+            // Part 1 = koi video jiske title mein "Part N" nahi aur topic match kare
             const part1 = allVideos.find(other => {
               if (other.id === v.id) return false;
-              if (other.title.match(/part\s*[2-9]/i)) return false;
+              if (/part\s*\d+/i.test(other.title)) return false; // Part 1 mein koi Part mention nahi hoga
               const otherLower = other.title.toLowerCase();
-              // At least 2 core words match karne chahiye
               const matchCount = coreWords.filter(w => otherLower.includes(w)).length;
               return matchCount >= Math.min(2, coreWords.length);
             });
 
             if (part1) {
-              // Dono titles se "Part N" hata ke compare karo — agar significantly alag ho toh issue
+              // Dono titles compare karo — Part N hataake
               const strip = t => t.replace(/part\s*\d+/i, '').replace(/[|•\-–:]/g, '').toLowerCase().trim();
-              const base1 = strip(part1.title);
-              const base2 = strip(v.title);
-              // Check: base2 ke significant words base1 mein hain ya nahi
-              const words2 = base2.split(/\s+/).filter(w => w.length >= 4);
+              const base1  = strip(part1.title);
+              const words2 = strip(v.title).split(/\s+/).filter(w => w.length >= 4);
               const overlap = words2.filter(w => base1.includes(w)).length;
               const overlapPct = words2.length > 0 ? overlap / words2.length : 1;
 
