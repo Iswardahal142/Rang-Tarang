@@ -141,6 +141,18 @@ function TitleSection({ video, onVideoUpdate, uid }) {
         ? `CTR: ${video.analytics.ctr}% | Avg View: ${fmtDuration(video.analytics.avgViewDurationSec)} | Watch Time: ${video.analytics.watchTimeMinutes} mins | Impressions: ${video.analytics.impressions}`
         : 'Analytics: not available';
 
+      // Series Part detect karo current title se
+      const partMatch = video.title.match(/part\s*(\d+)/i);
+      const partNum   = partMatch ? parseInt(partMatch[1]) : null;
+      const partNote  = partNum === null
+        ? `NOTE: Is video mein koi Part number nahi hai. Title mein koi "Part" mat likhna.
+`
+        : partNum === 1
+        ? `IMPORTANT: Yeh video Part 1 hai. Title mein "- Part 1" ya "| Part 1" ZAROOR likhna — hata mat.
+`
+        : `IMPORTANT: Yeh video Part ${partNum} hai. Title mein "- Part ${partNum}" ya "| Part ${partNum}" ZAROOR likhna — hata mat.
+`;
+
       const text = await aiCall(`You are a YouTube SEO expert for Hindi kids channel "Rang Tarang".
 
 Video title: "${video.title}"
@@ -148,11 +160,12 @@ Views: ${video.viewCount} | ${analyticsContext}
 Tags: ${(video.tags || []).slice(0, 5).join(', ') || 'none'}
 Type: ${video.isShort ? 'YouTube Short' : 'Long video'}
 
-Generate ONE improved YouTube title.
+${partNote}Generate ONE improved YouTube title.
 RULES:
 - Pattern: "[emoji] [Hindi curiosity hook]! | [count] [English topic] Names for Kids | Rang Tarang"
 - Examples: "🌸 गुलाब से ज़्यादा सुंदर फूल! | 5 Flowers Names for Kids | Rang Tarang"
-- Max 80 characters
+- If Part 2 or higher: end mein "- Part N" add karo e.g. "🌸 ...| 10 Flowers Names for Kids - Part 2 | Rang Tarang"
+- Max 90 characters
 - Kid-friendly, catchy, curiosity-based Hindi hook
 - If CTR is low, make it more curiosity-driven
 Return ONLY the title text, nothing else.`);
