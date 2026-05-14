@@ -195,7 +195,7 @@ function buildIntroImagePrompt(seriesName, items = []) {
   const rest = line1Match ? line1Match[2] : '';
   const line2 = rest.replace(/\s*(के नाम|ke naam)?\s*$/i, '').trim();
   const partNum = seriesName.match(/ Part (\d+)$/i);
-  const line3 = partNum ? \`के नाम - Part \${partNum[1]}\` : 'के नाम';
+  const line3 = partNum ? 'के नाम - Part ' + partNum[1] : 'के नाम';
 
   return `A vibrant Pixar-style 3D animated educational scene set inside a colorful classroom with pink curtains, large window with garden view, blackboard on right, colorful flower wall decorations, bunting flags, bookshelf with colorful bins, potted plants, and a rainbow striped circular carpet on the floor.
 
