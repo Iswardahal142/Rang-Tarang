@@ -326,6 +326,15 @@ function isLargeObject(objectName) {
   return ['car','truck','bus','boat','ship','train','tractor','van','lorry','jeep','airplane','plane','helicopter','elephant','giraffe','horse','cow','camel','lion','tiger','bear','zebra','rhino','hippo','sofa','table','chair','cupboard','refrigerator','washing machine','bicycle','bike','motorcycle','scooter','cycle'].some(w => o.includes(w));
 }
 
+// ── SUBSCRIBE CARD PROMPTS ────────────────────────────────────
+function buildSubscribeImagePrompt() {
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling warmly at camera, holding up a large rectangular banner/sign with both hands. The banner is white with a bold red YouTube-style Subscribe button drawn on it — the button says "SUBSCRIBE" in white text on red background, with a small bell icon (🔔) to the right of the button. Below the button on the banner, bold Hindi text: "Rang Tarang" in colorful letters. The banner is large and clearly readable. Teacher looks excited and happy. 9:16 vertical. Pixar style. No other floating text. No "?" anywhere. NOTE: Use the provided logo reference image to match the Rang Tarang branding on the banner exactly.`;
+}
+
+function buildSubscribeVideoPrompt() {
+  return `Use reference background exactly as background scene. Use reference teacher character exactly — same Pixar 3D style, seamless continuation. Teacher standing center holding a large white banner with a red Subscribe button and bell icon on it. Teacher points to the Subscribe button on the banner with one finger and says in Hindi: "Rang Tarang ko subscribe karo!" — at this exact moment a glowing animated red SUBSCRIBE button appears on screen and visually gets clicked/pressed with a satisfying pop animation. Then teacher points to the bell icon on the banner and says: "Aur bell icon ko dabao!" — at this moment the bell icon on screen shakes and animates as if being pressed, with sparkle effects. Teacher smiles at camera and gives a big thumbs up. Total 8 seconds. Short, punchy, no extra dialogue. No background music. Smooth animation. No glitch. Teacher must lip sync. Pure Hindi Indian accent audio only.`;
+}
+
 function buildItemImagePrompt(item, seriesName) {
   const cleanObj = cleanObjectDesc(item.object) || item.name;
   const large = isLargeObject(item.object || item.name);
@@ -1051,13 +1060,27 @@ RETURN ONLY JSON (no markdown):
         { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
         { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || [], chosenAnim) }
       ]},
-      ...(s.items || []).map((item, i) => ({
-        key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color,
-        prompts: [
-          { type: '🖼 IMAGE', text: buildItemImagePrompt(item, s.name) },
-          { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }
-        ]
-      })),
+      ...(s.items || []).flatMap((item, i) => {
+        const card = {
+          key: `item_${i}`, title: `${i+1}. ${item.name}`, color: s.color,
+          prompts: [
+            { type: '🖼 IMAGE', text: buildItemImagePrompt(item, s.name) },
+            { type: '🎬 VIDEO', text: buildVideoPrompt(item, s.name, i === 0) }
+          ]
+        };
+        if (i === 1) {
+          return [card, {
+            key: 'subscribe_card',
+            title: '🔔 Subscribe Card',
+            color: '#ff0000',
+            prompts: [
+              { type: '🖼 IMAGE', text: buildSubscribeImagePrompt() },
+              { type: '🎬 VIDEO', text: buildSubscribeVideoPrompt() }
+            ]
+          }];
+        }
+        return [card];
+      }),
       { key: 'outro', title: '🎤 Outro', color: '#cc88ff', prompts: [
         { type: '🎬 VIDEO', text: buildOutroVideoPrompt(s.items || []) }
       ]},
