@@ -257,7 +257,7 @@ function buildIntroVideoPrompt(seriesName, part = 1, items = [], animationId = '
     const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
     anim = nonRandom[Math.floor(Math.random() * nonRandom.length)];
   }
-  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${displayTitle}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${displayTitle}${partMention} — चलो शुरू करते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${displayTitle}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${displayTitle}${partMention}. क्या तुम पहचान पाओगे? चलो देखते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildOutroVideoPrompt(items = []) {
@@ -328,7 +328,7 @@ function isLargeObject(objectName) {
 
 // ── SUBSCRIBE CARD PROMPTS ────────────────────────────────────
 function buildSubscribeImagePrompt() {
-  return `Use this image exactly as-is for the subscribe card. This is the reference image — teacher holding the banner with Subscribe button and Rang Tarang logo. No changes needed to the image itself.`;
+  return `Use reference background exactly. Use reference teacher character exactly. Teacher standing center, smiling warmly at camera, holding up a large rectangular white banner/sign with both hands toward camera. The banner shows a bold red YouTube-style Subscribe button at the top — red background, white YouTube play icon on left, white text "SUBSCRIBE", white bell icon on right. Below the button, the Rang Tarang logo exactly as provided in the logo reference image — colorful Hindi text "रंग तरंग" with rainbow and decorative elements. Banner is large, clear, and fully visible. Teacher looks excited and happy. 9:16 vertical. Pixar style. No other floating text. No "?" anywhere.`;
 }
 
 function buildSubscribeVideoPrompt() {
