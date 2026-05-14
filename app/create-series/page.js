@@ -188,13 +188,14 @@ function buildIntroImagePrompt(seriesName, items = []) {
     ? first3.map((item, i) => `- ${shuffled[i]}: A glossy Pixar-style 3D cartoon ${item.name} (${item.object}), large and detailed, placed on the rainbow carpet`).join('\n')
     : '- Three colorful Pixar-style 3D educational cartoon items placed side by side on the carpet';
 
-  // Parse title into line1 + line2 + line3
-  const rawTitle = seriesName.trim();
-  const line1Match = rawTitle.match(/^(Five)\s+(.+)$/i);
-  const line1 = line1Match ? 'Five' : rawTitle;
+  // Parse title into line1 + line2 + line3 — part handle karo
+  const baseName = seriesName.replace(/ Part \d+$/i, '').trim();
+  const line1Match = baseName.match(/^(Five|Ten|\d+)\s+(.+)$/i);
+  const line1 = line1Match ? line1Match[1] : baseName;
   const rest = line1Match ? line1Match[2] : '';
   const line2 = rest.replace(/\s*(के नाम|ke naam)?\s*$/i, '').trim();
-  const line3 = 'के नाम';
+  const partNum = seriesName.match(/ Part (\d+)$/i);
+  const line3 = partNum ? \`के नाम - Part \${partNum[1]}\` : 'के नाम';
 
   return `A vibrant Pixar-style 3D animated educational scene set inside a colorful classroom with pink curtains, large window with garden view, blackboard on right, colorful flower wall decorations, bunting flags, bookshelf with colorful bins, potted plants, and a rainbow striped circular carpet on the floor.
 
@@ -1057,7 +1058,7 @@ RETURN ONLY JSON (no markdown):
 
     const sections = [
       { key: 'intro', title: '🎬 Intro', color: '#4488ff', prompts: [
-        { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || []) },
+        { type: '🖼 IMAGE', text: buildIntroImagePrompt(s.name, s.items || [], s.part || 1) },
         { type: '🎬 VIDEO', text: buildIntroVideoPrompt(s.name, s.part || 1, s.items || [], chosenAnim) }
       ]},
       ...(s.items || []).flatMap((item, i) => {
