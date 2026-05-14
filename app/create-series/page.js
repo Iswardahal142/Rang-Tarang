@@ -188,23 +188,26 @@ function buildIntroImagePrompt(seriesName, items = []) {
     ? first3.map((item, i) => `- ${shuffled[i]}: A glossy Pixar-style 3D cartoon ${item.name} (${item.object}), large and detailed, placed on the rainbow carpet`).join('\n')
     : '- Three colorful Pixar-style 3D educational cartoon items placed side by side on the carpet';
 
-  // Parse title into line1 + line2 + line3 — part handle karo
   const baseName = seriesName.replace(/ Part \d+$/i, '').trim();
   const line1Match = baseName.match(/^(Five|Ten|\d+)\s+(.+)$/i);
-  const line1 = line1Match ? line1Match[1] : baseName;
-  const rest = line1Match ? line1Match[2] : '';
-  const line2 = rest.replace(/\s*(के नाम|ke naam)?\s*$/i, '').trim();
+  const rest = line1Match ? line1Match[2] : baseName;
+
+  // Items count se line1 decide karo — series name pe depend mat karo
+  const itemCount = items.length;
+  const line1 = itemCount === 5 ? 'Five' : itemCount === 10 ? 'Ten' : itemCount > 0 ? String(itemCount) : (line1Match ? line1Match[1] : baseName);
+
+  const line2 = rest.replace(/\s*name\s*$/i, '').trim() + ' \u0915\u0947 \u0928\u093E\u092E';
   const partNum = seriesName.match(/ Part (\d+)$/i);
-  const line3 = partNum ? 'के नाम - Part ' + partNum[1] : 'के नाम';
+  const line3 = partNum ? 'Part ' + partNum[1] : '';
 
   return `A vibrant Pixar-style 3D animated educational scene set inside a colorful classroom with pink curtains, large window with garden view, blackboard on right, colorful flower wall decorations, bunting flags, bookshelf with colorful bins, potted plants, and a rainbow striped circular carpet on the floor.
 
 A Pixar-style 3D animated boy character with black hair, big expressive brown eyes, white t-shirt, dark pants, white sneakers, standing center on the carpet, smiling with an excited open expression, waving his right hand up enthusiastically with all five fingers spread.
 
-Floating in front of the boy's torso area, bold chunky 3D glowing text in multiple bright colors with golden neon outline glow and colorful sparkle stars around it, arranged in three lines exactly as:
+Floating in front of the boy's torso area, bold chunky 3D glowing text in multiple bright colors with golden neon outline glow and colorful sparkle stars around it, arranged in ${line3 ? 'three' : 'two'} lines exactly as:
 Line 1: "${line1}" — large red, purple, green multicolor bold 3D letters
-Line 2: "${line2}" — large blue, pink, green, orange multicolor bold 3D letters
-Line 3: "${line3}" — large yellow and cyan bold 3D Devanagari letters
+Line 2: "${line2}" — large blue, pink, green, orange multicolor bold 3D Devanagari letters${line3 ? `
+Line 3: "${line3}" — large yellow and cyan bold 3D letters` : ''}
 
 The text block floats centered in front of the character, slightly overlapping the lower chest area, with bright sparkle star effects (pink, white, yellow, cyan) scattered around the text.
 
@@ -249,8 +252,16 @@ const INTRO_ANIMATIONS = [
 
 function buildIntroVideoPrompt(seriesName, part = 1, items = [], animationId = 'random') {
   const baseName = seriesName.replace(/ Part \d+$/, '').trim();
-  const displayTitle = baseName.replace(/^Five\s+/i, 'Five ').replace(/\s+Name$/i, ' के नाम');
-  const partMention = part > 1 ? ` — यह है part ${part}` : '';
+
+  // Items count se count word decide karo
+  const itemCount = items.length;
+  const countWord = itemCount === 5 ? 'Five' : itemCount === 10 ? 'Ten' : itemCount > 0 ? String(itemCount) : '';
+
+  const displayTitle = baseName
+    .replace(/^(Five|Ten|\d+)\s+/i, countWord ? countWord + ' ' : '')
+    .replace(/\s+Name$/i, ' \u0915\u0947 \u0928\u093E\u092E');
+
+  const partMention = part > 1 ? ` — \u092F\u0939 \u0939\u0948 part ${part}` : '';
   const firstItem = items?.[0]?.name || '';
   const objectLine = firstItem ? `Teacher bends down, picks up a big ${firstItem} from the bottom, stands back up holding it and shows it to camera excitedly.` : '';
   let anim = INTRO_ANIMATIONS.find(a => a.id === animationId);
@@ -258,7 +269,7 @@ function buildIntroVideoPrompt(seriesName, part = 1, items = [], animationId = '
     const nonRandom = INTRO_ANIMATIONS.filter(a => a.id !== 'random');
     anim = nonRandom[Math.floor(Math.random() * nonRandom.length)];
   }
-  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${displayTitle}"`)} ${objectLine} Teacher says in Hindi: "हेल्लो बच्चों! आज हम सीखेंगे ${displayTitle}${partMention}. क्या तुम पहचान पाओगे? चलो देखते हैं!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
+  return `Use reference image exactly as background scene. Teacher standing center, smiling, waving hand at camera. ${anim.desc.replace('title', `title text "${displayTitle}"`)} ${objectLine} Teacher says in Hindi: "\u0939\u0947\u0932\u094D\u0932\u094B \u092C\u091A\u094D\u091A\u094B\u0902! \u0906\u091C \u0939\u092E \u0938\u0940\u0916\u0947\u0902\u0917\u0947 ${displayTitle}${partMention}. \u0915\u094D\u092F\u093E \u0924\u0941\u092E \u092A\u0939\u091A\u093E\u0928 \u092A\u093E\u0913\u0917\u0947? \u091A\u0932\u094B \u0926\u0947\u0916\u0924\u0947 \u0939\u0948\u0902!" 8 seconds. Smooth animation. No glitch. Hindi audio only. Teacher must lip sync.`;
 }
 
 function buildOutroVideoPrompt(items = []) {
@@ -906,18 +917,28 @@ RULES for "object" field: Describe ONLY the item itself, max 6 words, no locatio
     e.stopPropagation();
     setContinuing(series.id);
     try {
-      const done = (series.items || []).map(i => i.name).join(', ');
-      const text = await aiCall(`Generate 5 MORE unique items for English learning kids series "${series.name}".
-Already done (DO NOT repeat): ${done}
+      const baseName = series.name.replace(/ Part \d+$/, '').trim();
+
+      // Saare related parts ke items collect karo (koi bhi repeat na ho)
+      const allRelatedSeries = seriesList.filter(s =>
+        s.name.replace(/ Part \d+$/, '').trim().toLowerCase() === baseName.toLowerCase()
+      );
+      const allDoneItems = allRelatedSeries
+        .flatMap(s => s.items || [])
+        .map(i => i.name)
+        .join(', ');
+
+      const text = await aiCall(`Generate 5 MORE unique items for English learning kids series "${baseName}".
+Already done (DO NOT repeat ANY of these): ${allDoneItems}
 Return ONLY JSON array:
 [{"name":"Tiger","object":"orange tiger with black stripes"}]
 RULES for "object" field: Describe ONLY the item itself, max 6 words, no location or scene.`);
+
       const newItems = JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
       if (getSeriesType(series.name) === 'number') {
         newItems.forEach(item => { const n = parseInt(item.name); if (!isNaN(n)) item.hindiName = hindiNumbers[n] || item.name; });
       }
       const newPart = (series.part || 1) + 1;
-      const baseName = series.name.replace(/ Part \d+$/, '').trim();
       let parentType = series.type && series.type !== 'other' ? series.type : null;
       let parentFolderMeta = {};
       if (series.folderLabel) { parentFolderMeta = { folderLabel: series.folderLabel, folderEmoji: series.folderEmoji, folderColor: series.folderColor }; }
@@ -936,6 +957,8 @@ Return ONLY the single word or phrase, nothing else.`);
     setContinuing(null);
   }
 
+
+  
   async function addToPlaylist(series, videoId) {
     setPlaylistStatus(p => ({ ...p, [series.id]: 'loading' }));
     try {
