@@ -87,16 +87,15 @@ export async function GET() {
       thumbnail:   v.snippet?.thumbnails?.maxres?.url || v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.medium?.url || '',
       privacyStatus: v.status?.privacyStatus || 'public',
       categoryId:  v.snippet?.categoryId || '22',
-      projection:  v.contentDetails?.projection || 'rectangular',
     })) || [];
 
     const videos = allVideos.map(v => {
       const issues = [];
       const age    = daysSince(v.publishedAt);
-      // Shorts: max 180s AND vertical (non-rectangular = portrait/square)
-      // 16:9 landscape videos kabhi Short nahi hote
-      const isLandscape = v.projection === 'rectangular';
-      const isShort = !isLandscape && v.durationSec > 0 && v.durationSec <= 180;
+      // Shorts: duration <= 180s
+      // YouTube API projection field unreliable — hamesha 'rectangular' return karta hai
+      // Isliye sirf duration se detect karo
+      const isShort = v.durationSec > 0 && v.durationSec <= 180;
 
       // ── 1. TAGS ──
       if (v.tags.length === 0) {
@@ -170,10 +169,7 @@ export async function GET() {
       if (v.durationSec === 0) {
         issues.push({ type: 'duration', severity: 'low', msg: 'Duration detect nahi hua' });
       }
-      // Landscape video but 3 min se kam — Short ban sakta tha agar vertical hota
-      if (isLandscape && v.durationSec > 0 && v.durationSec <= 180) {
-        issues.push({ type: 'duration', severity: 'low', msg: 'Landscape video hai 3 min se kam — vertical hota toh Short ban sakta tha' });
-      }
+
 
       // ── 8. SERIES CONSISTENCY ──
       // Rule: Part 1 = title mein koi "Part N" mention nahi
